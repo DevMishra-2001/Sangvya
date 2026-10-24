@@ -1,0 +1,348 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Theme tokens (RGB triplets, consumed by tailwind.config.js). Light = default. */
+  :root {
+    color-scheme: light;
+    /* User font-size setting (hooks/useFontSize.js): scales TEXT only, never layout */
+    --font-scale: 1;
+    --color-ink: 22 41 36;          /* #162924 primary text */
+    --color-ivory: 243 245 244;     /* #F3F5F4 page background */
+    --color-card: 255 255 255;      /* card / panel surface */
+    --color-brass: 192 138 62;      /* #C08A3E accent */
+    --color-slate: 100 113 107;     /* #64716B secondary text */
+    --color-line: 226 231 228;      /* #E2E7E4 borders */
+    --color-leaf: 34 128 90;
+    --color-leafbg: 226 244 235;
+    --color-rust: 192 57 43;
+    --color-rustbg: 252 231 228;
+    --color-gold: 176 122 26;
+    --color-goldbg: 251 240 214;
+    --color-primary: 31 92 76;      /* #1F5C4C brand green — buttons, active states */
+    --color-primaryfg: 255 255 255;
+    --color-sidebar: 23 48 42;      /* #17302A sidebar gradient top */
+    --color-sidebar2: 12 31 26;     /* #0C1F1A sidebar gradient bottom */
+    --color-sidebarfg: 236 241 238;
+
+    --shadow-card: 0 1px 2px rgb(16 32 28 / 0.04), 0 2px 8px rgb(16 32 28 / 0.05);
+    --shadow-pop: 0 12px 32px rgb(16 32 28 / 0.18);
+
+    /* Chart / status colors (validated with the dataviz palette checker per theme) */
+    --st-approved: #2E8B57;
+    --st-done: #3567A8;
+    --st-progress: #C98A1B;
+    --st-todo: #98A2AC;
+    --st-overdue: #C0392B;
+    --stbg-approved: #E3F1E9;
+    --stbg-done: #E3ECF7;
+    --stbg-progress: #F7EBD3;
+    --stbg-todo: #EEF0F2;
+    --stbg-overdue: #F8E1DE;
+    --chart-track: #E9EEEB;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --color-ink: 230 236 233;       /* light text */
+    --color-ivory: 13 20 18;        /* #0D1412 page background */
+    --color-card: 22 32 29;         /* #16201D surface */
+    --color-brass: 214 165 92;
+    --color-slate: 154 167 161;
+    --color-line: 38 51 47;         /* #26332F */
+    --color-leaf: 92 196 146;
+    --color-leafbg: 20 48 37;
+    --color-rust: 239 120 104;
+    --color-rustbg: 58 28 25;
+    --color-gold: 230 182 92;
+    --color-goldbg: 55 43 20;
+    --color-primary: 52 150 122;    /* #34967A — brighter brand green for dark */
+    --color-primaryfg: 255 255 255;
+    --color-sidebar: 18 40 34;      /* #122822 */
+    --color-sidebar2: 8 22 18;      /* #081612 */
+    --color-sidebarfg: 230 236 233;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 10px rgb(0 0 0 / 0.25);
+    --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.5);
+
+    --st-approved: #45A86F;
+    --st-done: #5B8FD6;
+    --st-progress: #B98027;
+    --st-todo: #6E7883;
+    --st-overdue: #E0604F;
+    --stbg-approved: #173527;
+    --stbg-done: #18283D;
+    --stbg-progress: #362B17;
+    --stbg-todo: #232E2B;
+    --stbg-overdue: #3A1F1C;
+    --chart-track: #24312D;
+  }
+
+  body {
+    @apply bg-ivory text-ink font-sans text-base antialiased;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  input, select, textarea {
+    @apply bg-card text-ink;
+  }
+  input:focus, select:focus, textarea:focus {
+    @apply outline-none border-primary ring-2 ring-primary/20;
+  }
+  h1 {
+    @apply font-serif text-h1 text-ink mb-1 tracking-tight;
+  }
+  h2 {
+    @apply font-serif text-h2 text-ink mb-1;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn-primary {
+    @apply flex items-center gap-1.5 px-4 py-2.5 bg-primary text-primaryfg border-none rounded-lg text-sm font-medium cursor-pointer
+      shadow-sm hover:brightness-110 active:brightness-95 transition disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Data table */
+  .data-table {
+    @apply w-full border-separate border-spacing-0 bg-card border border-line rounded-xl overflow-hidden text-sm;
+    box-shadow: var(--shadow-card);
+  }
+  .data-table th {
+    @apply bg-ivory text-left px-4 py-3 text-2xs uppercase tracking-wide text-slate font-semibold border-b border-line;
+  }
+  .data-table td {
+    @apply px-4 py-3 border-b border-line;
+  }
+  .data-table tbody tr:last-child td { @apply border-b-0; }
+  .data-table tbody tr { @apply transition-colors; }
+  .data-table tbody tr:hover { @apply bg-ivory/60; }
+
+  .empty-state {
+    @apply bg-card border border-dashed border-line rounded-xl p-8 text-center text-slate text-sm;
+  }
+
+  /* Status pills */
+  .status-pill {
+    @apply px-2.5 py-0.5 rounded-full text-xs font-medium capitalize;
+  }
+  .status-present, .status-approved { @apply bg-leafbg text-leaf; }
+  .status-absent, .status-rejected { @apply bg-rustbg text-rust; }
+  .status-half, .status-pending { @apply bg-goldbg text-gold; }
+  .status-unset { @apply bg-line/60 text-slate; }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50;
+  }
+  .modal {
+    @apply bg-card border border-line rounded-2xl p-7 w-[420px] flex flex-col;
+    box-shadow: var(--shadow-pop);
+  }
+  /* Legacy plain form fields — :not() keeps these off formComponent/Input (.lable / .peer) */
+  .modal label:not(.lable) {
+    @apply text-xs text-slate mt-2.5 mb-1 font-medium;
+  }
+  .modal input:not(.peer), .modal select, .modal textarea {
+    @apply px-3 py-2.5 border border-line rounded-lg text-sm font-sans;
+  }
+
+  /* Auth */
+  .auth-form {
+    @apply bg-card border border-line rounded-2xl p-9 w-[380px] flex flex-col;
+    box-shadow: var(--shadow-pop);
+  }
+  .auth-form label:not(.lable) { @apply text-xs text-slate mt-2.5 mb-1 font-medium; }
+  .auth-form input:not(.peer) { @apply px-3 py-2.5 border border-line rounded-lg text-sm; }
+  .form-error { @apply text-rust text-sm mt-2.5; }
+}
+
+/* Tooltip entrance (components/Tooltip) */
+@keyframes tooltip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Toasts (components/Toast) */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+/* Header work timer border (components/common/WorkTimer.jsx) */
+@keyframes ring-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="ring-blink"] { animation: none !important; }
+}
+
+@keyframes toast-timer {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* formComponent/Input with isArrow={false}: hide number spinners */
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin { -moz-appearance: textfield; appearance: textfield; }
+
+@layer utilities {
+  /* Soft elevation on every card-style surface across the app */
+  .rounded-lg.bg-card.border,
+  .rounded-xl.bg-card.border {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Shared form components (components/formComponent) — floating labels and
+   PrimeReact re-skin so pickers match Input: 2rem tall, theme colors, dark mode.
+   --------------------------------------------------------------------------- */
+
+/* Floating label on the top border (DatePicker, TimePicker, TimeInputPicker) */
+.labelPicker {
+  position: absolute;
+  top: -0.5rem;
+  left: 0.6rem;
+  z-index: 2;
+  padding: 0 0.25rem;
+  font-size: calc(0.6875rem * var(--font-scale, 1));
+  font-weight: 600;
+  line-height: 1;
+  color: rgb(var(--color-primary));
+  background: rgb(var(--color-card));
+  border-radius: 2px;
+  pointer-events: none;
+  max-width: calc(100% - 3rem);
+}
+
+/* MultiSelectComp floating label */
+.panel-hover-label {
+  position: absolute;
+  top: -0.5rem;
+  left: 0.6rem;
+  z-index: 2;
+  padding: 0 0.25rem;
+  font-size: calc(0.6875rem * var(--font-scale, 1));
+  font-weight: 600;
+  line-height: 1;
+  color: rgb(var(--color-primary));
+  background: rgb(var(--color-card));
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+.panel-hover-label.active { opacity: 1; }
+
+/* Calendar input + its button */
+.sg-calendar { display: flex; }
+.sg-calendar .p-inputtext {
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: calc(0.875rem * var(--font-scale, 1));
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+.sg-calendar.p-calendar-w-btn .p-inputtext { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.sg-calendar .p-inputtext:enabled:focus,
+.sg-calendar .p-inputtext:enabled:hover { border-color: rgb(var(--color-primary)); box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.2); }
+.sg-calendar .p-datepicker-trigger,
+.sg-calendar .p-button {
+  height: 2rem;
+  width: 2.5rem;
+  background: rgb(var(--color-primary));
+  border-color: rgb(var(--color-primary));
+  color: rgb(var(--color-primaryfg));
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.sg-calendar.p-disabled .p-inputtext,
+.sg-calendar .p-inputtext:disabled { background: rgb(var(--color-ivory)); color: rgb(var(--color-slate)); opacity: 1; }
+
+/* Calendar popup + MultiSelect panel follow the theme */
+.p-datepicker,
+.p-multiselect-panel {
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-ink));
+  border: 1px solid rgb(var(--color-line));
+  box-shadow: var(--shadow-pop);
+  font-size: calc(0.875rem * var(--font-scale, 1));
+}
+.p-datepicker:not(.p-datepicker-inline) { background: rgb(var(--color-card)); }
+.p-datepicker .p-datepicker-header,
+.p-multiselect-panel .p-multiselect-header {
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-ink));
+  border-bottom: 1px solid rgb(var(--color-line));
+}
+.p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-month,
+.p-datepicker .p-datepicker-header .p-datepicker-title .p-datepicker-year,
+.p-datepicker .p-datepicker-header .p-datepicker-prev,
+.p-datepicker .p-datepicker-header .p-datepicker-next,
+.p-datepicker table th,
+.p-datepicker table td > span,
+.p-datepicker .p-monthpicker .p-monthpicker-month,
+.p-datepicker .p-yearpicker .p-yearpicker-year,
+.p-datepicker .p-timepicker button,
+.p-datepicker .p-timepicker span { color: rgb(var(--color-ink)); }
+.p-datepicker table td.p-datepicker-today > span { background: rgb(var(--color-primary) / 0.12); color: rgb(var(--color-primary)); }
+.p-datepicker table td > span.p-highlight,
+.p-datepicker .p-monthpicker .p-monthpicker-month.p-highlight,
+.p-datepicker .p-yearpicker .p-yearpicker-year.p-highlight { background: rgb(var(--color-primary)); color: rgb(var(--color-primaryfg)); }
+.p-datepicker:not(.p-disabled) table td span:not(.p-highlight):not(.p-disabled):hover,
+.p-datepicker:not(.p-disabled) .p-monthpicker .p-monthpicker-month:not(.p-disabled):not(.p-highlight):hover { background: rgb(var(--color-primary) / 0.1); }
+.p-datepicker table td > span.p-disabled { color: rgb(var(--color-slate) / 0.5); }
+.p-datepicker .p-timepicker { border-top: 1px solid rgb(var(--color-line)); }
+
+/* MultiSelect box */
+.sg-multiselect.p-multiselect {
+  min-height: 2rem;
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 0.375rem;
+}
+.sg-multiselect .p-multiselect-label { padding: 0.375rem 0.75rem; font-size: calc(0.875rem * var(--font-scale, 1)); color: rgb(var(--color-ink)); }
+.sg-multiselect .p-multiselect-label.p-placeholder { color: rgb(var(--color-slate)); }
+.sg-multiselect.p-multiselect:not(.p-disabled).p-focus,
+.sg-multiselect.p-multiselect:not(.p-disabled):hover { border-color: rgb(var(--color-primary)); box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.2); }
+.p-multiselect-panel .p-multiselect-items .p-multiselect-item { color: rgb(var(--color-ink)); }
+.p-multiselect-panel .p-multiselect-items .p-multiselect-item.p-highlight { background: rgb(var(--color-primary) / 0.12); color: rgb(var(--color-ink)); }
+.p-multiselect-panel .p-multiselect-items .p-multiselect-item:not(.p-highlight):not(.p-disabled):hover { background: rgb(var(--color-primary) / 0.08); }
+.p-multiselect-panel .p-inputtext { background: rgb(var(--color-card)); color: rgb(var(--color-ink)); border-color: rgb(var(--color-line)); }
+.p-checkbox .p-checkbox-box.p-highlight { background: rgb(var(--color-primary)); border-color: rgb(var(--color-primary)); }
+
+/* Attendance calendar day colors (pages/attendance/AttendanceCalendarPage.jsx) */
+:root {
+  --cal-working: #8ecfea;
+  --cal-approved: #8fe88f;
+  --cal-pending: #ffb3c1;
+  --cal-holiday: #f7e04b;
+  --cal-optional: #f9a33a;
+  --cal-missing: #d4d4d4;
+  --cal-text: #13221f;
+}
+.dark {
+  --cal-working: #1f5f7a;
+  --cal-approved: #276b3a;
+  --cal-pending: #7a3445;
+  --cal-holiday: #7a6a14;
+  --cal-optional: #81521a;
+  --cal-missing: #3d4644;
+  --cal-text: #eef3f1;
+}
+.cal-working { background: var(--cal-working); color: var(--cal-text); }
+.cal-approved { background: var(--cal-approved); color: var(--cal-text); }
+.cal-pending { background: var(--cal-pending); color: var(--cal-text); }
+.cal-holiday { background: var(--cal-holiday); color: var(--cal-text); }
+.cal-optional { background: var(--cal-optional); color: var(--cal-text); }
+.cal-missing { background: var(--cal-missing); color: var(--cal-text); }
+.cal-late { color: #c81e1e; }
+.dark .cal-late { color: #ff8a8a; }

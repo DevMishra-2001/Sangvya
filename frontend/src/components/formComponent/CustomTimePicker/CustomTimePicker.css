@@ -1,0 +1,124 @@
+/* Analog clock time picker — colors follow the app theme (index.css variables). */
+.custom-clock-container {
+  width: 224px;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-ink));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: var(--shadow-pop);
+}
+
+.custom-clock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.custom-clock-btn {
+  background: transparent;
+  border: none;
+  color: rgb(var(--color-primary));
+  cursor: pointer;
+  border-radius: 50%;
+  height: 29px;
+  width: 30px;
+}
+.custom-clock-btn:hover { background-color: rgb(var(--color-primary) / 0.1); }
+
+.custom-time-display {
+  font-size: 28px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+.custom-period-toggle span {
+  color: rgb(var(--color-slate));
+  margin-left: 2px;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+.custom-period-toggle .custom-active {
+  color: rgb(var(--color-primary));
+  font-weight: bold;
+}
+
+.custom-clock-face {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  margin: 5px auto;
+  background-color: rgb(var(--color-sidebar));
+  border-radius: 50%;
+}
+
+.custom-clock-number {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 25px;
+  height: 25px;
+  background-color: transparent;
+  color: rgb(var(--color-sidebarfg));
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: background 0.2s;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.custom-clock-number:hover { background-color: rgb(var(--color-sidebarfg) / 0.15); }
+.custom-clock-number.custom-active { background-color: rgb(var(--color-brass)); color: #fff; }
+
+.custom-clock-number.custom-dot {
+  width: 7px;
+  height: 7px;
+  font-size: 0;
+  z-index: 5;
+}
+.custom-clock-number.custom-label {
+  width: 27px;
+  height: 27px;
+  font-size: 12px;
+}
+
+.custom-clock-center-dot {
+  position: absolute;
+  left: 95px;
+  top: 95px;
+  width: 10px;
+  height: 10px;
+  background-color: rgb(var(--color-brass));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.custom-clock-needle {
+  position: absolute;
+  left: 94px;
+  top: 25px;
+  width: 2px;
+  height: 70px;
+  background-color: rgb(var(--color-brass));
+  transform-origin: bottom center;
+  transition: transform 0.3s ease;
+  z-index: 2;
+}
+
+.custom-clock-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.custom-picker-popup {
+  position: absolute;
+  z-index: 999;
+  margin-top: 8px;
+}

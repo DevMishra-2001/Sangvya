@@ -1,0 +1,37 @@
+import { Router } from "express";
+import { authenticate, requirePermission } from "../../middlewares/auth.middleware.js";
+import { scopeToCompany } from "../../middlewares/tenant.middleware.js";
+import { validate } from "../../middlewares/validate.js";
+import { idParams } from "../../utils/zod.js";
+import {
+  applyLeaveHandler,
+  decideLeaveHandler,
+  getLeavePolicyHandler,
+  listLeavesHandler,
+  updateLeavePolicyHandler,
+} from "./leaves.controller.js";
+import { applyLeaveSchema, leavePolicySchema, leaveStatusSchema } from "./leaves.schema.js";
+
+// ---- /api/leaves ----
+const leaves = Router();
+leaves.use(authenticate, scopeToCompany);
+
+// Everyone can list — the service narrows it to own leaves without "leave.viewAll"
+leaves.get("/", listLeavesHandler);
+leaves.post("/", requirePermission("leave.apply"), validate({ body: applyLeaveSchema }), applyLeaveHandler);
+leaves.patch(
+  "/:id/status",
+  requirePermission("leave.approve"),
+  validate({ params: idParams, body: leaveStatusSchema }),
+  decideLeaveHandler,
+);
+
+// ---- /api/leave-policy ----
+const policy = Router();
+policy.use(authenticate, scopeToCompany);
+
+policy.get("/", getLeavePolicyHandler);
+policy.put("/", requirePermission("leavePolicy.manage"), validate({ body: leavePolicySchema }), updateLeavePolicyHandler);
+
+export const leaveRoutes = leaves;
+export const leavePolicyRoutes = policy;

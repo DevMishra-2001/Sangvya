@@ -2,7 +2,7 @@
 
 Multi-tenant HR Management System. One backend + database serves many companies (tenants); each company only ever sees its own data.
 
-**Stack:** Node.js + Express + PostgreSQL (backend) · React + Redux Toolkit (frontend)
+**Stack:** TypeScript + Express + PostgreSQL + Drizzle ORM + Zod (backend) · Next.js 16 + zustand + shadcn/ui (`/frontendnext`) · React + Redux Toolkit (`/frontend`, original Vite app)
 
 ## What's included
 
@@ -11,7 +11,7 @@ Multi-tenant HR Management System. One backend + database serves many companies 
 - Employees — full CRUD
 - Attendance — mark & view by date / by employee
 - Leave requests — apply, approve, reject
-- Middleware: JWT auth, role checks, tenant isolation, request validation, rate limiting, centralized error handling, security headers, request logging
+- Middleware: JWT auth, permission checks, tenant isolation, Zod request validation, rate limiting, centralized error handling, security headers, request logging
 
 **Frontend** (`/frontend`) — React + Redux Toolkit + Tailwind CSS
 - Styling entirely in Tailwind utility classes (`tailwind.config.js` has a custom "ledger" color palette — `ink`, `ivory`, `brass`, `leaf`, `rust`, `gold` — matching the product's visual identity)
@@ -49,7 +49,7 @@ Pricing is ₹15 per employee per month, via [Razorpay Subscriptions](https://ra
 
 ### A note on the Payroll module's statutory calculations
 
-`backend/src/utils/payrollCalculations.js` implements PF (12%/12%, ₹15,000 wage ceiling), ESI (0.75%/3.25%, ₹21,000 threshold), Professional Tax (generic slab), and TDS (new-regime income tax slabs, simplified — no investment declarations or old-regime support). These are reasonable estimates for a starter product, but **have a CA or payroll consultant review them before running real employee payroll** — PT varies by state, and TDS in a real system needs to account for each employee's declared investments and regime choice.
+`backend/src/utils/payrollCalculations.ts` implements PF (12%/12%, ₹15,000 wage ceiling), ESI (0.75%/3.25%, ₹21,000 threshold), Professional Tax (generic slab), and TDS (new-regime income tax slabs, simplified — no investment declarations or old-regime support). These are reasonable estimates for a starter product, but **have a CA or payroll consultant review them before running real employee payroll** — PT varies by state, and TDS in a real system needs to account for each employee's declared investments and regime choice.
 
 ## Running it locally
 
@@ -69,11 +69,24 @@ cp .env.example .env
 # edit .env: set DATABASE_URL to your Postgres connection string,
 # and JWT_SECRET to a long random string
 npm install
-npm run migrate     # creates all tables
+npm run db:migrate   # creates all tables (applies drizzle/ migrations)
 npm run dev          # starts on http://localhost:5000
 ```
 
 ### 3. Frontend
+
+The new Next.js app (`/frontendnext`) — see `frontendnext/README.md`:
+
+```bash
+cd frontendnext
+cp .env.example .env.local   # set JWT_SECRET to the backend's value
+npm install
+npm run dev                  # http://localhost:3000
+```
+
+Set `TRUST_PROXY=1` in `backend/.env` when using it (API calls go through Next.js).
+
+Or the original Vite app (`/frontend`):
 
 ```bash
 cd frontend
@@ -83,14 +96,14 @@ npm install
 npm run dev          # starts on http://localhost:3000
 ```
 
-Open `http://localhost:3000`, click **Sign up**, and you'll have a company + admin account.
+Open `http://localhost:3000`, click **Sign up**, then set up your company. Signing up creates a superadmin login; on first login they're asked to create their company (it starts with a default list of designations, and the superadmin is added as its first employee). A superadmin can own several companies and switch between them from the header.
 
 ## Multi-tenancy — how data isolation works
 
 1. On signup, a `companies` row is created and the user is tied to it via `company_id`.
 2. Login returns a JWT containing `companyId`.
 3. Every protected request runs through `authenticate` (verifies JWT) → `scopeToCompany` (reads `companyId` from the verified token, never from the request body).
-4. Every database query in `models/` filters `WHERE company_id = $1` using that trusted id.
+4. Every database query in a module's `*.service.ts` filters on `company_id` using that trusted id.
 
 This means one company can never read or modify another company's data, even if they tamper with request bodies — the isolation is enforced server-side, not trusted from the client.
 
@@ -105,11 +118,44 @@ This is a solid foundation, but production-readiness needs a few more things:
 - **Refresh tokens** — current setup uses a single long-lived JWT; refresh tokens are more secure for a real product
 - **Audit logging** — who changed what, useful for HR compliance
 
+## Backend structure
+
+```
+backend/
+├── drizzle/                     generated SQL migrations (commit these)
+├── drizzle.config.ts
+├── scripts/createRazorpayPlan.ts
+└── src/
+    ├── app.ts / server.ts       Express app + startup
+    ├── config/                  env (Zod-validated), db (Drizzle), permissions, razorpay
+    ├── db/schema.ts             re-exports every table from db/schemas/*.schema.ts
+    ├── middlewares/             auth (authenticate, requirePermission), tenant, validate, rateLimiter, errorHandler
+    ├── jobs/dayClose.job.ts     end-of-day attendance alerts
+    ├── utils/                   httpErrors, asyncHandler, zod helpers, workday, mailer, pdf, payroll maths
+    └── modules/<name>/
+        ├── <name>.route.ts      routes: middleware + validate(schema) + controller
+        ├── <name>.controller.ts reads the request, calls the service, sends the response
+        ├── <name>.service.ts    all business logic and database access
+        └── <name>.schema.ts     Zod schemas for body / params / query
+```
+
+Modules: `auth`, `users`, `employees`, `attendance`, `self` (/api/me), `leaves` (+ leave policy), `holidays`, `payroll`, `recruitment`, `performance`, `tasks`, `announcements`, `settings`, `billing`.
+
+**Errors** — services throw the classes in `src/utils/httpErrors.ts` (`BadRequestError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `ConflictError`, `ValidationError`, …). The central `errorHandler` turns them into `{ error, code?, details? }`, so every endpoint fails the same way.
+
+**Database** — ids are auto-increment integers. Column keys in the Drizzle schema are snake_case on purpose: rows go to the frontend as-is.
+
+| Command | What it does |
+| --- | --- |
+| `npm run db:generate` | write a new migration from changes in `src/db/schemas/` |
+| `npm run db:migrate` | apply pending migrations (use this on Neon / production) |
+| `npm run db:push` | sync the schema directly, without a migration file (quick local dev) |
+| `npm run db:studio` | browse the data in Drizzle Studio |
+
 ## Extending with a new module
 
-Follow the same five-file pattern used throughout this codebase:
-1. `backend/src/models/xModel.js` — queries, always scoped by `companyId`
-2. `backend/src/controllers/xController.js` — request handling
-3. `backend/src/routes/xRoutes.js` — wire up `authenticate`, `scopeToCompany`, validation
-4. `frontend/src/store/slices/xSlice.js` — thunks + reducer
-5. `frontend/src/components/x/` + `frontend/src/pages/XPage.jsx` — UI
+1. `backend/src/db/schemas/x.schema.ts` — the table (export it from `db/schema.ts`), then `npm run db:generate`
+2. `backend/src/modules/x/x.schema.ts` — Zod schemas for the request
+3. `backend/src/modules/x/x.service.ts` — logic + queries, always scoped by `companyId`; throw `httpErrors`
+4. `backend/src/modules/x/x.controller.ts` + `x.route.ts` — wire up `authenticate`, `scopeToCompany`, `requirePermission`, `validate`; mount it in `app.ts`
+5. `frontend/src/store/slices/xSlice.js` + `frontend/src/components/x/` + `frontend/src/pages/XPage.jsx` — UI

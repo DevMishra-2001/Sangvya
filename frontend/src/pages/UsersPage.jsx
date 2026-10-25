@@ -33,7 +33,8 @@ function UserFormModal({ roles, employees, users, onClose }) {
 
   // Picking an employee pre-fills name/email from their record
   function pickEmployee(e) {
-    const emp = employees.find((x) => x.id === e.target.value);
+    // <select> values are strings; employee ids are numbers
+    const emp = employees.find((x) => String(x.id) === e.target.value);
     setForm({
       ...form,
       employeeId: e.target.value,

@@ -25,7 +25,7 @@ export function CycleList({ cycles, onSelect, selectedCycleId }) {
           <div>
             <div className="text-sm font-medium">{cycle.name}</div>
             <div className="text-xs text-slate mt-0.5">
-              {cycle.start_date?.slice(0, 10)} → {cycle.end_date?.slice(0, 10)} · {cycle.review_count} review{cycle.review_count === "1" ? "" : "s"}
+              {cycle.start_date?.slice(0, 10)} → {cycle.end_date?.slice(0, 10)} · {cycle.review_count} review{Number(cycle.review_count) === 1 ? "" : "s"}
             </div>
           </div>
           <div className="flex items-center gap-2">

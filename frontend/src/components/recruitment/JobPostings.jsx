@@ -25,7 +25,7 @@ export function JobList({ jobs, onSelect, selectedJobId }) {
           <div>
             <div className="text-sm font-medium">{job.title}</div>
             <div className="text-xs text-slate mt-0.5">
-              {job.department || "—"} {job.location && `· ${job.location}`} · {job.candidate_count} candidate{job.candidate_count === "1" ? "" : "s"}
+              {job.department || "—"} {job.location && `· ${job.location}`} · {job.candidate_count} candidate{Number(job.candidate_count) === 1 ? "" : "s"}
             </div>
           </div>
           <div className="flex items-center gap-2">

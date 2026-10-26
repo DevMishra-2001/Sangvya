@@ -1,9 +1,9 @@
 // Runs before every page request. Decides, from the login cookies alone:
 //   • logged out on a protected page        → /login?next=<page>
-//   • logged in on /login, /signup, …        → /
-//   • logged in but the role can't open it   → /forbidden
+//   • logged in on /login, /forgot-password → /
+//   • logged in but their designation can't open it → /forbidden
 //   • superadmin without a company yet        → /onboarding (and only there)
-// The role comes from the backend's signed access token. If that token has
+// Allowed pages come from the backend's signed access token (Page Master URLs). If that token has
 // expired but the refresh cookie is still good, the session is refreshed here
 // (the backend rotates the cookies and we pass them on to the browser).
 // This only guards pages — the backend checks permissions on every API call.
@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
     if (refreshed.ok) {
       // A parallel request (e.g. a link prefetch) may have rotated the token a
       // moment ago: the backend then accepts the old one but sends no new
-      // cookies. The session is still valid — the role is checked again by the
+      // cookies. The session is still valid — access is checked again by the
       // app shell once the browser has the new cookie.
       loggedIn = true;
       payload = await verifyAccessToken(cookieValueFromSetCookie(setCookies, ACCESS_COOKIE));
@@ -68,17 +68,22 @@ export async function proxy(request: NextRequest) {
     return withCookies(NextResponse.redirect(login), setCookies);
   }
 
-  // A new superadmin sets up their company before anything else; afterwards
-  // that page is done (more companies are added from /companies/new)
+  // A new Admin registers their company before anything else; afterwards that
+  // page is done (more companies are added from /companies/new). A Super Admin
+  // without a company may use the platform pages their token lists (Admins, Page Master).
   const onOnboarding = pathname === ONBOARDING_ROUTE;
   if (payload && !payload.companyId && !onOnboarding) {
-    return withCookies(NextResponse.redirect(new URL(ONBOARDING_ROUTE, request.url)), setCookies);
+    const platformPages = payload.pages ?? [];
+    if (!platformPages.length) return withCookies(NextResponse.redirect(new URL(ONBOARDING_ROUTE, request.url)), setCookies);
+    if (pathname === "/" || !canVisit(platformPages, pathname)) {
+      return withCookies(NextResponse.redirect(new URL(platformPages[0], request.url)), setCookies);
+    }
   }
   if (payload?.companyId && onOnboarding) {
     return withCookies(NextResponse.redirect(new URL("/", request.url)), setCookies);
   }
 
-  if (payload && !canVisit(payload.role, pathname)) {
+  if (payload && !canVisit(payload.pages, pathname)) {
     const forbidden = new URL("/forbidden", request.url);
     forbidden.searchParams.set("from", pathname);
     return withCookies(NextResponse.redirect(forbidden), setCookies);

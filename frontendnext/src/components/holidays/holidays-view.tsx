@@ -7,9 +7,10 @@ import { PartyPopper, Plus } from "lucide-react";
 import { ConfirmDelete } from "@/components/common/confirm-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { FormField } from "@/components/common/form-field";
+import { FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDate, weekday } from "@/lib/format";
@@ -42,21 +43,23 @@ export function HolidaysView() {
   return (
     <div>
       <PageHeader title="Holidays" description="Holidays added here appear on everyone's attendance calendar." />
-      <Card className="mb-6">
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-wrap items-start gap-3" noValidate>
-            <FormField label="Date" htmlFor="hol-date" error={errors.date} className="w-44">
+      <FormCard title="Add holiday" crumbs={["Master", "Holidays"]} icon={PartyPopper} className="mb-6">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
+          <FormGrid>
+            <FormField label="Date" htmlFor="hol-date" error={errors.date}>
               <FormDatePicker control={control} name="date" id="hol-date" />
             </FormField>
-            <FormField label="Name" htmlFor="hol-name" error={errors.name} className="min-w-56 flex-1">
+            <FormField label="Holiday name" htmlFor="hol-name" error={errors.name} span="md">
               <Input id="hol-name" placeholder="e.g. Diwali" {...register("name")} />
             </FormField>
-            <Button type="submit" className="mt-6" disabled={isSubmitting}>
-              <Plus /> Add holiday
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <FormActions>
+              <Button type="submit" disabled={isSubmitting}>
+                <Plus /> Add holiday
+              </Button>
+            </FormActions>
+          </FormGrid>
+        </form>
+      </FormCard>
 
       {holidays.length === 0 ? (
         <EmptyState icon={PartyPopper} title="No holidays added yet" />

@@ -1,7 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { can, type Permission, type Role } from "../config/permissions.js";
+import type { Permission } from "../config/permissions.js";
+import { accessFor } from "../modules/pages/access.service.js";
+import { can } from "../utils/can.js";
 import { findSessionById } from "../modules/auth/session.service.js";
 import { findUserById } from "../modules/users/users.service.js";
 import { ACCESS_COOKIE } from "../utils/authCookie.js";
@@ -45,6 +47,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 
     const user = await findUserById(decoded.id);
     if (!user) throw new UnauthorizedError("Account no longer exists", "SESSION_REVOKED");
+    if (user.is_blocked) throw new UnauthorizedError("Your login has been blocked. Please contact your company admin.", "SESSION_REVOKED");
 
     // The cookie is shared by every tab. If another tab logged in as someone
     // else, this tab (which says who it expects) must not act as that user.
@@ -53,13 +56,18 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
       throw new ConflictError("You logged in as a different user in another tab", "SESSION_CHANGED");
     }
 
+    // Access comes from the designation, re-read every request so changes apply at once
+    const access = await accessFor(user);
     req.user = {
       id: user.id,
       companyId: user.company_id,
-      role: user.role as Role,
       email: user.email,
       employeeId: user.employee_id,
       sessionId: session.id,
+      isSuperadmin: access.isSuperadmin,
+      designationKey: access.designation?.key ?? null,
+      level: access.level,
+      permissions: access.permissions,
     };
     next();
   } catch (err) {
@@ -67,11 +75,11 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
   }
 }
 
-// Restricts a route to roles holding a permission, e.g. requirePermission("leave.approve").
-// Access rules live in config/permissions.ts — routes never name roles directly.
+// Restricts a route to users holding a permission, e.g. requirePermission("leave.approve").
+// Routes never name designations directly.
 export function requirePermission(permission: Permission) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.user || !can(req.user.role, permission)) return next(new ForbiddenError());
+    if (!req.user || !can(req.user, permission)) return next(new ForbiddenError());
     next();
   };
 }

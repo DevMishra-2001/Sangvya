@@ -1,16 +1,10 @@
 import { z } from "zod";
 import { strongPassword } from "@/lib/password-policy";
-import { email, requiredText } from "./common";
+import { email } from "./common";
 
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, "Password is required"),
-});
-
-export const signupSchema = z.object({
-  name: requiredText("Your name is required"),
-  email,
-  password: strongPassword,
 });
 
 export const forgotEmailSchema = z.object({ email });
@@ -31,5 +25,4 @@ export const newPasswordSchema = z
   });
 
 export type LoginInput = z.infer<typeof loginSchema>;
-export type SignupInput = z.infer<typeof signupSchema>;
 export type NewPasswordInput = z.infer<typeof newPasswordSchema>;

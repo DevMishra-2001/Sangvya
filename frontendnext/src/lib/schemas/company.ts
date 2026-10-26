@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { optionalText, requiredText } from "./common";
 
-export const OTHER_DESIGNATION = "__other__";
-
 // Headcount bands (same values as the backend's EMPLOYEE_RANGES)
 export const EMPLOYEE_RANGES = [
   { value: "2-10", label: "2 – 10" },
@@ -36,8 +34,7 @@ const website = z
   .refine((v) => v === "" || z.string().url().safeParse(v).success, "Enter a valid website, e.g. example.com")
   .transform((v) => v || null);
 
-export const companySchema = z
-  .object({
+export const companySchema = z.object({
     logoUrl: z.string().nullable(),
     companyName: requiredText("Company name is required", 200),
     industry: optionalText(100),
@@ -54,17 +51,7 @@ export const companySchema = z
     state: optionalText(100),
     country: optionalText(100),
     postalCode: optionalText(20),
-    designation: z.string().min(1, "Choose your designation"),
-    customDesignation: z.string().trim(),
-  })
-  .refine((v) => v.designation !== OTHER_DESIGNATION || v.customDesignation.length > 0, {
-    path: ["customDesignation"],
-    message: "Type your designation",
-  })
-  .transform(({ customDesignation, ...v }) => ({
-    ...v,
-    designation: v.designation === OTHER_DESIGNATION ? customDesignation : v.designation,
-  }));
+  });
 
 export type CompanyForm = z.input<typeof companySchema>;
 export type CompanyInput = z.output<typeof companySchema>;

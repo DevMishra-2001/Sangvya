@@ -1,7 +1,8 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpStatus } from "../../utils/httpStatus.js";
-import { tenant } from "../../utils/requestContext.js";
-import { createEmployee, deleteEmployee, listEmployees, updateEmployee } from "./employees.service.js";
+import { currentUser, tenant } from "../../utils/requestContext.js";
+import { createEmployeeWithLogin, updateEmployeeWithLogin } from "./employeeAccount.service.js";
+import { deleteEmployee, listEmployees } from "./employees.service.js";
 
 // GET /api/employees
 export const listEmployeesHandler = asyncHandler(async (req, res) => {
@@ -10,12 +11,12 @@ export const listEmployeesHandler = asyncHandler(async (req, res) => {
 
 // POST /api/employees
 export const createEmployeeHandler = asyncHandler(async (req, res) => {
-  res.status(HttpStatus.CREATED).json(await createEmployee(tenant(req).companyId, req.body));
+  res.status(HttpStatus.CREATED).json(await createEmployeeWithLogin(tenant(req).companyId, currentUser(req), req.body));
 });
 
 // PUT /api/employees/:id
 export const updateEmployeeHandler = asyncHandler(async (req, res) => {
-  res.json(await updateEmployee(tenant(req).companyId, Number(req.params.id), req.body));
+  res.json(await updateEmployeeWithLogin(tenant(req).companyId, currentUser(req), Number(req.params.id), req.body));
 });
 
 // DELETE /api/employees/:id

@@ -8,7 +8,7 @@ export interface AccessTokenPayload {
   id: number;
   companyId: number | null; // null until a new superadmin creates their company
   sid: number;
-  role: string;
+  pages: string[]; // URLs this user's designation can open (Page Master)
 }
 
 function secret() {
@@ -18,13 +18,13 @@ function secret() {
 }
 
 // The token's payload, or null if it's missing, expired, tampered with, or
-// from before tokens carried a role.
+// from before tokens carried page URLs.
 export async function verifyAccessToken(token: string | undefined): Promise<AccessTokenPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
     const p = payload as Partial<AccessTokenPayload>;
-    if (typeof p.id !== "number" || typeof p.role !== "string") return null;
+    if (typeof p.id !== "number" || !Array.isArray(p.pages)) return null;
     return p as AccessTokenPayload;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("JWT_SECRET")) throw err;

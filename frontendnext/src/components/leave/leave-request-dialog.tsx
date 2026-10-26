@@ -14,6 +14,7 @@ import type { Employee } from "@/lib/types";
 import { useLeavesStore } from "@/stores/leaves-store";
 import { FormSelect } from "@/components/common/select-field";
 import { FormDatePicker } from "@/components/common/date-picker";
+import { FORM_DIALOG, FormGrid } from "@/components/common/form-layout";
 
 type LeaveOutput = z.output<typeof leaveSchema>;
 
@@ -43,7 +44,10 @@ export function LeaveRequestDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<LeaveForm, unknown, LeaveOutput>({ resolver: zodResolver(leaveSchema), defaultValues: defaults });
+  } = useForm<LeaveForm, unknown, LeaveOutput>({
+    resolver: zodResolver(leaveSchema),
+    defaultValues: defaults,
+  });
 
   useEffect(() => {
     if (open) reset(defaults);
@@ -51,35 +55,57 @@ export function LeaveRequestDialog({
   }, [open]);
 
   async function onSubmit(values: LeaveOutput) {
-    const ok = await apply({ ...values, employeeId: employees ? values.employeeId : undefined });
+    const ok = await apply({
+      ...values,
+      employeeId: employees ? values.employeeId : undefined,
+    });
     if (ok) onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>New leave request</DialogTitle>
           <DialogDescription>Sundays and holidays inside the range aren&apos;t counted.</DialogDescription>
         </DialogHeader>
-        <form id="leave-form" onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-          {employees && (
-            <FormField label="Employee" htmlFor="lv-employee" error={errors.employeeId} className="sm:col-span-2">
-              <FormSelect control={control} name="employeeId" id="lv-employee" placeholder="Choose an employee" options={employees.map((e) => ({ value: String(e.id), label: e.name }))} />
+        <form id="leave-form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
+          <FormGrid density="dialog">
+            {employees && (
+              <FormField label="Employee" htmlFor="lv-employee" error={errors.employeeId}>
+                <FormSelect
+                  control={control}
+                  name="employeeId"
+                  id="lv-employee"
+                  placeholder="Choose an employee"
+                  options={employees.map((e) => ({
+                    value: String(e.id),
+                    label: e.name,
+                  }))}
+                />
+              </FormField>
+            )}
+            <FormField label="From" htmlFor="lv-from" error={errors.fromDate}>
+              <FormDatePicker control={control} name="fromDate" id="lv-from" />
             </FormField>
-          )}
-          <FormField label="From" htmlFor="lv-from" error={errors.fromDate}>
-            <FormDatePicker control={control} name="fromDate" id="lv-from" />
-          </FormField>
-          <FormField label="To" htmlFor="lv-to" error={errors.toDate}>
-            <FormDatePicker control={control} name="toDate" id="lv-to" />
-          </FormField>
-          <FormField label="Type" htmlFor="lv-type" error={errors.leaveType} className="sm:col-span-2" description="Comp off is earned by checking in on a Sunday or holiday.">
-            <FormSelect control={control} name="leaveType" id="lv-type" options={APPLY_LEAVE_TYPES.map((t) => ({ value: t, label: LEAVE_TYPE_LABELS[t] }))} />
-          </FormField>
-          <FormField label="Reason" htmlFor="lv-reason" error={errors.reason} className="sm:col-span-2">
-            <Textarea id="lv-reason" rows={3} {...register("reason")} />
-          </FormField>
+            <FormField label="To" htmlFor="lv-to" error={errors.toDate}>
+              <FormDatePicker control={control} name="toDate" id="lv-to" />
+            </FormField>
+            <FormField label="Type" htmlFor="lv-type" error={errors.leaveType} description="Comp off is earned by checking in on a Sunday or holiday.">
+              <FormSelect
+                control={control}
+                name="leaveType"
+                id="lv-type"
+                options={APPLY_LEAVE_TYPES.map((t) => ({
+                  value: t,
+                  label: LEAVE_TYPE_LABELS[t],
+                }))}
+              />
+            </FormField>
+            <FormField span="full" label="Reason" htmlFor="lv-reason" error={errors.reason}>
+              <Textarea id="lv-reason" rows={3} {...register("reason")} />
+            </FormField>
+          </FormGrid>
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

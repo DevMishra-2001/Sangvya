@@ -54,14 +54,18 @@ export function DatePicker({ value, onChange, id, min, max, placeholder = "Pick 
             disabled={disabled}
             aria-label={rest["aria-label"]}
             aria-invalid={invalid || undefined}
+            data-slot="date-picker"
+            data-filled={selected ? "true" : "false"}
             className={cn(
-              "h-8 w-full justify-start px-2.5 text-left font-normal dark:bg-input/30",
+              "h-9 w-full justify-between px-2.5 text-left font-normal dark:bg-input/30",
               !selected && "text-muted-foreground",
-              clearable && selected && "pr-8",
+              clearable && selected && "pr-14",
             )}
           >
+            <span data-slot="field-value" className="truncate">
+              {selected ? selected.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : placeholder}
+            </span>
             <CalendarIcon className="text-muted-foreground" />
-            {selected ? selected.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : placeholder}
           </Button>
         </PopoverTrigger>
         {clearable && selected && !disabled && (
@@ -69,7 +73,7 @@ export function DatePicker({ value, onChange, id, min, max, placeholder = "Pick 
             type="button"
             onClick={() => onChange("")}
             aria-label="Clear date"
-            className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            className="absolute top-1/2 right-8 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
           >
             <X className="size-3.5" />
           </button>

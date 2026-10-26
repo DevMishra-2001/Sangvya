@@ -1,22 +1,51 @@
 // Shapes of the backend's responses. Rows come straight from the database, so
 // their fields are snake_case; computed / composed objects are camelCase.
-import type { Permission, Role } from "./permissions";
+import type { Permission } from "./permissions";
 
 export type Id = number;
 export type ISODate = string; // "YYYY-MM-DD"
 export type ISODateTime = string; // ISO timestamp
 
 // ---- Auth ----
+export type DesignationKey = "superadmin" | "admin" | "hr" | "accountant" | "developer";
+
+// The user's designation in the current company — it decides what they can open
+export interface UserDesignation {
+  id: Id;
+  key: DesignationKey;
+  name: string;
+  level: number; // higher = more senior (Super Admin 5 … Developer 1)
+}
+
 export interface User {
   id: Id;
-  company_id: Id | null; // null until a new superadmin creates their company
+  company_id: Id | null; // null until they create (or join) a company
   employee_id: Id | null;
   name: string;
   email: string;
-  role: Role;
   font_size: number;
   created_at: ISODateTime;
+  designation: UserDesignation | null;
+  is_superadmin: boolean; // the platform developer: sees every page
   permissions: Permission[];
+}
+
+// A page the user can open (Page Master). url null = a menu group.
+export interface AppPage {
+  id: Id;
+  name: string;
+  slug: string;
+  url: string | null;
+  icon: string | null;
+  parent_id: Id | null;
+  sort_order: number;
+  show_in_menu: boolean;
+}
+
+// A page as the Page Master edits it
+export interface PageRow extends AppPage {
+  is_active: boolean;
+  designation_ids: Id[];
 }
 
 // My own employee record (profile panel)
@@ -61,14 +90,29 @@ export interface CompanyListItem extends Pick<Company, "id" | "name" | "industry
 export interface AuthResponse {
   user: User;
   company: Company | null;
+  pages: AppPage[]; // loaded once with login / me — the sidebar and page guard use it
   session: SessionInfo;
 }
 
 // ---- Designations ----
 export interface Designation {
   id: Id;
+  key: DesignationKey;
   name: string;
-  employee_count: number;
+  level: number;
+  is_active: boolean; // inactive = can't be given to anyone new
+  employee_count: number; // in the current company
+}
+
+// ---- Admins (Super Admin) ----
+// A company owner's login. "pending" = hasn't registered their company yet.
+export interface AdminRow {
+  id: Id;
+  name: string;
+  email: string;
+  created_at: ISODateTime;
+  companies: { id: Id; name: string }[];
+  status: "pending" | "active";
 }
 
 // ---- Users & roles ----
@@ -78,9 +122,11 @@ export interface UserRow {
   employee_id: Id | null;
   name: string;
   email: string;
-  role: Role;
+  is_superadmin: boolean;
   created_at: ISODateTime;
   employee_name: string | null;
+  designation: string | null; // from the linked employee — decides their access
+  designation_level: number | null;
 }
 
 // ---- Employees ----
@@ -99,6 +145,11 @@ export interface Employee {
   ol_quota: string | null;
   employee_code: string | null;
   photo_url: string | null;
+  phone: string | null;
+  gender: "male" | "female" | "other" | null;
+  address: string | null;
+  has_login: boolean; // can log in (Users page / password in the employee form)
+  login_blocked: boolean;
   created_at: ISODateTime;
 }
 

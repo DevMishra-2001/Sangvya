@@ -15,6 +15,41 @@
       "when": 1792896233134,
       "tag": "0001_profile_photos_company_details_punch_geo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792931804632,
+      "tag": "0002_designation_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792934931662,
+      "tag": "0003_designation_access_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792938934109,
+      "tag": "0004_designations_global",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792945100422,
+      "tag": "0005_admins_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792981123367,
+      "tag": "0006_employee_details_login_block",
+      "breakpoints": true
     }
   ]
 }

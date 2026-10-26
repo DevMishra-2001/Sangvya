@@ -251,3 +251,88 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.25; }
 }
+
+/* ---- Floating-label fields (components/common/form-field.tsx) ----
+   The label sits inside the control like a placeholder; on focus, or once the
+   field has a value, it moves up onto the border. --ff-bg is the surface the
+   field sits on, so the floated label can cut through the border cleanly. */
+:root {
+  --ff-bg: var(--background);
+}
+[data-slot="card"],
+.ff-surface-card {
+  --ff-bg: var(--card);
+}
+[data-slot="dialog-content"],
+[data-slot="popover-content"] {
+  --ff-bg: var(--popover);
+}
+
+.ff {
+  position: relative;
+}
+.ff-label {
+  position: absolute;
+  z-index: 2;
+  top: 1.125rem; /* middle of a 36px (h-9) control */
+  left: 0.5rem;
+  max-width: calc(100% - 2.75rem);
+  padding: 0 0.25rem;
+  overflow: hidden;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  transition:
+    top 0.15s ease,
+    font-size 0.15s ease,
+    color 0.15s ease;
+}
+.ff-required {
+  margin-left: 0.125rem;
+  color: var(--destructive);
+}
+
+/* Floated: focused, has a value, a picker is open, or it's read-only/disabled */
+.ff:focus-within .ff-label,
+.ff:has(input:not(:placeholder-shown)) .ff-label,
+.ff:has(textarea:not(:placeholder-shown)) .ff-label,
+.ff:has([data-slot="select-trigger"]:not([data-placeholder])) .ff-label,
+.ff:has([data-filled="true"]) .ff-label,
+.ff:has([aria-expanded="true"]) .ff-label {
+  top: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  /* Solid surface colour so the border and focus ring don't run through the text */
+  background: var(--ff-bg);
+  border-radius: 0.25rem;
+}
+.ff:focus-within .ff-label {
+  color: var(--primary);
+}
+[data-invalid="true"] .ff .ff-label {
+  color: var(--destructive);
+}
+
+/* While the label sits inside it IS the placeholder, so hide the real one */
+.ff:not(:focus-within) input:placeholder-shown::placeholder,
+.ff:not(:focus-within) textarea:placeholder-shown::placeholder {
+  color: transparent;
+}
+.ff:not(:focus-within) [data-slot="select-trigger"][data-placeholder]:not([aria-expanded="true"]) [data-slot="select-value"],
+.ff:not(:focus-within) [data-filled="false"]:not([aria-expanded="true"]) [data-slot="field-value"] {
+  color: transparent;
+}
+/* Browser autofill (kept separate: an unknown selector would drop the whole rule elsewhere) */
+.ff:has(input:-webkit-autofill) .ff-label {
+  top: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  background: var(--ff-bg);
+  border-radius: 0.25rem;
+}

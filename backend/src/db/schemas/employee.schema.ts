@@ -26,6 +26,9 @@ export const employees = pgTable(
     employee_code: varchar("employee_code", { length: 40 }),
     // Profile photo (ImageKit URL)
     photo_url: text("photo_url"),
+    phone: varchar("phone", { length: 30 }),
+    gender: varchar("gender", { length: 10 }).$type<"male" | "female" | "other">(),
+    address: text("address"),
   },
   (t) => [
     fk("employees", t.company_id, companies.id, "cascade"),

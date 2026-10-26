@@ -4,22 +4,23 @@ import { create } from "zustand";
 import { setSessionUser } from "@/lib/api/client";
 import { run } from "@/lib/api/run";
 import type { Permission } from "@/lib/permissions";
-import type { LoginInput, SignupInput } from "@/lib/schemas/auth";
+import type { LoginInput } from "@/lib/schemas/auth";
 import { authService } from "@/lib/services/auth";
 import { settingsService } from "@/lib/services/settings";
 import { broadcast } from "@/lib/session/activity";
 import type { CompanyInput } from "@/lib/schemas/company";
 import { companiesService } from "@/lib/services/companies";
-import type { AuthResponse, Company, Id, SessionInfo, User } from "@/lib/types";
+import type { AppPage, AuthResponse, Company, Id, SessionInfo, User } from "@/lib/types";
 
 interface AuthState {
   user: User | null;
-  company: Company | null; // the user's current company (null until a new superadmin creates one)
+  company: Company | null; // the user's current company (null until they create one)
+  // Pages this user can open (Page Master) — arrives with login / me, loaded once
+  pages: AppPage[];
   checked: boolean; // has the startup /auth/me check finished?
   session: SessionInfo;
   loadMe: () => Promise<void>;
   login: (input: LoginInput) => Promise<boolean>;
-  signup: (input: SignupInput) => Promise<boolean>;
   logout: (opts?: { fromOtherTab?: boolean }) => Promise<void>;
   sessionEnded: () => void;
   previewFontSize: (size: number) => void;
@@ -32,12 +33,13 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => {
   const signedIn = (data: AuthResponse) => {
     setSessionUser(data.user.id);
-    set({ user: data.user, company: data.company, session: data.session, checked: true });
+    set({ user: data.user, company: data.company, pages: data.pages ?? [], session: data.session, checked: true });
   };
 
   return {
     user: null,
     company: null,
+    pages: [],
     checked: false,
     session: { accessTtlMin: 5, idleMin: 20 },
 
@@ -53,17 +55,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return result.ok;
     },
 
-    async signup(input) {
-      const result = await run(() => authService.signup(input), { error: "Signup failed" });
-      if (result.ok) signedIn(result.data);
-      return result.ok;
-    },
-
     // Ends the session on the server and tells other open tabs to log out too.
     // fromOtherTab: another tab already made the server call.
     async logout({ fromOtherTab = false } = {}) {
       setSessionUser(null);
-      set({ user: null, company: null });
+      set({ user: null, company: null, pages: [] });
       if (fromOtherTab) return;
       broadcast({ type: "logout" });
       await authService.logout().catch(() => {}); // already logged out / offline — local state is cleared anyway
@@ -72,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     // The session could not be refreshed / was revoked — drop the user locally
     sessionEnded() {
       setSessionUser(null);
-      set({ user: null, company: null });
+      set({ user: null, company: null, pages: [] });
     },
 
     // Live preview while dragging the font slider (not saved yet)

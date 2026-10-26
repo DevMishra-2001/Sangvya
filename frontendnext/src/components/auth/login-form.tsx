@@ -51,12 +51,7 @@ export function LoginForm() {
           <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
             {isSubmitting && <Spinner />} {isSubmitting ? "Logging in…" : "Log in"}
           </Button>
-          <p className="text-sm text-muted-foreground">
-            No account?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
+          <p className="text-center text-sm text-muted-foreground">No account? Ask your Sangvya administrator for a login.</p>
         </CardFooter>
       </form>
     </Card>

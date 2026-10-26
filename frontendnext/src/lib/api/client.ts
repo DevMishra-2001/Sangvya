@@ -49,7 +49,7 @@ api.interceptors.request.use((config) => {
 });
 
 // Endpoints that never trigger a refresh-and-retry
-const NO_RETRY = /\/auth\/(login|signup|refresh|logout|forgot-password|verify-otp|reset-password)$/;
+const NO_RETRY = /\/auth\/(login|refresh|logout|forgot-password|verify-otp|reset-password)$/;
 const REFRESHABLE = new Set(["TOKEN_EXPIRED", "NO_TOKEN"]);
 
 api.interceptors.response.use(

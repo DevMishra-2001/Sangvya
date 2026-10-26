@@ -7,6 +7,7 @@ import { FONT_SIZE, applyFontSize } from "@/lib/appearance";
 import { ONBOARDING_ROUTE, canVisit } from "@/lib/permissions";
 import { useAuthStore } from "@/stores/auth-store";
 import { Header } from "./header";
+import { pageUrls } from "./nav-items";
 import { Sidebar } from "./sidebar";
 
 // Sidebar + header around every logged-in page. proxy.ts already made sure the
@@ -31,14 +32,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (checked && !user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [checked, user, router, pathname]);
 
-  // No company yet → set one up first (proxy.ts does the same on page loads)
-  const needsCompany = Boolean(user && !user.company_id);
+  // No company yet → set one up first (proxy.ts does the same on page loads).
+  // A Super Admin can work on the platform pages without one.
+  const needsCompany = Boolean(user && !user.company_id && !user.is_superadmin);
   useEffect(() => {
     if (needsCompany) router.replace(ONBOARDING_ROUTE);
   }, [needsCompany, router]);
 
-  // Second line of defense behind proxy.ts (e.g. role changed since the token was issued)
-  const allowed = !user || canVisit(user.role, pathname);
+  // Second line of defense behind proxy.ts (e.g. access changed since the token was issued)
+  const pages = useAuthStore((s) => s.pages);
+  const allowed = !user || !user.company_id || canVisit(pageUrls(pages), pathname);
   useEffect(() => {
     if (!allowed) router.replace(`/forbidden?from=${encodeURIComponent(pathname)}`);
   }, [allowed, router, pathname]);

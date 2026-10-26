@@ -24,8 +24,6 @@ export const createCompanySchema = z.object({
   state: optionalText(),
   country: optionalText(),
   postalCode: optionalText(),
-  // The owner's own job title — one of the default designations, or a new one
-  designation: requiredText("Your designation is required", 100),
 });
 
 export const companyIdParams = z.object({ id: idField() });

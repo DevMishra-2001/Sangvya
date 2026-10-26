@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, getTableColumns, gte, lte, ne } from "drizzle-orm";
 import { db } from "../../config/db.js";
-import { can } from "../../config/permissions.js";
+import { can } from "../../utils/can.js";
 import { employees, leaveRequests, users } from "../../db/schema.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { isSunday } from "../../utils/workday.js";
@@ -78,7 +78,7 @@ async function leaveRuleError(companyId: number, employeeId: number, fromDate: s
 
 // Everyone can list — without "leave.viewAll" only their own leaves
 export async function listLeaves(companyId: number, user: Express.AuthUser) {
-  if (can(user.role, "leave.viewAll")) {
+  if (can(user, "leave.viewAll")) {
     return { leaves: await leavesWhere(eq(leaveRequests.company_id, companyId)) };
   }
   if (!user.employeeId) return { leaves: [] };
@@ -92,7 +92,7 @@ export async function applyLeave(companyId: number, user: Express.AuthUser, inpu
   const employeeId = input.employeeId || user.employeeId;
 
   if (!employeeId) throw new BadRequestError("Your login isn't linked to an employee record — ask HR to link it");
-  if (employeeId !== user.employeeId && !can(user.role, "leave.applyForOthers")) {
+  if (employeeId !== user.employeeId && !can(user, "leave.applyForOthers")) {
     throw new ForbiddenError("You can only apply leave for yourself");
   }
   if (new Date(toDate) < new Date(fromDate)) throw new BadRequestError("toDate can't be before fromDate");
@@ -123,7 +123,7 @@ export async function decideLeave(companyId: number, user: Express.AuthUser, id:
 
   const employee = await findEmployeeById(companyId, existing.employee_id);
   const isTheirManager = Boolean(user.employeeId) && employee?.manager_id === user.employeeId;
-  const canStepIn = !employee?.manager_id && can(user.role, "leave.approveUnassigned");
+  const canStepIn = !employee?.manager_id && can(user, "leave.approveUnassigned");
   if (!isTheirManager && !canStepIn) {
     throw new ForbiddenError(
       employee?.manager_id ? "Only this employee's reporting manager can approve or reject their leave" : "You can't approve this leave",

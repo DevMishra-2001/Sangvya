@@ -10,7 +10,6 @@ import { PersonAvatar } from "@/components/common/person-avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ROLE_LABELS } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
@@ -59,7 +58,7 @@ export function ProfileButton() {
           <PersonAvatar name={name} photoUrl={mine?.photoUrl} />
           <span className="hidden max-w-36 flex-col items-start leading-tight md:flex">
             <span className="truncate text-sm font-semibold">{name}</span>
-            <span className="truncate text-2xs font-normal text-muted-foreground">{mine?.designation ?? ROLE_LABELS[user.role]}</span>
+            <span className="truncate text-2xs font-normal text-muted-foreground">{user.designation?.name ?? mine?.designation ?? "No designation"}</span>
           </span>
           <ChevronDown className="hidden text-muted-foreground md:block" />
         </Button>
@@ -85,11 +84,10 @@ export function ProfileButton() {
           <div className="mb-1 text-2xs font-semibold tracking-wider text-muted-foreground uppercase">Details</div>
           <dl className="divide-y">
             <Detail label="Email" value={user.email} />
-            <Detail label="Role" value={ROLE_LABELS[user.role]} />
+            <Detail label="Designation" value={user.designation?.name} />
             {mine && (
               <>
                 <Detail label="Employee code" value={mine.code} />
-                <Detail label="Designation" value={mine.designation} />
                 <Detail label="Department" value={mine.department} />
                 <Detail label="Reports to" value={mine.manager?.name} />
                 <Detail label="Joined" value={mine.joinDate ? fmtDate(mine.joinDate) : null} />

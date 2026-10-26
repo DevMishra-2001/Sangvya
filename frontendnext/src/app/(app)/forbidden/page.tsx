@@ -12,7 +12,7 @@ export default function ForbiddenPage() {
     <EmptyState
       icon={ShieldX}
       title="You don't have access to this page"
-      description="Your role doesn't include this section. Ask your HR or company admin if you think you should."
+      description="Your designation doesn't include this page. Ask your HR or company admin if you think you should."
       action={
         <Button asChild>
           <Link href="/">Back to dashboard</Link>

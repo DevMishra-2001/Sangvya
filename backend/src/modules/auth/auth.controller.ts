@@ -1,14 +1,8 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { REFRESH_COOKIE } from "../../utils/authCookie.js";
-import { HttpStatus } from "../../utils/httpStatus.js";
 import { currentUser } from "../../utils/requestContext.js";
-import { login, logout, me, refresh, signup } from "./auth.service.js";
+import { login, logout, me, refresh } from "./auth.service.js";
 import { requestOtp, resetPassword, verifyOtp } from "./passwordReset.service.js";
-
-// POST /api/auth/signup
-export const signupHandler = asyncHandler(async (req, res) => {
-  res.status(HttpStatus.CREATED).json(await signup(req, res, req.body));
-});
 
 // POST /api/auth/login
 export const loginHandler = asyncHandler(async (req, res) => {

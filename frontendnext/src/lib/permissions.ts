@@ -1,86 +1,58 @@
-// Who can do what. Mirrors PERMISSIONS in backend/src/config/permissions.ts —
-// keep the two in sync. The backend still enforces every rule on every API
-// call; this copy only decides which pages/buttons a role gets to see, and lets
-// proxy.ts guard pages before they render (it only knows the role from the token).
+// Access in the app comes from the user's designation, decided by the backend:
+//   • pages      — from the Page Master, sent with login / GET /auth/me (and as URLs in the access token)
+//   • permissions — API actions, sent as user.permissions (check with useCan)
+// This file only holds the names and the URL matching; there are no rules here.
 
-export const ROLES = ["superadmin", "hr", "manager", "employee"] as const;
-export type Role = (typeof ROLES)[number];
-
-// Higher number = more authority. A user can only manage accounts below their level.
-export const ROLE_LEVEL: Record<Role, number> = { superadmin: 4, hr: 3, manager: 2, employee: 1 };
-
-const ALL: readonly Role[] = ROLES;
-
-export const PERMISSIONS = {
-  "companies.manage": ["superadmin"],
-  "users.manage": ["superadmin", "hr"],
-  "employees.view": ["superadmin", "hr", "manager"],
-  "employees.manage": ["superadmin", "hr"],
-  "attendance.view": ["superadmin", "hr", "manager"],
-  "attendance.mark": ["superadmin", "hr", "manager"],
-  "attendance.self": ALL,
-  "holidays.manage": ["superadmin", "hr"],
-  "leave.apply": ALL,
-  "leave.applyForOthers": ["superadmin", "hr"],
-  "leave.viewAll": ["superadmin", "hr", "manager"],
-  "leave.approve": ["superadmin", "hr", "manager"],
-  "leave.approveUnassigned": ["superadmin", "hr"],
-  "leavePolicy.manage": ["superadmin", "hr"],
-  "payroll.view": ["superadmin", "hr"],
-  "payroll.manage": ["superadmin", "hr"],
-  "recruitment.view": ["superadmin", "hr", "manager"],
-  "recruitment.candidates": ["superadmin", "hr", "manager"],
-  "recruitment.manage": ["superadmin", "hr"],
-  "performance.view": ["superadmin", "hr", "manager"],
-  "performance.review": ["superadmin", "hr", "manager"],
-  "performance.manageCycles": ["superadmin", "hr"],
-  "tasks.assign": ["superadmin", "hr", "manager"],
-  "tasks.assignAnyone": ["superadmin", "hr"],
-  "announcements.manage": ["superadmin", "hr", "manager"],
-  "billing.view": ["superadmin"],
-  "billing.manage": ["superadmin"],
-} satisfies Record<string, readonly Role[]>;
-
-export type Permission = keyof typeof PERMISSIONS;
-
-export function roleCan(role: string | undefined, permission: Permission): boolean {
-  return Boolean(role) && (PERMISSIONS[permission] as readonly string[]).includes(role as string);
-}
-
-// ---- Pages ----
+// Mirrors PERMISSION_KEYS in backend/src/config/permissions.ts
+export type Permission =
+  | "companies.manage"
+  | "users.manage"
+  | "employees.view"
+  | "employees.manage"
+  | "designations.manage"
+  | "pages.manage"
+  | "admins.manage"
+  | "attendance.view"
+  | "attendance.mark"
+  | "attendance.self"
+  | "holidays.manage"
+  | "leave.apply"
+  | "leave.applyForOthers"
+  | "leave.viewAll"
+  | "leave.approve"
+  | "leave.approveUnassigned"
+  | "leavePolicy.manage"
+  | "payroll.view"
+  | "payroll.manage"
+  | "recruitment.view"
+  | "recruitment.candidates"
+  | "recruitment.manage"
+  | "performance.view"
+  | "performance.review"
+  | "performance.manageCycles"
+  | "tasks.assign"
+  | "tasks.assignAnyone"
+  | "announcements.manage"
+  | "billing.view"
+  | "billing.manage";
 
 // Logged-out pages. A logged-in user visiting one is sent to the dashboard.
-export const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password"];
+export const PUBLIC_ROUTES = ["/login", "/forgot-password"];
 
-// Pages that need a permission (prefix match). Pages not listed here only need a login.
-export const ROUTE_PERMISSIONS: { prefix: string; permission: Permission }[] = [
-  { prefix: "/companies", permission: "companies.manage" },
-  { prefix: "/designations", permission: "employees.manage" },
-  { prefix: "/employees", permission: "employees.view" },
-  { prefix: "/attendance", permission: "attendance.view" },
-  { prefix: "/my-attendance", permission: "attendance.self" },
-  { prefix: "/leave-policy", permission: "leavePolicy.manage" },
-  { prefix: "/leave", permission: "leave.apply" },
-  { prefix: "/payroll", permission: "payroll.view" },
-  { prefix: "/recruitment", permission: "recruitment.view" },
-  { prefix: "/performance", permission: "performance.view" },
-  { prefix: "/holidays", permission: "holidays.manage" },
-  { prefix: "/billing", permission: "billing.view" },
-  { prefix: "/users", permission: "users.manage" },
-];
-
-// Where a logged-in superadmin without a company sets one up (no sidebar)
+// Where a logged-in user without a company sets one up (no sidebar)
 export const ONBOARDING_ROUTE = "/onboarding";
+
+// Always open to a logged-in user, whatever the Page Master says. (Onboarding is
+// only reachable without a company — proxy.ts sends everyone else to the dashboard.)
+const ALWAYS_OPEN = ["/", "/forbidden", ONBOARDING_ROUTE];
 
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 export const isPublicRoute = (pathname: string) => PUBLIC_ROUTES.some((p) => matches(pathname, p));
 
-export function permissionForRoute(pathname: string): Permission | null {
-  return ROUTE_PERMISSIONS.find((r) => matches(pathname, r.prefix))?.permission ?? null;
-}
-
-export function canVisit(role: string | undefined, pathname: string): boolean {
-  const permission = permissionForRoute(pathname);
-  return !permission || roleCan(role, permission);
+// Can someone with these page URLs open `pathname`? A page also covers its
+// sub-routes (/payroll → /payroll/123), except "/" which only means the dashboard.
+export function canVisit(urls: readonly string[] | undefined, pathname: string): boolean {
+  if (ALWAYS_OPEN.includes(pathname)) return true;
+  return (urls ?? []).some((url) => (url === "/" ? pathname === "/" : matches(pathname, url)));
 }

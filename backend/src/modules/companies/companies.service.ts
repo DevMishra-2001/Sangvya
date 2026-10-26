@@ -1,5 +1,5 @@
 // Companies a superadmin owns. A new superadmin has none until they create one;
-// creating a company sets it up fully (trial, designations, their own employee
+// creating a company sets it up fully (trial, the owner as its Admin employee
 // record) and makes it their current company. They can own several and switch.
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
@@ -8,7 +8,8 @@ import { companies, companyMembers, employees, users } from "../../db/schema.js"
 import { NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { createTrialSubscription, syncSubscriptionQuantity } from "../billing/billing.service.js";
-import { findOrCreateDesignation, seedDefaultDesignations } from "../designations/designations.service.js";
+import { SUPERADMIN_ROLE } from "../../config/permissions.js";
+import { designationByKey } from "../pages/access.service.js";
 import type { CreateCompanyInput } from "./companies.schema.js";
 
 // Optional form text: blank → null
@@ -18,6 +19,7 @@ interface Owner {
   id: number;
   name: string;
   email: string;
+  role: string;
 }
 
 export async function findCompany(id: number) {
@@ -49,12 +51,11 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
     // Free trial — billing starts once they subscribe from the Billing page
     await createTrialSubscription(company.id, env.TRIAL_DAYS, tx);
 
-    // Starter job titles, then the owner's own (from the list, or added if new)
-    const seeded = await seedDefaultDesignations(tx, company.id);
-    const wanted = input.designation.trim().toLowerCase();
-    const designation = seeded.find((d) => d.name.toLowerCase() === wanted) ?? (await findOrCreateDesignation(company.id, input.designation, tx));
+    // The owner is the company's Admin (the platform Super Admin keeps Super Admin)
+    const designation = await designationByKey(owner.role === SUPERADMIN_ROLE ? "superadmin" : "admin");
+    if (!designation) throw new Error("Designations are missing — run the database migrations");
 
-    // The superadmin is an employee of their company too (attendance, leave, tickets…)
+    // The owner is an employee of their company too (attendance, leave, tickets…)
     const [employee] = await tx
       .insert(employees)
       .values({ company_id: company.id, name: owner.name, email: owner.email, designation_id: designation.id, join_date: localDate() })

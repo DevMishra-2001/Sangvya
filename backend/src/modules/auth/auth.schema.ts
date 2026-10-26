@@ -1,22 +1,8 @@
 import { z } from "zod";
 import { strongPassword } from "../../utils/passwordPolicy.js";
-import { optionalText, requiredText } from "../../utils/zod.js";
 
 const email = z.string({ required_error: "Valid email is required" }).trim().email("Valid email is required");
 
-// "" counts as not given
-const optionalName = (max: number) =>
-  z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().max(max).optional());
-
-export const signupSchema = z.object({
-  // Optional: without it the company is created afterwards (POST /api/companies)
-  companyName: optionalName(200),
-  industry: optionalText(),
-  designation: optionalName(100),
-  name: requiredText("Your name is required"),
-  email,
-  password: strongPassword,
-});
 
 export const loginSchema = z.object({
   email,
@@ -35,5 +21,4 @@ export const resetPasswordSchema = z.object({
   newPassword: strongPassword,
 });
 
-export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

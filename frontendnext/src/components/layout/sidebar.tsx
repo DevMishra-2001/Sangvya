@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useAuthStore, useCan } from "@/stores/auth-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { useSidebarStore } from "@/stores/sidebar-store";
-import { isActive, isGroup, visibleNav, type NavGroup, type NavLink } from "./nav-items";
+import { buildNav, isActive, isGroup, type NavGroup, type NavLink } from "./nav-items";
 
 // collapsed = desktop icon rail: icons only, names in tooltips
 interface NavProps {
@@ -144,13 +144,14 @@ function Group({ group, onNavigate }: { group: NavGroup; onNavigate?: () => void
 
 // The menu itself — used by the desktop sidebar (open or icon rail) and the mobile sheet
 export function SidebarNav({ collapsed, onNavigate }: NavProps) {
-  const can = useCan();
+  const pages = useAuthStore((s) => s.pages);
+  const nav = buildNav(pages);
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <Brand collapsed={collapsed} />
       {!collapsed && <div className="px-5 pt-5 pb-1.5 text-2xs font-semibold tracking-[0.14em] text-sidebar-foreground/45 uppercase">Menu</div>}
       <nav className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto pb-4", collapsed ? "items-stretch px-2 pt-4" : "px-3")} aria-label="Main">
-        {visibleNav(can).map((item) =>
+        {nav.map((item) =>
           isGroup(item) ? (
             collapsed ? (
               <RailGroup key={item.key} group={item} />

@@ -1,7 +1,7 @@
 import { and, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
-import { can } from "../../config/permissions.js";
+import { can } from "../../utils/can.js";
 import { employees, tasks, users } from "../../db/schema.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
@@ -93,7 +93,7 @@ function buildStats(rows: TaskRow[], today: string) {
 // a manager -> their own team (employees whose "Reports to" is them).
 async function assignableEmployees(companyId: number, user: Express.AuthUser) {
   let list: Awaited<ReturnType<typeof findAllEmployees>> = [];
-  if (can(user.role, "tasks.assignAnyone")) list = await findAllEmployees(companyId);
+  if (can(user, "tasks.assignAnyone")) list = await findAllEmployees(companyId);
   else if (user.employeeId) list = await findReports(companyId, user.employeeId);
   return list.filter((e) => e.id !== user.employeeId); // never yourself
 }
@@ -101,7 +101,7 @@ async function assignableEmployees(companyId: number, user: Express.AuthUser) {
 // Approve/reopen/delete: the assigner, or HR/superadmin — but never the assignee.
 function canReview(user: Express.AuthUser, task: TaskRow) {
   if (user.employeeId && task.assigned_to === user.employeeId) return false;
-  return task.assigned_by === user.id || can(user.role, "tasks.assignAnyone");
+  return task.assigned_by === user.id || can(user, "tasks.assignAnyone");
 }
 
 // ---- Endpoints ----
@@ -120,7 +120,7 @@ export async function myTasks(companyId: number, user: Express.AuthUser) {
 
 // Tasks I handed out (HR/superadmin see the whole company)
 export async function assignedTasks(companyId: number, user: Express.AuthUser) {
-  const scope = can(user.role, "tasks.assignAnyone")
+  const scope = can(user, "tasks.assignAnyone")
     ? eq(tasks.company_id, companyId)
     : and(eq(tasks.company_id, companyId), eq(tasks.assigned_by, user.id));
   const rows = await selectTasks(scope).orderBy(sql`(${tasks.status} = 'approved')`, nullsLast, newestFirst);

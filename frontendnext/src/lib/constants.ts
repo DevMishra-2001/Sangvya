@@ -68,10 +68,3 @@ export const CANDIDATE_STAGES: { key: CandidateStage; label: string }[] = [
 
 export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-// ---- Roles ----
-export const ROLE_LABELS: Record<string, string> = {
-  superadmin: "Super Admin",
-  hr: "HR",
-  manager: "Manager",
-  employee: "Employee",
-};

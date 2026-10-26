@@ -7,6 +7,7 @@ import { Camera, CameraOff, LocateFixed, LogIn, LogOut, MapPinOff, RefreshCw } f
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormField } from "@/components/common/form-field";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -289,8 +290,7 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
           </ToggleGroup>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="punch-remarks">Remarks</Label>
+        <FormField label="Remarks" htmlFor="punch-remarks">
           <Textarea
             id="punch-remarks"
             rows={2}
@@ -299,7 +299,7 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
             onChange={(e) => setRemarks(e.target.value)}
             placeholder={mode === "client_site" ? "Client name / site" : "Optional"}
           />
-        </div>
+        </FormField>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

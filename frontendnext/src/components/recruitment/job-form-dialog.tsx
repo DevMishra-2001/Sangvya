@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { jobSchema, type JobForm, type JobInput } from "@/lib/schemas/recruitment";
 import { useRecruitmentStore } from "@/stores/recruitment-store";
+import { FORM_DIALOG, FormGrid } from "@/components/common/form-layout";
 
 export function JobFormDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const addJob = useRecruitmentStore((s) => s.addJob);
@@ -18,7 +19,10 @@ export function JobFormDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<JobForm, unknown, JobInput>({ resolver: zodResolver(jobSchema), defaultValues: { title: "", department: "", location: "", description: "" } });
+  } = useForm<JobForm, unknown, JobInput>({
+    resolver: zodResolver(jobSchema),
+    defaultValues: { title: "", department: "", location: "", description: "" },
+  });
 
   useEffect(() => {
     if (open) reset();
@@ -30,23 +34,25 @@ export function JobFormDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>New job posting</DialogTitle>
         </DialogHeader>
-        <form id="job-form" onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-          <FormField label="Job title" htmlFor="job-title" error={errors.title} className="sm:col-span-2">
-            <Input id="job-title" aria-invalid={Boolean(errors.title)} {...register("title")} />
-          </FormField>
-          <FormField label="Department" htmlFor="job-dept" error={errors.department}>
-            <Input id="job-dept" {...register("department")} />
-          </FormField>
-          <FormField label="Location" htmlFor="job-loc" error={errors.location}>
-            <Input id="job-loc" {...register("location")} />
-          </FormField>
-          <FormField label="Description" htmlFor="job-desc" className="sm:col-span-2">
-            <Textarea id="job-desc" rows={4} {...register("description")} />
-          </FormField>
+        <form id="job-form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
+          <FormGrid density="dialog">
+            <FormField label="Job title" htmlFor="job-title" error={errors.title}>
+              <Input id="job-title" aria-invalid={Boolean(errors.title)} {...register("title")} />
+            </FormField>
+            <FormField label="Department" htmlFor="job-dept" error={errors.department}>
+              <Input id="job-dept" {...register("department")} />
+            </FormField>
+            <FormField label="Location" htmlFor="job-loc" error={errors.location}>
+              <Input id="job-loc" {...register("location")} />
+            </FormField>
+            <FormField span="full" label="Description" htmlFor="job-desc">
+              <Textarea id="job-desc" rows={4} {...register("description")} />
+            </FormField>
+          </FormGrid>
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

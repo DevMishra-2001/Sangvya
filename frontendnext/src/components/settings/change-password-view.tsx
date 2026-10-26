@@ -1,12 +1,14 @@
 "use client";
 
+import { KeyRound } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/common/form-field";
+import { FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
+import { PasswordInput } from "@/components/common/password-input";
 import { PageHeader } from "@/components/common/page-header";
 import { PasswordChecklist } from "@/components/common/password-checklist";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { newPasswordSchema, type NewPasswordInput } from "@/lib/schemas/auth";
 import { useAuthStore, useUser } from "@/stores/auth-store";
@@ -30,29 +32,29 @@ export function ChangePasswordView() {
   }
 
   return (
-    <div>
-      <PageHeader title="Change Password" description="Other devices you're logged in on will be signed out." />
-      <Card className="max-w-lg">
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Change Password" description="Other devices you're logged in on will be signed out." className="mb-0" />
+      <FormCard title="Change Password" crumbs={["Master"]} icon={KeyRound}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <CardContent className="flex flex-col gap-4">
-            <FormField label="Account" htmlFor="cp-account">
-              <Input id="cp-account" value={`${user.name} · ${user.email}`} readOnly disabled />
+          <FormGrid>
+            <FormField label="Employee" htmlFor="cp-account">
+              <Input id="cp-account" value={user.name} title={user.email} readOnly disabled />
             </FormField>
             <FormField label="New password" htmlFor="cp-new" error={errors.newPassword}>
-              <Input id="cp-new" type="password" autoComplete="new-password" aria-invalid={Boolean(errors.newPassword)} {...register("newPassword")} />
+              <PasswordInput id="cp-new" autoComplete="new-password" aria-invalid={Boolean(errors.newPassword)} {...register("newPassword")} />
             </FormField>
-            <PasswordChecklist password={newPassword} />
             <FormField label="Confirm password" htmlFor="cp-confirm" error={errors.confirmPassword}>
-              <Input id="cp-confirm" type="password" autoComplete="new-password" aria-invalid={Boolean(errors.confirmPassword)} {...register("confirmPassword")} />
+              <PasswordInput id="cp-confirm" autoComplete="new-password" aria-invalid={Boolean(errors.confirmPassword)} {...register("confirmPassword")} />
             </FormField>
-          </CardContent>
-          <CardFooter className="mt-6">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Updating…" : "Update password"}
-            </Button>
-          </CardFooter>
+            <FormActions>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Updating…" : "Update"}
+              </Button>
+            </FormActions>
+            <PasswordChecklist password={newPassword} className="col-span-12 xl:col-span-8" />
+          </FormGrid>
         </form>
-      </Card>
+      </FormCard>
     </div>
   );
 }

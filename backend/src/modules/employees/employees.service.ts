@@ -5,19 +5,25 @@ import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
 import { designations, employees, users } from "../../db/schema.js";
-import { BadRequestError, NotFoundError } from "../../utils/httpErrors.js";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { syncSubscriptionQuantity } from "../billing/billing.service.js";
-import { assertDesignationInCompany, findOrCreateDesignation } from "../designations/designations.service.js";
+import { assertAssignable, findDesignationByName } from "../designations/designations.service.js";
 import type { EmployeeInput } from "./employees.schema.js";
 
 // Employee rows as the API returns them: every column + the designation's name
-const employeeColumns = { ...getTableColumns(employees), designation: designations.name };
+const employeeColumns = {
+  ...getTableColumns(employees),
+  designation: designations.name,
+  // Their login (if any): exists / blocked
+  has_login: sql<boolean>`exists(select 1 from company_members m where m.employee_id = ${employees.id})`,
+  login_blocked: sql<boolean>`coalesce((select u.is_blocked from company_members m join users u on u.id = m.user_id where m.employee_id = ${employees.id} limit 1), false)`,
+};
 
 function selectEmployees() {
   return db.select(employeeColumns).from(employees).leftJoin(designations, eq(designations.id, employees.designation_id));
 }
 
-export type Employee = typeof employees.$inferSelect & { designation: string | null };
+export type Employee = typeof employees.$inferSelect & { designation: string | null; has_login: boolean; login_blocked: boolean };
 
 // ---- Lookups shared with other modules ----
 
@@ -82,21 +88,24 @@ async function assertValidManager(companyId: number, managerId: number | null | 
   if (!(await findEmployeeById(companyId, managerId))) throw new BadRequestError("Manager not found");
 }
 
-// The designation to store: an id from the list, or (older clients) a typed name
-async function resolveDesignation(companyId: number, input: EmployeeInput): Promise<number | null> {
-  if (input.designationId) {
-    await assertDesignationInCompany(companyId, input.designationId);
-    return input.designationId;
+// The designation to store: an id from the list, or (older clients) a name.
+// The actor can't give a designation above their own (see assertAssignable).
+async function resolveDesignation(actor: Express.AuthUser, input: EmployeeInput, currentId: number | null): Promise<number | null> {
+  let id = input.designationId ?? null;
+  if (!id && input.designation) {
+    const byName = await findDesignationByName(input.designation);
+    if (!byName) throw new BadRequestError(`Unknown designation "${input.designation}"`);
+    id = byName.id;
   }
-  if (input.designation) return (await findOrCreateDesignation(companyId, input.designation)).id;
-  return null;
+  if (id) await assertAssignable(actor, id, currentId);
+  return id;
 }
 
 // Form values → columns. Missing optional fields are stored as NULL.
-async function toColumns(companyId: number, input: EmployeeInput) {
+async function toColumns(actor: Express.AuthUser, input: EmployeeInput, currentDesignationId: number | null = null) {
   return {
     name: input.name,
-    designation_id: await resolveDesignation(companyId, input),
+    designation_id: await resolveDesignation(actor, input, currentDesignationId),
     department: input.department ?? null,
     email: input.email ?? null,
     join_date: input.joinDate ?? null,
@@ -106,6 +115,9 @@ async function toColumns(companyId: number, input: EmployeeInput) {
     ol_quota: input.olQuota == null ? null : String(input.olQuota),
     employee_code: input.employeeCode || null,
     photo_url: input.photoUrl ?? null,
+    phone: input.phone?.trim() || null,
+    gender: input.gender ?? null,
+    address: input.address?.trim() || null,
   };
 }
 
@@ -117,18 +129,27 @@ export async function listEmployees(companyId: number) {
   return { employees: await findAllEmployees(companyId) };
 }
 
-export async function createEmployee(companyId: number, input: EmployeeInput) {
+export async function createEmployee(companyId: number, actor: Express.AuthUser, input: EmployeeInput) {
   await assertValidManager(companyId, input.managerId);
-  return { employee: await insertEmployee(companyId, await toColumns(companyId, input)) };
+  return { employee: await insertEmployee(companyId, await toColumns(actor, input)) };
 }
 
-export async function updateEmployee(companyId: number, id: number, input: EmployeeInput) {
-  await getEmployeeById(companyId, id);
+export async function updateEmployee(companyId: number, actor: Express.AuthUser, id: number, input: EmployeeInput) {
+  const existing = await getEmployeeById(companyId, id);
   await assertValidManager(companyId, input.managerId, id);
+  // Changing your own designation could lock you out — someone above you does it
+  if (id === actor.employeeId && !actor.isSuperadmin && (input.designationId ?? null) !== existing.designation_id) {
+    throw new BadRequestError("You can't change your own designation");
+  }
+  // Nobody edits someone ranked above them (their designation would be changed)
+  if (!actor.isSuperadmin && existing.designation_id) {
+    const [current] = await db.select({ level: designations.level }).from(designations).where(eq(designations.id, existing.designation_id));
+    if (current && current.level > actor.level) throw new ForbiddenError("You can't edit someone with a higher designation");
+  }
 
   await db
     .update(employees)
-    .set(await toColumns(companyId, input))
+    .set(await toColumns(actor, input, existing.designation_id))
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   return { employee: await getEmployeeById(companyId, id) };
 }

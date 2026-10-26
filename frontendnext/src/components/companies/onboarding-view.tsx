@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAuthStore } from "@/stores/auth-store";
 import { CompanyForm } from "./company-form";
 
-// First step after signup (proxy.ts sends company-less superadmins here)
+// An Admin's first login: register their company (proxy.ts sends logins without a company here)
 export function OnboardingView() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);

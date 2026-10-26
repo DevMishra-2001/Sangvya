@@ -1,11 +1,10 @@
 import { api } from "@/lib/api/client";
 import type { AuthResponse } from "@/lib/types";
-import type { LoginInput, SignupInput } from "@/lib/schemas/auth";
+import type { LoginInput } from "@/lib/schemas/auth";
 
 export const authService = {
   me: async () => (await api.get<AuthResponse>("/auth/me")).data,
   login: async (input: LoginInput) => (await api.post<AuthResponse>("/auth/login", input)).data,
-  signup: async (input: SignupInput) => (await api.post<AuthResponse>("/auth/signup", input)).data,
   logout: async () => {
     await api.post("/auth/logout");
   },

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "@/lib/api/client";
 import { isoDate } from "@/lib/format";
@@ -11,6 +10,7 @@ import type { AttendanceDayResponse, PunchGeo } from "@/lib/types";
 import { LOCATION_LABELS } from "@/lib/constants";
 import { PunchProof } from "./punch-proof";
 import { DatePicker } from "@/components/common/date-picker";
+import { FormField } from "@/components/common/form-field";
 
 // "11:35:36"
 const clock = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("en-GB", { hour12: false }) : "00:00:00");
@@ -95,10 +95,9 @@ export function PunchDetailsDialog({ open, onOpenChange }: { open: boolean; onOp
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="pd-date">Date</Label>
-          <DatePicker id="pd-date" value={date} onChange={setDate} max={isoDate(new Date())} className="w-48" />
-        </div>
+        <FormField label="Date" htmlFor="pd-date" className="w-48">
+          <DatePicker id="pd-date" value={date} onChange={setDate} max={isoDate(new Date())} />
+        </FormField>
 
         {error ? (
           <p className="text-sm text-destructive">{error}</p>

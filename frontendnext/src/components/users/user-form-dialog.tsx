@@ -8,26 +8,29 @@ import { PasswordChecklist } from "@/components/common/password-checklist";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { Role } from "@/lib/permissions";
 import { userSchema, type UserForm, type UserPayload } from "@/lib/schemas/user";
 import type { Employee } from "@/lib/types";
 import { useUsersStore } from "@/stores/users-store";
-import { FormSelect, SelectField } from "@/components/common/select-field";
-import { ROLE_LABELS } from "@/lib/constants";
+import { SelectField } from "@/components/common/select-field";
+import { FORM_DIALOG, FormGrid } from "@/components/common/form-layout";
+import { PasswordInput } from "@/components/common/password-input";
 
 export function UserFormDialog({
   open,
   onOpenChange,
-  roles,
   employees,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  roles: Role[];
   employees: Employee[]; // employees without a login yet
 }) {
   const add = useUsersStore((s) => s.add);
-  const defaults: UserForm = { employeeId: "", name: "", email: "", password: "", role: roles[roles.length - 1] ?? "employee" };
+  const defaults: UserForm = {
+    employeeId: "",
+    name: "",
+    email: "",
+    password: "",
+  };
   const {
     register,
     handleSubmit,
@@ -36,7 +39,10 @@ export function UserFormDialog({
     getValues,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<UserForm, unknown, UserPayload>({ resolver: zodResolver(userSchema), defaultValues: defaults });
+  } = useForm<UserForm, unknown, UserPayload>({
+    resolver: zodResolver(userSchema),
+    defaultValues: defaults,
+  });
 
   const password = useWatch({ control, name: "password" });
 
@@ -61,34 +67,33 @@ export function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>New user login</DialogTitle>
-          <DialogDescription>Link it to an employee so they can punch in, apply leave and see their tickets.</DialogDescription>
+          <DialogDescription>What they can open comes from the employee&apos;s designation (set it on the Employees page).</DialogDescription>
         </DialogHeader>
-        <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-          <FormField label="Linked employee" htmlFor="user-employee" error={errors.employeeId}>
-            <SelectField
-              id="user-employee"
-              value={employeeId ?? ""}
-              onValueChange={pickEmployee}
-              emptyLabel="— Not linked —"
-              options={employees.map((emp) => ({ value: String(emp.id), label: emp.name }))}
-            />
-          </FormField>
-          <FormField label="Name" htmlFor="user-name" error={errors.name}>
-            <Input id="user-name" aria-invalid={Boolean(errors.name)} {...register("name")} />
-          </FormField>
-          <FormField label="Email" htmlFor="user-email" error={errors.email}>
-            <Input id="user-email" type="email" aria-invalid={Boolean(errors.email)} {...register("email")} />
-          </FormField>
-          <FormField label="Password" htmlFor="user-password" error={errors.password}>
-            <Input id="user-password" type="password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} {...register("password")} />
-          </FormField>
-          <PasswordChecklist password={password} />
-          <FormField label="Role" htmlFor="user-role" error={errors.role}>
-            <FormSelect control={control} name="role" id="user-role" options={roles.map((r) => ({ value: r, label: ROLE_LABELS[r] ?? r }))} />
-          </FormField>
+        <form id="user-form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
+          <FormGrid density="dialog">
+            <FormField label="Employee" htmlFor="user-employee" error={errors.employeeId} required>
+              <SelectField
+                id="user-employee"
+                value={employeeId ?? ""}
+                onValueChange={pickEmployee}
+                placeholder="Choose an employee"
+                options={employees.map((emp) => ({ value: String(emp.id), label: `${emp.name}${emp.designation ? ` — ${emp.designation}` : ""}` }))}
+              />
+            </FormField>
+            <FormField label="Name" htmlFor="user-name" error={errors.name}>
+              <Input id="user-name" autoComplete="off" aria-invalid={Boolean(errors.name)} {...register("name")} />
+            </FormField>
+            <FormField label="Email" htmlFor="user-email" error={errors.email}>
+              <Input id="user-email" type="email" autoComplete="off" aria-invalid={Boolean(errors.email)} {...register("email")} />
+            </FormField>
+            <FormField label="Password" htmlFor="user-password" error={errors.password}>
+              <PasswordInput id="user-password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} {...register("password")} />
+            </FormField>
+            <PasswordChecklist password={password} className="col-span-12" />
+          </FormGrid>
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

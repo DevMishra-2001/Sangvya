@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/common/form-field";
+import { FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
+import { Scale } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { run } from "@/lib/api/run";
@@ -46,24 +47,24 @@ export function LeavePolicyView() {
     <div>
       <PageHeader title="Leave Policy" description="Leave quotas for the whole company. The leave year runs 1 April – 31 March." />
       {!loaded ? (
-        <Skeleton className="h-72 max-w-3xl rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
       ) : (
-        <Card className="max-w-3xl">
+        <FormCard title="Leave quotas" crumbs={["Master", "Leave Policy"]} icon={Scale}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            <CardContent className="grid gap-5 sm:grid-cols-2">
+            <FormGrid>
               {FIELDS.map((f) => (
                 <FormField key={f.key} label={f.label} htmlFor={f.key} error={errors[f.key]} description={f.hint}>
                   <Input id={f.key} type="number" min={0} max={f.max} step={0.5} {...register(f.key)} />
                 </FormField>
               ))}
-            </CardContent>
-            <CardFooter className="mt-6">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving…" : "Save policy"}
-              </Button>
-            </CardFooter>
+              <FormActions>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving…" : "Save policy"}
+                </Button>
+              </FormActions>
+            </FormGrid>
           </form>
-        </Card>
+        </FormCard>
       )}
     </div>
   );

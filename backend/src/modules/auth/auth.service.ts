@@ -1,18 +1,32 @@
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
-import { permissionsFor } from "../../config/permissions.js";
 import { clearAuthCookies } from "../../utils/authCookie.js";
-import { ConflictError, UnauthorizedError } from "../../utils/httpErrors.js";
-import { createCompanyForUser, findCompany } from "../companies/companies.service.js";
-import { findUserByEmail, findUserById, insertUser } from "../users/users.service.js";
-import type { LoginInput, SignupInput } from "./auth.schema.js";
+import { ForbiddenError, UnauthorizedError } from "../../utils/httpErrors.js";
+import { findCompany } from "../companies/companies.service.js";
+import { accessFor } from "../pages/access.service.js";
+import { findUserByEmail, findUserById } from "../users/users.service.js";
+import type { LoginInput } from "./auth.schema.js";
 import { endSession, refreshSession, SESSION_INFO, startSession } from "./session.service.js";
 
-// The user object every auth response returns — includes the permission list
-// so the frontend can show/hide features without its own copy of the rules.
-function publicUser<T extends { role: string; password_hash?: string }>(user: T) {
+interface AuthUserRow {
+  id: number;
+  company_id: number | null;
+  employee_id: number | null;
+  role: string;
+  password_hash?: string;
+}
+
+// What every auth response returns. `pages` is the user's menu and page access
+// (from the Page Master) — the frontend loads it once with this call and keeps it.
+async function authPayload<T extends AuthUserRow>(user: T) {
   const { password_hash: _hash, ...rest } = user;
-  return { ...rest, permissions: permissionsFor(user.role) };
+  const access = await accessFor(user);
+  return {
+    user: { ...rest, designation: access.designation, is_superadmin: access.isSuperadmin, permissions: access.permissions },
+    company: await currentCompany(user.company_id),
+    pages: access.pages,
+    session: SESSION_INFO,
+  };
 }
 
 // The user's current company, as shown in the app (null until they create one)
@@ -24,44 +38,20 @@ async function currentCompany(companyId: number | null) {
   return details;
 }
 
-// A new customer: creates their superadmin login. They then create their company
-// (POST /api/companies). Clients may send companyName to do both in one call.
-export async function signup(req: Request, res: Response, input: SignupInput) {
-  if (await findUserByEmail(input.email)) throw new ConflictError("An account with this email already exists");
-
-  const created = await insertUser({
-    companyId: null,
-    name: input.name,
-    email: input.email,
-    passwordHash: await bcrypt.hash(input.password, 10),
-    role: "superadmin",
-  });
-  if (input.companyName) {
-    await createCompanyForUser(created, {
-      companyName: input.companyName,
-      industry: input.industry ?? null,
-      designation: input.designation ?? "Founder",
-    });
-  }
-
-  const user = (await findUserById(created.id))!;
-  await startSession(res, req, user); // tokens go in HttpOnly cookies, never in the body
-  return { user: publicUser(user), company: await currentCompany(user.company_id), session: SESSION_INFO };
-}
-
 export async function login(req: Request, res: Response, { email, password }: LoginInput) {
   const user = await findUserByEmail(email);
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     throw new UnauthorizedError("Invalid email or password");
   }
+  if (user.is_blocked) throw new ForbiddenError("Your login has been blocked. Please contact your company admin.", "LOGIN_BLOCKED");
   await startSession(res, req, user);
-  return { user: publicUser(user), company: await currentCompany(user.company_id), session: SESSION_INFO };
+  return authPayload(user);
 }
 
 export async function me(userId: number) {
   const user = await findUserById(userId);
   if (!user) throw new UnauthorizedError("Account no longer exists", "SESSION_REVOKED");
-  return { user: publicUser(user), company: await currentCompany(user.company_id), session: SESSION_INFO };
+  return authPayload(user);
 }
 
 // Swap the refresh cookie for a fresh access token. The browser calls this

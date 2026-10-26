@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { reviewSchema, type ReviewForm } from "@/lib/schemas/performance";
 import type { Employee, Id, Review } from "@/lib/types";
 import { usePerformanceStore } from "@/stores/performance-store";
+import { FORM_DIALOG, FormGrid } from "@/components/common/form-layout";
 
 export interface ReviewTarget {
   employee: Employee;
@@ -41,31 +42,42 @@ export function ReviewFormDialog({ target, cycleId, onClose }: { target: ReviewT
 
   const save = (status: "draft" | "submitted") =>
     handleSubmit(async (values) => {
-      if (target && (await saveReview({ ...values, cycleId, employeeId: target.employee.id, status }))) onClose();
+      if (
+        target &&
+        (await saveReview({
+          ...values,
+          cycleId,
+          employeeId: target.employee.id,
+          status,
+        }))
+      )
+        onClose();
     });
 
   return (
     <Dialog open={Boolean(target)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>Review — {target?.employee.name}</DialogTitle>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()} noValidate>
-          <FormField label="Overall rating" error={errors.rating}>
-            <Controller name="rating" control={control} render={({ field }) => <StarRating value={field.value} onChange={field.onChange} />} />
-          </FormField>
-          <FormField label="Strengths" htmlFor="rv-strengths">
-            <Textarea id="rv-strengths" rows={2} {...register("strengths")} />
-          </FormField>
-          <FormField label="Areas for improvement" htmlFor="rv-improvements">
-            <Textarea id="rv-improvements" rows={2} {...register("improvements")} />
-          </FormField>
-          <FormField label="Goals for next cycle" htmlFor="rv-goals">
-            <Textarea id="rv-goals" rows={2} {...register("goalsNextCycle")} />
-          </FormField>
-          <FormField label="Manager comments" htmlFor="rv-comments">
-            <Textarea id="rv-comments" rows={2} {...register("managerComments")} />
-          </FormField>
+        <form onSubmit={(e) => e.preventDefault()} noValidate autoComplete="off">
+          <FormGrid density="dialog">
+            <FormField span="full" float={false} label="Overall rating" error={errors.rating}>
+              <Controller name="rating" control={control} render={({ field }) => <StarRating value={field.value} onChange={field.onChange} />} />
+            </FormField>
+            <FormField span="full" label="Strengths" htmlFor="rv-strengths">
+              <Textarea id="rv-strengths" rows={2} {...register("strengths")} />
+            </FormField>
+            <FormField span="full" label="Areas for improvement" htmlFor="rv-improvements">
+              <Textarea id="rv-improvements" rows={2} {...register("improvements")} />
+            </FormField>
+            <FormField span="full" label="Goals for next cycle" htmlFor="rv-goals">
+              <Textarea id="rv-goals" rows={2} {...register("goalsNextCycle")} />
+            </FormField>
+            <FormField span="full" label="Manager comments" htmlFor="rv-comments">
+              <Textarea id="rv-comments" rows={2} {...register("managerComments")} />
+            </FormField>
+          </FormGrid>
         </form>
         <DialogFooter>
           <Button variant="outline" onClick={save("draft")} disabled={isSubmitting}>

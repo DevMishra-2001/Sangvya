@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middlewares/errorHandler.js";
 import { apiLimiter } from "./middlewares/rateLimiter.js";
 
+import { adminRoutes } from "./modules/admins/admins.route.js";
 import { announcementRoutes } from "./modules/announcements/announcements.route.js";
 import { attendanceRoutes } from "./modules/attendance/attendance.route.js";
 import { authRoutes } from "./modules/auth/auth.route.js";
@@ -16,6 +17,7 @@ import { designationRoutes } from "./modules/designations/designations.route.js"
 import { employeeRoutes } from "./modules/employees/employees.route.js";
 import { holidayRoutes } from "./modules/holidays/holidays.route.js";
 import { leavePolicyRoutes, leaveRoutes } from "./modules/leaves/leaves.route.js";
+import { pageRoutes } from "./modules/pages/pages.route.js";
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
@@ -67,6 +69,8 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/pages", pageRoutes);
+app.use("/api/admins", adminRoutes);
 
 // ---- 404 + centralized error handling (must be last) ----
 app.use(notFound);

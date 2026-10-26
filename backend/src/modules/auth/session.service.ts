@@ -1,6 +1,6 @@
 // Login sessions: a short access token + a rotating refresh token.
 //
-//  • Access JWT (cookie sangvya_token): short-lived, carries { id, companyId, sid, role }.
+//  • Access JWT (cookie sangvya_token): short-lived, carries { id, companyId, sid, pages }.
 //  • Refresh token (cookie sangvya_refresh): random, only its hash is stored. Each
 //    refresh swaps it for a new one (rotation). Re-using an old one after the
 //    short grace window = likely theft → the whole session is revoked.
@@ -15,6 +15,7 @@ import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { userSessions } from "../../db/schema.js";
 import { setAuthCookies } from "../../utils/authCookie.js";
+import { accessFor, allowedUrls } from "../pages/access.service.js";
 
 export const ACCESS_TTL_MIN = env.ACCESS_TOKEN_TTL_MIN;
 export const IDLE_MIN = env.SESSION_IDLE_MIN;
@@ -30,6 +31,7 @@ interface SessionUser {
   id: number;
   company_id: number | null;
   role: string;
+  employee_id: number | null;
 }
 
 export type RefreshResult =
@@ -39,10 +41,12 @@ export type RefreshResult =
 const hashToken = (t: string) => crypto.createHmac("sha256", env.JWT_SECRET).update(t).digest("hex");
 const newRefreshToken = () => crypto.randomBytes(48).toString("hex");
 
-// `role` lets the Next.js frontend's proxy guard pages without an API call.
-// It is only a UI hint — every API request re-reads the user and checks permissions.
-function signAccessToken(user: SessionUser, sessionId: number) {
-  return jwt.sign({ id: user.id, companyId: user.company_id, sid: sessionId, role: user.role }, env.JWT_SECRET, {
+// `pages` (the URLs this user's designation can open) lets the Next.js proxy guard
+// pages without an API call. It's only a UI hint — every API request re-reads the
+// user and checks permissions.
+async function signAccessToken(user: SessionUser, sessionId: number) {
+  const pages = allowedUrls(await accessFor(user));
+  return jwt.sign({ id: user.id, companyId: user.company_id, sid: sessionId, pages }, env.JWT_SECRET, {
     expiresIn: `${ACCESS_TTL_MIN}m`,
   });
 }
@@ -90,7 +94,7 @@ export async function revokeAllSessionsForUser(userId: number, exceptSessionId: 
 
 // ---- Flows ----
 
-// Login / signup: create the session and set both cookies.
+// Login: create the session and set both cookies.
 export async function startSession(res: Response, req: Request, user: SessionUser) {
   const refreshToken = newRefreshToken();
   const [session] = await db
@@ -105,7 +109,7 @@ export async function startSession(res: Response, req: Request, user: SessionUse
     .returning();
 
   setAuthCookies(res, {
-    accessToken: signAccessToken(user, session.id),
+    accessToken: await signAccessToken(user, session.id),
     refreshToken,
     accessMaxAgeMs: ACCESS_TTL_MIN * 60000,
     refreshMaxAgeMs: refreshMaxAgeMs(session),
@@ -113,10 +117,10 @@ export async function startSession(res: Response, req: Request, user: SessionUse
   return session;
 }
 
-// After the user's company or role changes (company created / switched): a new
+// After the user's company or access changes (company created / switched): a new
 // access token for the same session, so the frontend's page guard sees it at once.
-export function reissueAccessToken(res: Response, user: SessionUser, sessionId: number) {
-  setAuthCookies(res, { accessToken: signAccessToken(user, sessionId), accessMaxAgeMs: ACCESS_TTL_MIN * 60000, refreshMaxAgeMs: 0 });
+export async function reissueAccessToken(res: Response, user: SessionUser, sessionId: number) {
+  setAuthCookies(res, { accessToken: await signAccessToken(user, sessionId), accessMaxAgeMs: ACCESS_TTL_MIN * 60000, refreshMaxAgeMs: 0 });
 }
 
 // POST /auth/refresh — swap the refresh token for a new pair of cookies.
@@ -171,7 +175,7 @@ export async function refreshSession(
     .where(eq(userSessions.id, session.id));
 
   setAuthCookies(res, {
-    accessToken: signAccessToken(user, session.id),
+    accessToken: await signAccessToken(user, session.id),
     refreshToken: nextToken,
     accessMaxAgeMs: ACCESS_TTL_MIN * 60000,
     refreshMaxAgeMs: refreshMaxAgeMs(session),

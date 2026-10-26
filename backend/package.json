@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "setup-billing": "tsx scripts/createRazorpayPlan.ts"
+    "setup-billing": "tsx scripts/createRazorpayPlan.ts",
+    "make-superadmin": "tsx scripts/makeSuperadmin.ts",
+    "create-superadmin": "tsx scripts/createSuperadmin.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -7,9 +7,10 @@ import type { z } from "zod";
 import { Download, Pencil, PlayCircle, Plus, Wallet } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { FormField } from "@/components/common/form-field";
+import { FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -110,21 +111,23 @@ function RunTab() {
   return (
     <div className="flex flex-col gap-5">
       {canManage && (
-        <Card>
-          <CardContent>
-            <form onSubmit={handleSubmit(onRun)} className="flex flex-wrap items-start gap-3" noValidate>
-              <FormField label="Month" htmlFor="run-month" error={errors.month} className="w-44">
+        <FormCard title="Run payroll" crumbs={["Payroll"]} icon={Wallet}>
+          <form onSubmit={handleSubmit(onRun)} noValidate>
+            <FormGrid>
+              <FormField label="Month" htmlFor="run-month" error={errors.month}>
                 <FormSelect control={control} name="month" id="run-month" options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))} />
               </FormField>
-              <FormField label="Year" htmlFor="run-year" error={errors.year} className="w-28">
+              <FormField label="Year" htmlFor="run-year" error={errors.year}>
                 <Input id="run-year" type="number" min={2000} max={2100} {...register("year")} />
               </FormField>
-              <Button type="submit" className="mt-6" disabled={running}>
-                <PlayCircle /> {running ? "Running…" : "Run payroll"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <FormActions>
+                <Button type="submit" disabled={running}>
+                  <PlayCircle /> {running ? "Running…" : "Run payroll"}
+                </Button>
+              </FormActions>
+            </FormGrid>
+          </form>
+        </FormCard>
       )}
 
       <div className="flex flex-col gap-5 md:flex-row">

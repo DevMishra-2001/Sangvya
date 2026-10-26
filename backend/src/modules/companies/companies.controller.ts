@@ -14,7 +14,7 @@ async function respondWithCurrentUser(req: Request, res: Response, status: numbe
   const auth = currentUser(req);
   const user = await findUserById(auth.id);
   if (!user) throw new NotFoundError("User not found");
-  reissueAccessToken(res, user, auth.sessionId);
+  await reissueAccessToken(res, user, auth.sessionId);
   res.status(status).json(await me(user.id));
 }
 

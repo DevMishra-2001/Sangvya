@@ -3,24 +3,13 @@ import { authenticate, requirePermission } from "../../middlewares/auth.middlewa
 import { scopeToCompany } from "../../middlewares/tenant.middleware.js";
 import { validate } from "../../middlewares/validate.js";
 import { idParams } from "../../utils/zod.js";
-import {
-  createDesignationHandler,
-  defaultDesignationsHandler,
-  deleteDesignationHandler,
-  listDesignationsHandler,
-  renameDesignationHandler,
-} from "./designations.controller.js";
-import { designationSchema } from "./designations.schema.js";
+import { listDesignationsHandler, updateDesignationHandler } from "./designations.controller.js";
+import { updateDesignationSchema } from "./designations.schema.js";
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, scopeToCompany);
 
-router.get("/defaults", defaultDesignationsHandler);
-
-router.use(scopeToCompany);
 router.get("/", listDesignationsHandler);
-router.post("/", requirePermission("employees.manage"), validate({ body: designationSchema }), createDesignationHandler);
-router.patch("/:id", requirePermission("employees.manage"), validate({ params: idParams, body: designationSchema }), renameDesignationHandler);
-router.delete("/:id", requirePermission("employees.manage"), validate({ params: idParams }), deleteDesignationHandler);
+router.patch("/:id", requirePermission("designations.manage"), validate({ params: idParams, body: updateDesignationSchema }), updateDesignationHandler);
 
 export const designationRoutes = router;

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, smallint, text, unique, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, pgTable, smallint, text, unique, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { createdAt, fk, id, timestamptz } from "../columns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
@@ -17,9 +17,13 @@ export const users = pgTable(
     name: varchar("name", { length: 150 }).notNull(),
     email: varchar("email", { length: 150 }).notNull().unique("users_email_key"),
     password_hash: text("password_hash").notNull(),
-    role: varchar("role", { length: 30 }).notNull().default("employee"), // superadmin | hr | manager | employee
+    // "superadmin" = platform developer (npm run make-superadmin); everyone else is
+    // "member" and gets access from their designation in the current company
+    role: varchar("role", { length: 30 }).notNull().default("member"),
     created_at: createdAt(),
     employee_id: integer("employee_id"),
+    // Blocked logins can't log in; their open sessions are ended when blocked
+    is_blocked: boolean("is_blocked").notNull().default(false),
     // The user's own UI font size (10–17px, 13 = normal)
     font_size: smallint("font_size").notNull().default(13),
   },

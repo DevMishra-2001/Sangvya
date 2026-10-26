@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtDate, inr } from "@/lib/format";
 import type { Employee } from "@/lib/types";
@@ -74,6 +75,7 @@ export function EmployeesView() {
                   <TableHead>Reports to</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Salary</TableHead>
+                  <TableHead className="w-24">Login</TableHead>
                   {canManage && <TableHead className="w-20" />}
                 </TableRow>
               </TableHeader>
@@ -92,6 +94,13 @@ export function EmployeesView() {
                     <TableCell>{nameOf(emp.manager_id)}</TableCell>
                     <TableCell>{fmtDate(emp.join_date)}</TableCell>
                     <TableCell className="text-right tabular-nums">{inr(emp.salary)}</TableCell>
+                    <TableCell>
+                      {emp.has_login ? (
+                        <Badge variant={emp.login_blocked ? "destructive" : "secondary"}>{emp.login_blocked ? "Blocked" : "Active"}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
                     {canManage && (
                       <TableCell>
                         <div className="flex justify-end gap-1">
@@ -111,7 +120,7 @@ export function EmployeesView() {
                 ))}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-muted-foreground">
                       No employees match “{search}”.
                     </TableCell>
                   </TableRow>

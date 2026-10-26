@@ -9,14 +9,13 @@ import {
   meHandler,
   refreshHandler,
   resetPasswordHandler,
-  signupHandler,
   verifyOtpHandler,
 } from "./auth.controller.js";
-import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema, verifyOtpSchema } from "./auth.schema.js";
+import { forgotPasswordSchema, loginSchema, resetPasswordSchema, verifyOtpSchema } from "./auth.schema.js";
 
 const router = Router();
 
-router.post("/signup", authLimiter, validate({ body: signupSchema }), signupHandler);
+// No public signup: the Super Admin creates Admin logins (Admins page, /api/admins)
 router.post("/login", authLimiter, validate({ body: loginSchema }), loginHandler);
 router.get("/me", authenticate, meHandler);
 router.post("/refresh", refreshHandler);

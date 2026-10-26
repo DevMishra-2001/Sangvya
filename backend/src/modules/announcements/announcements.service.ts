@@ -1,13 +1,13 @@
 import { and, asc, desc, eq, getTableColumns, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
-import { can } from "../../config/permissions.js";
+import { can } from "../../utils/can.js";
 import { announcements, designations, employees, users } from "../../db/schema.js";
 import { ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import type { CreateAnnouncementInput } from "./announcements.schema.js";
 
 // Author can delete their own; HR/superadmin can delete any
-const canDelete = (user: Express.AuthUser, createdBy: number | null) => createdBy === user.id || can(user.role, "users.manage");
+const canDelete = (user: Express.AuthUser, createdBy: number | null) => createdBy === user.id || can(user, "users.manage");
 
 // Employees whose birthday is today (company timezone), sorted by name.
 // 29 Feb birthdays are celebrated on 28 Feb in non-leap years.

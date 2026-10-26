@@ -4,22 +4,16 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { ConfirmDelete } from "@/components/common/confirm-button";
 import { PageHeader } from "@/components/common/page-header";
+import { SelectField } from "@/components/common/select-field";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ROLE_LEVEL, type Role } from "@/lib/permissions";
 import type { Employee, UserRow } from "@/lib/types";
-import { useAuthStore, useUser } from "@/stores/auth-store";
+import { useUser } from "@/stores/auth-store";
 import { useEmployeesStore } from "@/stores/employees-store";
 import { useUsersStore } from "@/stores/users-store";
 import { UserFormDialog } from "./user-form-dialog";
-import { SelectField } from "@/components/common/select-field";
-import { ROLE_LABELS } from "@/lib/constants";
-
-// Roles this user may hand out (the backend enforces the same rule)
-function assignableRoles(myRole: Role, roles: Role[]) {
-  return myRole === "superadmin" ? roles : roles.filter((r) => ROLE_LEVEL[r] < ROLE_LEVEL[myRole]);
-}
 
 // Employees without a login yet (plus the one already linked to `current`)
 function linkableEmployees(employees: Employee[], users: UserRow[], current?: UserRow) {
@@ -27,11 +21,11 @@ function linkableEmployees(employees: Employee[], users: UserRow[], current?: Us
   return employees.filter((e) => !linked.has(e.id));
 }
 
+// Logins. What each person can open comes from their employee's designation
+// (Employees page) and the Page Master — there's no separate role here.
 export function UsersView() {
   const me = useUser();
-  const loadMe = useAuthStore((s) => s.loadMe);
   const users = useUsersStore((s) => s.list);
-  const roles = useUsersStore((s) => s.roles);
   const loadUsers = useUsersStore((s) => s.load);
   const update = useUsersStore((s) => s.update);
   const remove = useUsersStore((s) => s.remove);
@@ -44,19 +38,15 @@ export function UsersView() {
     loadEmployees();
   }, [loadUsers, loadEmployees]);
 
-  const myRoles = assignableRoles(me.role, roles);
-  const canManage = (u: UserRow) => u.id !== me.id && (me.role === "superadmin" || ROLE_LEVEL[u.role] < ROLE_LEVEL[me.role]);
-
-  async function relink(u: UserRow, value: string) {
-    const ok = await update(u.id, { employeeId: value ? Number(value) : null });
-    if (ok && u.id === me.id) loadMe(); // my own employee link changed
-  }
+  // Same rule as the backend: logins at or below my level, never the Super Admin, never myself
+  const myLevel = me.is_superadmin ? 99 : (me.designation?.level ?? 0);
+  const canManage = (u: UserRow) => u.id !== me.id && (me.is_superadmin || (!u.is_superadmin && (u.designation_level ?? 0) <= myLevel));
 
   return (
     <div>
       <PageHeader
-        title="Users & Roles"
-        description="Who can log in, and what their role is."
+        title="Users"
+        description="Who can log in. Their access comes from their designation."
         actions={
           <Button onClick={() => setFormOpen(true)}>
             <Plus /> Add user
@@ -69,7 +59,7 @@ export function UsersView() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>Designation</TableHead>
               <TableHead>Linked employee</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -85,26 +75,21 @@ export function UsersView() {
                   </TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    {editable ? (
-                      <SelectField
-                        size="sm"
-                        className="w-auto"
-                        value={u.role}
-                        onValueChange={(v) => update(u.id, { role: v as Role })}
-                        aria-label={`Role of ${u.name}`}
-                        options={myRoles.map((r) => ({ value: r, label: ROLE_LABELS[r] ?? r }))}
-                      />
+                    {u.is_superadmin ? (
+                      <Badge>Super Admin</Badge>
+                    ) : u.designation ? (
+                      <Badge variant="secondary">{u.designation}</Badge>
                     ) : (
-                      <span className="capitalize">{u.role}</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {editable || u.id === me.id ? (
+                    {editable ? (
                       <SelectField
                         size="sm"
                         className="w-auto min-w-36"
                         value={u.employee_id ? String(u.employee_id) : ""}
-                        onValueChange={(v) => relink(u, v)}
+                        onValueChange={(v) => update(u.id, { employeeId: v ? Number(v) : null })}
                         aria-label={`Employee linked to ${u.name}`}
                         emptyLabel="— Not linked —"
                         options={linkableEmployees(employees, users, u).map((emp) => ({ value: String(emp.id), label: emp.name }))}
@@ -122,7 +107,7 @@ export function UsersView() {
           </TableBody>
         </Table>
       </Card>
-      <UserFormDialog open={formOpen} onOpenChange={setFormOpen} roles={myRoles} employees={linkableEmployees(employees, users)} />
+      <UserFormDialog open={formOpen} onOpenChange={setFormOpen} employees={linkableEmployees(employees, users)} />
     </div>
   );
 }

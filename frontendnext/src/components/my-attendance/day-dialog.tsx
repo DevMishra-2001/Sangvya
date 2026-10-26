@@ -15,6 +15,7 @@ import { dayLeaveSchema } from "@/lib/schemas/leave";
 import type { AttendanceDay, Balances, Holiday, ISODate, Leave, WorkRules } from "@/lib/types";
 import { useLeavesStore } from "@/stores/leaves-store";
 import { FormSelect } from "@/components/common/select-field";
+import { FormGrid } from "@/components/common/form-layout";
 
 type DayLeave = z.infer<typeof dayLeaveSchema>;
 
@@ -28,7 +29,19 @@ export interface DayInfo {
 
 // One calendar day: what happened, and the form to apply leave for it.
 // Off days (Sunday/holiday) need no leave; working one earns a Comp Off automatically.
-export function DayDialog({ info, rules, balances, onClose, onApplied }: { info: DayInfo | null; rules: WorkRules; balances?: Balances; onClose: () => void; onApplied: () => void }) {
+export function DayDialog({
+  info,
+  rules,
+  balances,
+  onClose,
+  onApplied,
+}: {
+  info: DayInfo | null;
+  rules: WorkRules;
+  balances?: Balances;
+  onClose: () => void;
+  onApplied: () => void;
+}) {
   const apply = useLeavesStore((s) => s.apply);
   const {
     register,
@@ -36,7 +49,10 @@ export function DayDialog({ info, rules, balances, onClose, onApplied }: { info:
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<DayLeave>({ resolver: zodResolver(dayLeaveSchema), defaultValues: { leaveType: "cl", reason: "" } });
+  } = useForm<DayLeave>({
+    resolver: zodResolver(dayLeaveSchema),
+    defaultValues: { leaveType: "cl", reason: "" },
+  });
 
   useEffect(() => {
     if (info) reset({ leaveType: "cl", reason: "" });
@@ -57,11 +73,16 @@ export function DayDialog({ info, rules, balances, onClose, onApplied }: { info:
     if (await apply({ ...values, fromDate: date, toDate: date })) onApplied();
   }
 
-  const title = new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const title = new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {holiday && <DialogDescription>Holiday: {holiday.name}</DialogDescription>}
@@ -90,18 +111,23 @@ export function DayDialog({ info, rules, balances, onClose, onApplied }: { info:
         {blockedReason ? (
           <p className="text-sm text-muted-foreground">{blockedReason}</p>
         ) : (
-          <form id="day-leave-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-            <FormField label="Leave type" htmlFor="dl-type" error={errors.leaveType}>
-              <FormSelect
-                control={control}
-                name="leaveType"
-                id="dl-type"
-                options={APPLY_LEAVE_TYPES.map((t) => ({ value: t, label: `${LEAVE_TYPE_LABELS[t]}${balances ? ` — ${balances[t].available} left` : ""}` }))}
-              />
-            </FormField>
-            <FormField label="Description" htmlFor="dl-reason" error={errors.reason}>
-              <Textarea id="dl-reason" rows={3} aria-invalid={Boolean(errors.reason)} {...register("reason")} />
-            </FormField>
+          <form id="day-leave-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+            <FormGrid density="dialog">
+              <FormField label="Leave type" htmlFor="dl-type" error={errors.leaveType}>
+                <FormSelect
+                  control={control}
+                  name="leaveType"
+                  id="dl-type"
+                  options={APPLY_LEAVE_TYPES.map((t) => ({
+                    value: t,
+                    label: `${LEAVE_TYPE_LABELS[t]}${balances ? ` — ${balances[t].available} left` : ""}`,
+                  }))}
+                />
+              </FormField>
+              <FormField span="full" label="Description" htmlFor="dl-reason" error={errors.reason}>
+                <Textarea id="dl-reason" rows={3} aria-invalid={Boolean(errors.reason)} {...register("reason")} />
+              </FormField>
+            </FormGrid>
           </form>
         )}
 

@@ -161,6 +161,25 @@ export interface Role {
   level: number;
   is_active: boolean; // inactive = can't be given to anyone new
   employee_count: number; // in the current company
+  company_id: Id | null; // null = built-in role; set = this company's custom role
+  description: string | null;
+}
+
+// Custom roles page: the company's roles, bases to start from, pages to pick
+export interface CustomRole {
+  id: Id;
+  name: string;
+  description: string | null;
+  base: "hr" | "accountant" | "employee";
+  is_active: boolean;
+  employee_count: number;
+  page_ids: number[];
+}
+
+export interface CustomRolesData {
+  roles: CustomRole[];
+  bases: { key: CustomRole["base"]; name: string; page_ids: number[] }[];
+  pages: { id: number; name: string; slug: string; group: string | null }[];
 }
 
 // A company's job title — shown on profiles, no effect on access
@@ -805,4 +824,31 @@ export interface ReportResponse {
     landscape?: boolean;
     fileName: string;
   };
+}
+
+// Employee import (CSV / Excel)
+export interface EmployeeImportRow {
+  line: number;
+  name: string;
+  code: string;
+  email: string;
+  designation: string;
+  department: string;
+  manager: string;
+  login: boolean;
+  errors: string[];
+  notes: string[];
+}
+
+export interface EmployeeImportCheck {
+  summary: { total: number; ready: number; invalid: number };
+  ignoredColumns: string[];
+  rows: EmployeeImportRow[];
+}
+
+export interface EmployeeImportResult {
+  imported: number;
+  skipped: number;
+  logins: number;
+  loginFailures: { line: number; name: string; message: string }[];
 }

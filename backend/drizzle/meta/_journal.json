@@ -169,6 +169,13 @@
       "when": 1793362329584,
       "tag": "0023_report_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793376528216,
+      "tag": "0024_custom_roles",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 // Page Master (Super Admin): the app's pages and which roles can open each.
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { appPageRoles, appPages, roles } from "../../db/schema.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../utils/httpErrors.js";
@@ -7,11 +7,14 @@ import { clearAccessCache } from "./access.service.js";
 import type { PageInput } from "./pages.schema.js";
 import { audit } from "../../utils/audit.js";
 
-// Every page (active or not) with the roles that can open it
+// System-role ids; Page Master never shows or touches custom roles' grants
+const systemRoleIds = db.select({ id: roles.id }).from(roles).where(isNull(roles.company_id));
+
+// Every page (active or not) with the system roles that can open it
 export async function listPages() {
   const [pages, grants] = await Promise.all([
     db.select().from(appPages).orderBy(asc(appPages.sort_order), asc(appPages.id)),
-    db.select().from(appPageRoles),
+    db.select().from(appPageRoles).where(inArray(appPageRoles.role_id, systemRoleIds)),
   ]);
   return {
     pages: pages.map((p) => ({ ...p, role_ids: grants.filter((g) => g.page_id === p.id).map((g) => g.role_id) })),
@@ -39,7 +42,7 @@ async function assertValid(input: PageInput, id: number | null) {
   }
 
   if (input.roleIds.length) {
-    const found = await db.select({ id: roles.id }).from(roles).where(inArray(roles.id, input.roleIds));
+    const found = await db.select({ id: roles.id }).from(roles).where(and(inArray(roles.id, input.roleIds), isNull(roles.company_id)));
     if (found.length !== new Set(input.roleIds).size) throw new BadRequestError("Unknown role");
   }
 }
@@ -56,7 +59,7 @@ const columns = (input: PageInput) => ({
 });
 
 async function saveGrants(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], pageId: number, roleIds: number[]) {
-  await tx.delete(appPageRoles).where(eq(appPageRoles.page_id, pageId));
+  await tx.delete(appPageRoles).where(and(eq(appPageRoles.page_id, pageId), inArray(appPageRoles.role_id, systemRoleIds)));
   const unique = [...new Set(roleIds)];
   if (unique.length) await tx.insert(appPageRoles).values(unique.map((r) => ({ page_id: pageId, role_id: r })));
 }

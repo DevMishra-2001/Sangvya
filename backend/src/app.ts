@@ -29,6 +29,7 @@ import { platformAuditRoutes, platformOverviewRoutes } from "./modules/platform/
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
 import { roleRoutes } from "./modules/roles/roles.route.js";
+import { customRoleRoutes } from "./modules/roles/customRoles.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
 import { settingsRoutes } from "./modules/settings/settings.route.js";
@@ -70,6 +71,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/dev/mail", mailPreviewRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/custom-roles", customRoleRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);

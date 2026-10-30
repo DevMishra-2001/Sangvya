@@ -69,7 +69,7 @@ export async function disabledModules(companyId: number | null | undefined) {
 }
 
 export async function roleByKey(key: RoleKey) {
-  return (await loadCache()).roles.find((r) => r.key === key);
+  return (await loadCache()).roles.find((r) => r.key === key && r.company_id === null);
 }
 
 const toUserPage = (p: PageRow): UserPage => ({
@@ -113,7 +113,7 @@ export async function accessFor(user: { role: string; employee_id: number | null
   const { pages, grants, roles: list, offModules } = await loadCache();
 
   if (user.role === SUPERADMIN_ROLE) {
-    const d = list.find((x) => x.key === "superadmin");
+    const d = list.find((x) => x.key === "superadmin" && x.company_id === null);
     const all = pagesFor(pages, "all");
     return {
       role: d ? { id: d.id, key: d.key, name: d.name, level: d.level } : null,
@@ -127,8 +127,8 @@ export async function accessFor(user: { role: string; employee_id: number | null
 
   const roleId = await employeeRoleId(user.employee_id);
   const d = roleId ? list.find((x) => x.id === roleId) : undefined;
-  // A Super Admin role on a normal login gives no special power
-  const effective = d && d.key !== "superadmin" ? d : undefined;
+  // A Super Admin role on a normal login gives no special power; a custom role only counts in its own company
+  const effective = d && d.key !== "superadmin" && (d.company_id === null || d.company_id === user.company_id) ? d : undefined;
   const userPages = effective ? pagesFor(pages, grants.get(effective.id) ?? new Set()) : [];
 
   const permissions = new Set<Permission>(BASE_PERMISSIONS);

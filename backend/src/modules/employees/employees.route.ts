@@ -21,6 +21,7 @@ import {
   uploadDocumentHandler,
 } from "./employees.controller.js";
 import { documentParams, documentSchema, employeeSchema, exitSchema } from "./employees.schema.js";
+import { checkImportHandler, runImportHandler, templateHandler, templateQuery } from "./import/employeeImport.controller.js";
 
 // Documents are held in memory only while they're sent on to ImageKit
 const documentUpload = multer({
@@ -32,12 +33,28 @@ const documentUpload = multer({
   },
 });
 
+// Import files (CSV / Excel), read from memory
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (/\.(csv|xlsx)$/i.test(file.originalname)) cb(null, true);
+    else cb(new BadRequestError("Upload a .csv or .xlsx file"));
+  },
+});
+
 const router = Router();
 
 // Every route below runs: authenticate -> scopeToCompany -> permission -> validate -> controller
 router.use(authenticate, scopeToCompany);
 
 router.get("/", requirePermission("employees.view"), listEmployeesHandler);
+
+// ---- Import from CSV / Excel (before /:id) ----
+router.get("/import/template", requirePermission("employees.manage"), validate({ query: templateQuery }), templateHandler);
+router.post("/import/check", requirePermission("employees.manage"), importUpload.single("file"), checkImportHandler);
+router.post("/import", requirePermission("employees.manage"), importUpload.single("file"), runImportHandler);
+
 router.post("/", requirePermission("employees.manage"), validate({ body: employeeSchema }), createEmployeeHandler);
 router.put("/:id", requirePermission("employees.manage"), validate({ params: idParams, body: employeeSchema }), updateEmployeeHandler);
 router.delete("/:id", requirePermission("employees.manage"), validate({ params: idParams }), deleteEmployeeHandler);

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
-import type { DocumentCategory, Employee, EmployeeDocument, ExitReason, Id } from "@/lib/types";
+import { downloadFile } from "@/lib/download";
+import type { DocumentCategory, Employee, EmployeeDocument, EmployeeImportCheck, EmployeeImportResult, ExitReason, Id } from "@/lib/types";
 import type { EmployeePayload } from "@/lib/schemas/employee";
 
 export const employeesService = {
@@ -32,4 +33,14 @@ export const employeesService = {
   removeDocument: async (id: Id, docId: Id) => {
     await api.delete(`/employees/${id}/documents/${docId}`);
   },
+  // Import from CSV / Excel: template → check (preview) → import
+  importTemplate: (format: "xlsx" | "csv") => downloadFile("/employees/import/template", { format }, `employee-import-template.${format}`),
+  checkImport: async (file: File) => (await api.post<EmployeeImportCheck>("/employees/import/check", fileForm(file))).data,
+  runImport: async (file: File) => (await api.post<EmployeeImportResult>("/employees/import", fileForm(file))).data,
 };
+
+function fileForm(file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return form;
+}

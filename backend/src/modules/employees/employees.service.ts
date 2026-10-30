@@ -128,10 +128,10 @@ async function resolveDepartment(companyId: number, input: EmployeeInput, curren
 
 // Role: nobody gives a role above their own (assertRoleAssignable).
 // Not sent → keep the current one (a new employee starts as Employee).
-async function resolveRole(actor: Express.AuthUser, input: EmployeeInput, currentId: number | null, isNew: boolean): Promise<number | null> {
+async function resolveRole(companyId: number, actor: Express.AuthUser, input: EmployeeInput, currentId: number | null, isNew: boolean): Promise<number | null> {
   if (input.roleId === undefined) return isNew ? ((await roleByKey("employee"))?.id ?? null) : currentId;
   const id = input.roleId;
-  if (id) await assertRoleAssignable(actor, id, currentId);
+  if (id) await assertRoleAssignable(actor, companyId, id, currentId);
   return id;
 }
 
@@ -147,7 +147,7 @@ async function toColumns(companyId: number, actor: Express.AuthUser, input: Empl
   return {
     name: input.name,
     designation_id: await resolveDesignation(companyId, input, current?.designationId ?? null),
-    role_id: await resolveRole(actor, input, current?.roleId ?? null, current === null),
+    role_id: await resolveRole(companyId, actor, input, current?.roleId ?? null, current === null),
     department_id: await resolveDepartment(companyId, input, current?.departmentId ?? null),
     shift_id: input.shiftId ? (await assertShiftUsable(companyId, input.shiftId, current?.shiftId ?? null), input.shiftId) : null,
     email: input.email ?? null,

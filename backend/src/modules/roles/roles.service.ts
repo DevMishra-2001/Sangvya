@@ -1,7 +1,7 @@
 // The five fixed roles (Super Admin, Admin, HR, Accountant, Employee). They
 // decide what someone can open (Page Master) and do. Shared by every company;
 // only their display name and Active status can change (Super Admin only).
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { employees, roles } from "../../db/schema.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
@@ -9,8 +9,7 @@ import { clearAccessCache } from "../pages/access.service.js";
 import type { UpdateRoleInput } from "./roles.schema.js";
 import { audit } from "../../utils/audit.js";
 
-// All five, highest first, with how many of this company's employees have each
-// employee_count: in this company, or across the platform without one
+// System roles + this company's custom roles, highest first, with employee counts
 export async function listRoles(companyId: number | null) {
   const rows = await db
     .select({
@@ -19,21 +18,24 @@ export async function listRoles(companyId: number | null) {
       name: roles.name,
       level: roles.level,
       is_active: roles.is_active,
+      company_id: roles.company_id,
+      description: roles.description,
       employee_count: sql<number>`(${count(employees.id)})::int`,
     })
     .from(roles)
     .leftJoin(employees, companyId ? and(eq(employees.role_id, roles.id), eq(employees.company_id, companyId)) : eq(employees.role_id, roles.id))
+    .where(companyId ? or(isNull(roles.company_id), eq(roles.company_id, companyId)) : isNull(roles.company_id))
     .groupBy(roles.id)
-    .orderBy(desc(roles.level));
+    .orderBy(desc(roles.level), sql`${roles.company_id} nulls first`, roles.name);
   return { roles: rows };
 }
 
 export async function updateRole(actor: Express.AuthUser, id: number, { name, isActive }: UpdateRoleInput) {
-  const [current] = await db.select().from(roles).where(eq(roles.id, id));
+  const [current] = await db.select().from(roles).where(and(eq(roles.id, id), isNull(roles.company_id)));
   if (!current) throw new NotFoundError("Role not found");
   if (current.key === "superadmin" && isActive === false) throw new BadRequestError("Super Admin can't be made inactive");
   if (name !== undefined) {
-    const [clash] = await db.select({ id: roles.id }).from(roles).where(sql`lower(${roles.name}) = lower(${name})`);
+    const [clash] = await db.select({ id: roles.id }).from(roles).where(and(isNull(roles.company_id), sql`lower(${roles.name}) = lower(${name})`));
     if (clash && clash.id !== id) throw new ConflictError(`"${name}" already exists`);
   }
   const [role] = await db
@@ -46,11 +48,11 @@ export async function updateRole(actor: Express.AuthUser, id: number, { name, is
   return { role };
 }
 
-// Can `actor` give this role to someone? It must exist, be active (unless the
-// person already has it), and not rank above the actor. Super Admin is never given out.
-export async function assertRoleAssignable(actor: Express.AuthUser, roleId: number, currentId: number | null = null) {
+// Can `actor` give this role in this company? It must exist (system, or this company's custom role),
+// be active (unless the person already has it), and not rank above the actor. Super Admin is never given out.
+export async function assertRoleAssignable(actor: Express.AuthUser, companyId: number, roleId: number, currentId: number | null = null) {
   const [r] = await db.select().from(roles).where(eq(roles.id, roleId));
-  if (!r) throw new NotFoundError("Role not found");
+  if (!r || (r.company_id !== null && r.company_id !== companyId)) throw new NotFoundError("Role not found");
   if (roleId === currentId) return; // unchanged
   if (r.key === "superadmin") throw new ForbiddenError("Super Admin can't be given from the app");
   if (!r.is_active) throw new BadRequestError(`The ${r.name} role is inactive`);

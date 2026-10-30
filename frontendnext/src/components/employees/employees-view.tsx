@@ -2,7 +2,7 @@
 
 import { PersonAvatar } from "@/components/common/person-avatar";
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Users } from "lucide-react";
+import { Pencil, Plus, Upload, Users } from "lucide-react";
 import { ConfirmDelete } from "@/components/common/confirm-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
@@ -58,9 +58,16 @@ export function EmployeesView() {
         description={`${current} ${current === 1 ? "person" : "people"} in your company${list.length > current ? ` · ${list.length - current} left` : ""}`}
         actions={
           canManage && (
-            <Button onClick={() => openForm(null)}>
-              <Plus /> Add employee
-            </Button>
+            <>
+              <Button variant="outline" asChild>
+                <Link href="/employees/import">
+                  <Upload /> Import
+                </Link>
+              </Button>
+              <Button onClick={() => openForm(null)}>
+                <Plus /> Add employee
+              </Button>
+            </>
           )
         }
       />

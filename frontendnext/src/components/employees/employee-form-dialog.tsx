@@ -174,7 +174,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
                 placeholder="Employee"
                 options={roles
                   .filter((r) => r.id === employee?.role_id || (r.is_active && r.key !== "superadmin" && r.level <= myLevel))
-                  .map((r) => ({ value: String(r.id), label: r.name }))}
+                  .map((r) => ({ value: String(r.id), label: r.company_id ? `${r.name} (custom)` : r.name }))}
               />
             </FormField>
             <FormField label="Department" htmlFor="emp-department" error={errors.departmentId}>

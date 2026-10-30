@@ -14,30 +14,30 @@ import { DayDialog, type DayInfo } from "./day-dialog";
 import { useCalendar, type CalendarEntry } from "./use-calendar";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const REQUIRED_WORK_MIN = 9 * 60; // work hours below this show red
-const REQUIRED_EFFECTIVE_MIN = 8 * 60; // effective (minus breaks) below this show red
 
 // Day kinds → colors. Always paired with a text label in the cell and the legend.
 const LOOKS = {
   pending: { label: "Pending approval", color: "var(--warning)" },
   approved: { label: "Approved leave", color: "var(--success)" },
   holiday: { label: "Holiday", color: "var(--info)" },
+  optionalHoliday: { label: "Optional holiday", color: "var(--muted-foreground)" },
   optional: { label: "Optional leave", color: "oklch(0.606 0.25 292.717)" },
   missing: { label: "Missing attendance", color: "var(--destructive)" },
   working: { label: "Working day", color: "var(--primary)" },
 } as const;
 type Look = keyof typeof LOOKS;
 
-function dayLook(date: string, today: string, sunday: boolean, { day, holiday, leaves }: CalendarEntry): { look?: Look; text?: string } {
-  const leave = leaves.find((l: Leave) => l.status !== "rejected");
+function dayLook(date: string, today: string, weeklyOff: boolean, { day, holiday, leaves }: CalendarEntry): { look?: Look; text?: string } {
+  const leave = leaves.find((l: Leave) => l.status === "pending" || l.status === "approved");
   if (day?.punchIn) return { look: "working" };
-  if (holiday) return { look: "holiday", text: holiday.name };
+  if (holiday && !holiday.is_optional) return { look: "holiday", text: holiday.name };
   if (leave) {
     const text = SHORT_LEAVE_LABELS[leave.leave_type];
     if (leave.status === "pending") return { look: "pending", text };
     return { look: leave.leave_type === "ol" ? "optional" : "approved", text };
   }
-  if (sunday || date >= today) return {};
+  if (holiday?.is_optional) return { look: "optionalHoliday", text: holiday.name };
+  if (weeklyOff || date >= today) return {};
   return { look: "missing", text: "Missing" };
 }
 
@@ -63,8 +63,12 @@ export function CalendarView() {
   const today = calendar?.today ?? isoDate(new Date());
   const balances = calendar?.balances;
   const empty: CalendarEntry = { day: null, holiday: null, leaves: [] };
+  // The company's weekly offs (Sunday until the calendar loads) and the shift's hours
+  const weeklyOffs = calendar?.weeklyOffs ?? [0];
+  const requiredMin = calendar?.rules.requiredMinutes ?? 9 * 60;
+  const requiredEffectiveMin = requiredMin - (calendar?.rules.maxBreakMinutes ?? 60);
   const selectedInfo: DayInfo | null = selected
-    ? { date: selected, ...(byDate[selected] ?? empty), isSunday: new Date(`${selected}T00:00:00`).getDay() === 0 }
+    ? { date: selected, ...(byDate[selected] ?? empty), isSunday: weeklyOffs.includes(new Date(`${selected}T00:00:00`).getDay()) }
     : null;
 
   return (
@@ -92,7 +96,7 @@ export function CalendarView() {
               {buildCells(month).map((date, i) => {
                 if (!date) return <div key={`pad-${i}`} className="min-h-24 rounded-lg bg-muted/40" />;
                 const info = byDate[date] ?? empty;
-                const { look, text } = dayLook(date, today, i % 7 === 0, info);
+                const { look, text } = dayLook(date, today, weeklyOffs.includes(i % 7), info);
                 const d = info.day;
                 const effective = d ? d.totalMinutes - d.breakMinutes : 0;
                 const running = Boolean(d?.punchIn && !d.punchOut);
@@ -118,10 +122,10 @@ export function CalendarView() {
                           {time12(d.punchIn)} – {d.punchOut ? time12(d.punchOut) : "…"}
                         </span>
                         <br />
-                        Work <b className={cn("tabular-nums", !running && d.totalMinutes < REQUIRED_WORK_MIN ? "text-destructive" : "text-foreground")}>{hhmm(d.totalMinutes)}</b>
+                        Work <b className={cn("tabular-nums", !running && d.totalMinutes < requiredMin ? "text-destructive" : "text-foreground")}>{hhmm(d.totalMinutes)}</b>
                         <br />
                         Effective{" "}
-                        <b className={cn("tabular-nums", !running && effective < REQUIRED_EFFECTIVE_MIN ? "text-destructive" : "text-foreground")}>{hhmm(Math.max(0, effective))}</b>
+                        <b className={cn("tabular-nums", !running && effective < requiredEffectiveMin ? "text-destructive" : "text-foreground")}>{hhmm(Math.max(0, effective))}</b>
                       </span>
                     )}
                   </button>

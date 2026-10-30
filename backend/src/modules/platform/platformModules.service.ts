@@ -1,5 +1,4 @@
-// Super Admin: switch modules on/off for a company. Takes effect on the
-// company's next request (the access cache is cleared).
+// Super Admin: switch modules on/off for a company.
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { MODULES } from "../../config/modules.js";

@@ -6,6 +6,7 @@ import { employees, tasks, users } from "../../db/schema.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { findAllEmployees, findReports } from "../employees/employees.service.js";
+import { notify } from "../notifications/notify.js";
 import type { CreateTaskInput, ReviewTaskInput, TaskProgressInput } from "./tasks.schema.js";
 
 const assignedBy = alias(users, "ab");
@@ -152,7 +153,22 @@ export async function createTask(companyId: number, user: Express.AuthUser, inpu
       assigned_date: assignedDate,
     })
     .returning({ id: tasks.id });
-  return { task: withFlags([await getTask(companyId, created.id)], assignedDate)[0] };
+  const task = await getTask(companyId, created.id);
+  void notify({
+    companyId,
+    to: [{ employeeId: task.assigned_to }],
+    type: "task.assigned",
+    title: `New ticket: ${task.title}`,
+    body: `From ${task.assigned_by_name ?? "your manager"} · ${task.priority} priority${task.due_date ? ` · due ${task.due_date}` : ""}`,
+    link: "/tickets",
+    entity: ["task", task.id],
+    actorId: user.id,
+    email: (r) => ({
+      template: "taskAssigned",
+      props: { name: r.name, by: task.assigned_by_name ?? "Your manager", title: task.title, priority: task.priority, due: task.due_date, description: task.description },
+    }),
+  });
+  return { task: withFlags([task], assignedDate)[0] };
 }
 
 // The assignee moves their own task along
@@ -178,6 +194,20 @@ export async function updateProgress(companyId: number, user: Express.AuthUser, 
       completed_at: status === "done" ? sql`coalesce(${tasks.completed_at}, now())` : null,
     })
     .where(and(eq(tasks.company_id, companyId), eq(tasks.id, id)));
+  // Finished → the person who assigned it reviews it
+  if (status === "done" && task.status !== "done" && task.assigned_by) {
+    void notify({
+      companyId,
+      to: [{ userId: task.assigned_by }],
+      type: "task.done",
+      title: `${task.assigned_to_name} finished: ${task.title}`,
+      body: "Review it and approve, or reopen it.",
+      link: "/tickets",
+      entity: ["task", id],
+      actorId: user.id,
+      email: (r) => ({ template: "taskUpdate", props: { name: r.name, title: task.title, message: `${task.assigned_to_name} marked it done — review and approve it, or reopen it.` } }),
+    });
+  }
   return { task: withFlags([await getTask(companyId, id)], localDate())[0] };
 }
 
@@ -207,6 +237,20 @@ export async function reviewTask(companyId: number, user: Express.AuthUser, id: 
       })
       .where(where);
   }
+  void notify({
+    companyId,
+    to: [{ employeeId: task.assigned_to }],
+    type: action === "approve" ? "task.approved" : "task.reopened",
+    title: action === "approve" ? `Ticket approved: ${task.title}` : `Ticket reopened: ${task.title}`,
+    body: action === "approve" ? "Nice work — it's closed." : "It needs a bit more work.",
+    link: "/tickets",
+    entity: ["task", id],
+    actorId: user.id,
+    email: (r) => ({
+      template: "taskUpdate",
+      props: { name: r.name, title: task.title, message: action === "approve" ? "your ticket was approved — it's closed." : "your ticket was reopened — it needs a bit more work." },
+    }),
+  });
   return { task: withFlags([await getTask(companyId, id)], localDate())[0] };
 }
 

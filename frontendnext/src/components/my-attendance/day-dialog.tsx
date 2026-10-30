@@ -11,13 +11,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { APPLY_LEAVE_TYPES, LEAVE_TYPE_LABELS } from "@/lib/constants";
 import { fmtMinutes, fmtTime } from "@/lib/format";
-import { dayLeaveSchema } from "@/lib/schemas/leave";
+import { dayLeaveSchema, HALF_DAY_OPTIONS } from "@/lib/schemas/leave";
 import type { AttendanceDay, Balances, Holiday, ISODate, Leave, WorkRules } from "@/lib/types";
 import { useLeavesStore } from "@/stores/leaves-store";
 import { FormSelect } from "@/components/common/select-field";
 import { FormGrid } from "@/components/common/form-layout";
 
-type DayLeave = z.infer<typeof dayLeaveSchema>;
+type DayLeave = z.output<typeof dayLeaveSchema>;
 
 export interface DayInfo {
   date: ISODate;
@@ -49,25 +49,26 @@ export function DayDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<DayLeave>({
+  } = useForm<z.input<typeof dayLeaveSchema>, unknown, DayLeave>({
     resolver: zodResolver(dayLeaveSchema),
-    defaultValues: { leaveType: "cl", reason: "" },
+    defaultValues: { leaveType: "cl", halfDay: "", reason: "" },
   });
 
   useEffect(() => {
-    if (info) reset({ leaveType: "cl", reason: "" });
+    if (info) reset({ leaveType: "cl", halfDay: "", reason: "" });
   }, [info, reset]);
 
   if (!info) return null;
   const { date, day, holiday, isSunday, leaves } = info;
-  const offDay = isSunday || Boolean(holiday);
+  // isSunday = a weekly off (from the company's working days)
+  const offDay = isSunday || Boolean(holiday && !holiday.is_optional);
   const worked = Boolean(day?.punchIn) || day?.status === "present";
-  const activeLeave = leaves.find((l) => l.status !== "rejected");
+  const activeLeave = leaves.find((l) => l.status === "pending" || l.status === "approved");
 
   let blockedReason: string | null = null;
   if (activeLeave) blockedReason = `A ${LEAVE_TYPE_LABELS[activeLeave.leave_type]} request for this day is already ${activeLeave.status}.`;
   else if (offDay && worked) blockedReason = "You worked on this day off — 1 Comp Off has been added to your balance. Use it on any working day.";
-  else if (offDay) blockedReason = isSunday ? "Sunday is a weekly off." : `This day is a holiday (${holiday?.name}).`;
+  else if (offDay) blockedReason = isSunday ? "This is a weekly off." : `This day is a holiday (${holiday?.name}).`;
 
   async function onSubmit(values: DayLeave) {
     if (await apply({ ...values, fromDate: date, toDate: date })) onApplied();
@@ -85,13 +86,16 @@ export function DayDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {holiday && <DialogDescription>Holiday: {holiday.name}</DialogDescription>}
+          {holiday && <DialogDescription>{holiday.is_optional ? `Optional holiday: ${holiday.name} — take it with your OL` : `Holiday: ${holiday.name}`}</DialogDescription>}
         </DialogHeader>
 
         {day?.punchIn && (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-muted p-3 text-sm">
             <dt className="text-muted-foreground">Punch in</dt>
-            <dd>{fmtTime(day.punchIn)}</dd>
+            <dd>
+              {fmtTime(day.punchIn)}
+              {!!day.lateMinutes && <span className="ml-2 text-xs text-warning">Late by {fmtMinutes(day.lateMinutes)}</span>}
+            </dd>
             <dt className="text-muted-foreground">Punch out</dt>
             <dd>{fmtTime(day.punchOut)}</dd>
             <dt className="text-muted-foreground">Break</dt>
@@ -123,6 +127,9 @@ export function DayDialog({
                     label: `${LEAVE_TYPE_LABELS[t]}${balances ? ` — ${balances[t].available} left` : ""}`,
                   }))}
                 />
+              </FormField>
+              <FormField label="Duration" htmlFor="dl-half" error={errors.halfDay}>
+                <FormSelect control={control} name="halfDay" id="dl-half" options={HALF_DAY_OPTIONS} />
               </FormField>
               <FormField span="full" label="Description" htmlFor="dl-reason" error={errors.reason}>
                 <Textarea id="dl-reason" rows={3} aria-invalid={Boolean(errors.reason)} {...register("reason")} />

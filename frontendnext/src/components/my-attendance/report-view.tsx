@@ -31,16 +31,17 @@ interface Row {
 }
 
 // What a day's row says in the Status column
-function dayStatus(date: string, today: string, day?: AttendanceDay, holiday?: Holiday, leave?: Leave): Row["status"] {
+function dayStatus(date: string, today: string, weeklyOffs: number[], day?: AttendanceDay, holiday?: Holiday, leave?: Leave): Row["status"] {
   if (day?.punchIn) {
     if (!day.punchOut) return { label: date === today ? "In progress" : "No check-out", tone: "warning" };
     if (day.shortDay) return { label: "Short day", tone: "danger" };
     if (day.longBreak) return { label: "Long break", tone: "warning" };
+    if (day.lateMinutes) return { label: `Late ${day.lateMinutes}m`, tone: "warning" };
     return { label: "Present", tone: "success" };
   }
   if (leave) return { label: `${SHORT_LEAVE_LABELS[leave.leave_type]} · ${leave.status}`, tone: leave.status === "approved" ? "success" : "warning" };
-  if (holiday) return { label: holiday.name, tone: "info" };
-  if (new Date(`${date}T00:00:00`).getDay() === 0) return { label: "Weekly off", tone: "neutral" };
+  if (holiday && !holiday.is_optional) return { label: holiday.name, tone: "info" };
+  if (weeklyOffs.includes(new Date(`${date}T00:00:00`).getDay())) return { label: "Weekly off", tone: "neutral" };
   if (date > today) return { label: "—" };
   if (day?.status === "present") return { label: "Present", tone: "success" };
   if (day?.status === "half") return { label: "Half day", tone: "warning" };
@@ -49,7 +50,7 @@ function dayStatus(date: string, today: string, day?: AttendanceDay, holiday?: H
 
 function Summary({ items }: { items: { label: string; value: string | number; warn?: boolean }[] }) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
       {items.map((s) => (
         <Card key={s.label} className="gap-1 py-3">
           <CardContent>
@@ -79,8 +80,8 @@ export function ReportView() {
     const byDay = Object.fromEntries(calendar.days.map((d) => [d.date, d]));
     const holidays = Object.fromEntries(calendar.holidays.map((h) => [h.date, h]));
     return daysOf(month).map((date) => {
-      const leave = calendar.leaves.find((l) => l.status !== "rejected" && l.from_date <= date && l.to_date >= date);
-      return { date, day: byDay[date], holiday: holidays[date], leave, status: dayStatus(date, calendar.today, byDay[date], holidays[date], leave) };
+      const leave = calendar.leaves.find((l) => (l.status === "pending" || l.status === "approved") && l.from_date <= date && l.to_date >= date);
+      return { date, day: byDay[date], holiday: holidays[date], leave, status: dayStatus(date, calendar.today, calendar.weeklyOffs ?? [0], byDay[date], holidays[date], leave) };
     });
   }, [calendar, month]);
 
@@ -104,6 +105,7 @@ export function ReportView() {
             items={[
               { label: "Present", value: worked.length },
               { label: "Short days", value: worked.filter((r) => r.day?.shortDay).length, warn: true },
+              { label: "Late days", value: worked.filter((r) => r.day?.lateMinutes).length, warn: true },
               { label: "Absent", value: rows.filter((r) => r.status.label === "Absent").length, warn: true },
               { label: "Leaves", value: rows.filter((r) => r.leave && !r.day?.punchIn).length },
               { label: "Total hours", value: fmtMinutes(worked.reduce((s, r) => s + (r.day?.totalMinutes ?? 0), 0)) },

@@ -1,12 +1,14 @@
 // Every query takes companyId and includes it in the WHERE clause. This is what
 // enforces multi-tenancy at the data layer — even if a stray id got through,
 // these queries never touch another company's rows.
-import { and, asc, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
-import { designations, employees, roles, users } from "../../db/schema.js";
+import { departments, designations, employees, roles, shifts, users } from "../../db/schema.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { syncSubscriptionQuantity } from "../billing/billing.service.js";
+import { assertDepartmentUsable, findOrCreateDepartment } from "../departments/departments.service.js";
+import { assertShiftUsable } from "../shifts/shifts.service.js";
 import { assertDesignationUsable, findOrCreateDesignation } from "../designations/designations.service.js";
 import { roleByKey } from "../pages/access.service.js";
 import { assertRoleAssignable } from "../roles/roles.service.js";
@@ -17,6 +19,8 @@ import { audit } from "../../utils/audit.js";
 const employeeColumns = {
   ...getTableColumns(employees),
   designation: designations.name,
+  department: departments.name,
+  shift: shifts.name,
   role: roles.name,
   // Their login (if any): exists / blocked
   has_login: sql<boolean>`exists(select 1 from company_members m where m.employee_id = ${employees.id})`,
@@ -28,10 +32,12 @@ function selectEmployees() {
     .select(employeeColumns)
     .from(employees)
     .leftJoin(designations, eq(designations.id, employees.designation_id))
+    .leftJoin(departments, eq(departments.id, employees.department_id))
+    .leftJoin(shifts, eq(shifts.id, employees.shift_id))
     .leftJoin(roles, eq(roles.id, employees.role_id));
 }
 
-export type Employee = typeof employees.$inferSelect & { designation: string | null; role: string | null; has_login: boolean; login_blocked: boolean };
+export type Employee = typeof employees.$inferSelect & { designation: string | null; department: string | null; shift: string | null; role: string | null; has_login: boolean; login_blocked: boolean };
 
 // ---- Lookups shared with other modules ----
 
@@ -51,7 +57,11 @@ export function findAllEmployees(companyId: number) {
 }
 
 export async function countEmployees(companyId: number) {
-  const [row] = await db.select({ n: count() }).from(employees).where(eq(employees.company_id, companyId));
+  // Billed seats: everyone who hasn't left
+  const [row] = await db
+    .select({ n: count() })
+    .from(employees)
+    .where(and(eq(employees.company_id, companyId), ne(employees.status, "exited")));
   return row.n;
 }
 
@@ -106,6 +116,16 @@ async function resolveDesignation(companyId: number, input: EmployeeInput, curre
   return null;
 }
 
+// Department: an id from this company's list, or (older clients) a name, added if new
+async function resolveDepartment(companyId: number, input: EmployeeInput, currentId: number | null): Promise<number | null> {
+  if (input.departmentId) {
+    await assertDepartmentUsable(companyId, input.departmentId, currentId);
+    return input.departmentId;
+  }
+  if (input.department) return (await findOrCreateDepartment(companyId, input.department)).id;
+  return null;
+}
+
 // Role: nobody gives a role above their own (assertRoleAssignable).
 // Not sent → keep the current one (a new employee starts as Employee).
 async function resolveRole(actor: Express.AuthUser, input: EmployeeInput, currentId: number | null, isNew: boolean): Promise<number | null> {
@@ -117,6 +137,8 @@ async function resolveRole(actor: Express.AuthUser, input: EmployeeInput, curren
 
 interface Current {
   designationId: number | null;
+  departmentId: number | null;
+  shiftId: number | null;
   roleId: number | null;
 }
 
@@ -126,7 +148,8 @@ async function toColumns(companyId: number, actor: Express.AuthUser, input: Empl
     name: input.name,
     designation_id: await resolveDesignation(companyId, input, current?.designationId ?? null),
     role_id: await resolveRole(actor, input, current?.roleId ?? null, current === null),
-    department: input.department ?? null,
+    department_id: await resolveDepartment(companyId, input, current?.departmentId ?? null),
+    shift_id: input.shiftId ? (await assertShiftUsable(companyId, input.shiftId, current?.shiftId ?? null), input.shiftId) : null,
     email: input.email ?? null,
     join_date: input.joinDate ?? null,
     salary: input.salary == null ? null : String(input.salary),
@@ -138,6 +161,9 @@ async function toColumns(companyId: number, actor: Express.AuthUser, input: Empl
     phone: input.phone?.trim() || null,
     gender: input.gender ?? null,
     address: input.address?.trim() || null,
+    employment_type: input.employmentType,
+    emergency_contact_name: input.emergencyContactName?.trim() || null,
+    emergency_contact_phone: input.emergencyContactPhone?.trim() || null,
   };
 }
 
@@ -171,7 +197,7 @@ export async function updateEmployee(companyId: number, actor: Express.AuthUser,
 
   await db
     .update(employees)
-    .set(await toColumns(companyId, actor, input, { designationId: existing.designation_id, roleId: existing.role_id }))
+    .set(await toColumns(companyId, actor, input, { designationId: existing.designation_id, departmentId: existing.department_id, shiftId: existing.shift_id, roleId: existing.role_id }))
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   const employee = await getEmployeeById(companyId, id);
   if (employee.role_id !== existing.role_id) {

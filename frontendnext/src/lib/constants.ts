@@ -1,6 +1,6 @@
 // Labels and colors shared by several screens. A color is always shown next
 // to its text label, never as the only cue.
-import type { CandidateStage, DayFlag, LeaveType, Task } from "./types";
+import type { CandidateStage, DayFlag, DocumentCategory, EmployeeStatus, EmploymentType, ExitReason, LeaveType, Task } from "./types";
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   leave: "Leave",
@@ -68,3 +68,37 @@ export const CANDIDATE_STAGES: { key: CandidateStage; label: string }[] = [
 
 export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+
+export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
+  full_time: "Full time",
+  part_time: "Part time",
+  contract: "Contract",
+  intern: "Intern",
+};
+
+export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = { active: "Active", notice: "On notice", exited: "Left" };
+
+export const EXIT_REASON_LABELS: Record<ExitReason, string> = {
+  resigned: "Resigned",
+  terminated: "Terminated",
+  retired: "Retired",
+  contract_end: "Contract ended",
+  absconded: "Absconded",
+  other: "Other",
+};
+
+export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
+  id_proof: "ID proof",
+  address_proof: "Address proof",
+  education: "Education",
+  experience: "Experience",
+  offer_letter: "Offer letter",
+  contract: "Contract",
+  payslip: "Payslip",
+  other: "Other",
+};
+
+const options = <K extends string>(labels: Record<K, string>) => (Object.entries(labels) as [K, string][]).map(([value, label]) => ({ value, label }));
+export const EMPLOYMENT_TYPE_OPTIONS = options(EMPLOYMENT_TYPE_LABELS);
+export const EXIT_REASON_OPTIONS = options(EXIT_REASON_LABELS);
+export const DOCUMENT_CATEGORY_OPTIONS = options(DOCUMENT_CATEGORY_LABELS);

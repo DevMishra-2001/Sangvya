@@ -86,7 +86,7 @@ export function LeaveApprovalsView() {
                   <TableCell className="tabular-nums">{l.days}</TableCell>
                   <TableCell className="max-w-64 truncate">{l.reason || "—"}</TableCell>
                   <TableCell>
-                    <StatusBadge status={l.status} />
+                    <StatusBadge status={l.status} tone={l.status === "cancelled" ? "neutral" : undefined} />
                   </TableCell>
                   <TableCell>{l.reviewed_by_name || "—"}</TableCell>
                 </TableRow>

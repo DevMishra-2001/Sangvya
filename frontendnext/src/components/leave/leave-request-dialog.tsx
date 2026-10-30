@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { APPLY_LEAVE_TYPES, LEAVE_TYPE_LABELS } from "@/lib/constants";
-import { leaveSchema, type LeaveForm } from "@/lib/schemas/leave";
+import { HALF_DAY_OPTIONS, leaveSchema, type LeaveForm } from "@/lib/schemas/leave";
 import type { Employee } from "@/lib/types";
 import { useLeavesStore } from "@/stores/leaves-store";
 import { FormSelect } from "@/components/common/select-field";
@@ -36,6 +36,7 @@ export function LeaveRequestDialog({
     fromDate: "",
     toDate: "",
     leaveType: "cl",
+    halfDay: "",
     reason: "",
   };
   const {
@@ -44,6 +45,7 @@ export function LeaveRequestDialog({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
+    watch,
   } = useForm<LeaveForm, unknown, LeaveOutput>({
     resolver: zodResolver(leaveSchema),
     defaultValues: defaults,
@@ -53,6 +55,8 @@ export function LeaveRequestDialog({
     if (open) reset(defaults);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  const halfDay = watch("halfDay");
 
   async function onSubmit(values: LeaveOutput) {
     const ok = await apply({
@@ -67,7 +71,7 @@ export function LeaveRequestDialog({
       <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>New leave request</DialogTitle>
-          <DialogDescription>Sundays and holidays inside the range aren&apos;t counted.</DialogDescription>
+          <DialogDescription>Weekly offs and holidays inside the range aren&apos;t counted. A half day counts as 0.5.</DialogDescription>
         </DialogHeader>
         <form id="leave-form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid density="dialog">
@@ -85,12 +89,17 @@ export function LeaveRequestDialog({
                 />
               </FormField>
             )}
-            <FormField label="From" htmlFor="lv-from" error={errors.fromDate}>
+            <FormField label="Duration" htmlFor="lv-half" error={errors.halfDay}>
+              <FormSelect control={control} name="halfDay" id="lv-half" options={HALF_DAY_OPTIONS} />
+            </FormField>
+            <FormField label={halfDay ? "Day" : "From"} htmlFor="lv-from" error={errors.fromDate}>
               <FormDatePicker control={control} name="fromDate" id="lv-from" />
             </FormField>
-            <FormField label="To" htmlFor="lv-to" error={errors.toDate}>
-              <FormDatePicker control={control} name="toDate" id="lv-to" />
-            </FormField>
+            {!halfDay && (
+              <FormField label="To" htmlFor="lv-to" error={errors.toDate}>
+                <FormDatePicker control={control} name="toDate" id="lv-to" />
+              </FormField>
+            )}
             <FormField label="Type" htmlFor="lv-type" error={errors.leaveType} description="Comp off is earned by checking in on a Sunday or holiday.">
               <FormSelect
                 control={control}

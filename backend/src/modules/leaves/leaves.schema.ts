@@ -11,10 +11,14 @@ export const applyLeaveSchema = z.object({
   toDate: isoDate("Valid toDate is required"),
   leaveType: oneOf(LEAVE_TYPES, `leaveType must be one of: ${LEAVE_TYPES.join(", ")}`).default("cl"),
   reason: optionalText(),
+  // One day, half of it: "first" | "second" (counts 0.5)
+  halfDay: z.preprocess((v) => v || undefined, z.enum(["first", "second"], { errorMap: () => ({ message: "halfDay must be first or second" }) }).optional()),
 });
 
 export const leaveStatusSchema = z.object({
   status: oneOf(["approved", "rejected"], "Status must be 'approved' or 'rejected'"),
+  // Shown to the employee (why approved / rejected)
+  note: z.preprocess((v) => (typeof v === "string" ? v.trim() : v) || undefined, z.string().max(500, "Note can be at most 500 characters").optional()),
 });
 
 const quota = (label: string, max: number) => numberField(`${label} must be a number from 0 to ${max}`, { min: 0, max });

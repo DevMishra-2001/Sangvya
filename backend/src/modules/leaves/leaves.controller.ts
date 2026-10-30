@@ -2,7 +2,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpStatus } from "../../utils/httpStatus.js";
 import { tenant } from "../../utils/requestContext.js";
 import { getPolicy, updatePolicy } from "./leaveBalance.service.js";
-import { applyLeave, decideLeave, listLeaves } from "./leaves.service.js";
+import { allBalances, applyLeave, cancelLeave, decideLeave, listLeaves } from "./leaves.service.js";
 
 // GET /api/leaves
 export const listLeavesHandler = asyncHandler(async (req, res) => {
@@ -30,4 +30,15 @@ export const getLeavePolicyHandler = asyncHandler(async (req, res) => {
 // PUT /api/leave-policy  { clPerYear, slPerYear, olPerYear, elPerMonth }
 export const updateLeavePolicyHandler = asyncHandler(async (req, res) => {
   res.json({ policy: await updatePolicy(tenant(req).companyId, req.body) });
+});
+
+// POST /api/leaves/:id/cancel — withdraw / cancel (days go back to the balance)
+export const cancelLeaveHandler = asyncHandler(async (req, res) => {
+  const { companyId, user } = tenant(req);
+  res.json(await cancelLeave(companyId, user, Number(req.params.id)));
+});
+
+// GET /api/leaves/balances — everyone's balances (HR)
+export const allBalancesHandler = asyncHandler(async (req, res) => {
+  res.json(await allBalances(tenant(req).companyId));
 });

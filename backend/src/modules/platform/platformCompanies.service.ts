@@ -1,5 +1,4 @@
-// Super Admin: every company on the platform — who owns it, how big it is,
-// its trial / subscription, and its verification and account status.
+// Super Admin: every company on the platform — who owns it, how big it is, its trial / subscription, and its verification and account status.
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { companies, subscriptions } from "../../db/schema.js";
@@ -8,6 +7,21 @@ import { NotFoundError } from "../../utils/httpErrors.js";
 import type { CompanyStatusInput, VerificationInput } from "./platformCompanies.schema.js";
 import { audit } from "../../utils/audit.js";
 import { companyModuleStates } from "./platformModules.service.js";
+import { companyAdmins, notify } from "../notifications/notify.js";
+
+// The company's admins hear about the Super Admin's decisions (bell + email)
+async function notifyCompanyAdmins(companyId: number, companyName: string, actorId: number, type: string, headline: string, text: string, note: string | null) {
+  await notify({
+    companyId,
+    to: await companyAdmins(companyId),
+    type,
+    title: headline,
+    body: note ? `${text} Note: ${note}` : text,
+    link: "/",
+    actorId,
+    email: (r) => ({ template: "companyReview", props: { name: r.name, companyName, headline, message: text, note } }),
+  });
+}
 
 // Owners = logins whose employee record in the company has the Admin role
 const owners = sql<{ name: string; email: string }[]>`coalesce((
@@ -85,6 +99,13 @@ export async function setVerification(actor: Express.AuthUser, id: number, { sta
   if (!row) throw new NotFoundError("Company not found");
   const verb = { verified: "Verified", rejected: "Rejected", pending: "Marked in review", unverified: "Marked unverified" }[status];
   audit(actor, { action: `company.${status === "pending" ? "in_review" : status}`, companyId: id, target: ["company", id], summary: `${verb} ${row.name}${notes ? ` — ${notes}` : ""}` });
+  const message = {
+    verified: { headline: "Your company is verified", text: `Workkind has verified ${row.name}'s details.` },
+    rejected: { headline: "Your company details need changes", text: `Workkind couldn't verify ${row.name}'s details. Please check the note and update them.` },
+    pending: { headline: "Your company is being reviewed", text: `Workkind is reviewing ${row.name}'s details.` },
+    unverified: null,
+  }[status];
+  if (message) void notifyCompanyAdmins(id, row.name, actor.id, `company.${status}`, message.headline, message.text, notes ?? null);
   return getPlatformCompany(id);
 }
 
@@ -103,5 +124,14 @@ export async function setCompanyStatus(actor: Express.AuthUser, id: number, { st
     summary: status === "suspended" ? `Suspended ${row.name} — ${reason}` : `Reactivated ${row.name}`,
   });
   forgetCompanyStatus(id); // takes effect on the company's very next request
+  void notifyCompanyAdmins(
+    id,
+    row.name,
+    actor.id,
+    `company.${status}`,
+    status === "suspended" ? "Your company's account is suspended" : "Your company's account is active again",
+    status === "suspended" ? `${row.name}'s Workkind account has been suspended, so nobody in it can use the app for now.` : `${row.name}'s Workkind account has been reactivated.`,
+    status === "suspended" ? (reason ?? null) : null,
+  );
   return getPlatformCompany(id);
 }

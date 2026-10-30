@@ -8,7 +8,7 @@ import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { passwordResets } from "../../db/schema.js";
 import { BadRequestError } from "../../utils/httpErrors.js";
-import { sendMail } from "../../utils/mailer.js";
+import { sendTemplate } from "../mail/mail.service.js";
 import { findUserByEmailInsensitive, findUserWithPassword, setUserPassword } from "../users/users.service.js";
 import { revokeAllSessionsForUser } from "./session.service.js";
 
@@ -52,17 +52,7 @@ export async function requestOtp(email: string) {
           otp_expires_at: new Date(Date.now() + OTP_TTL_MIN * 60000),
         });
       });
-      void sendMail({
-        to: user.email,
-        subject: "Your Sangvya password reset OTP",
-        text: [
-          `Hi ${user.name},`,
-          "",
-          `Your OTP to reset your Sangvya password is: ${otp}`,
-          "",
-          `It is valid for ${OTP_TTL_MIN} minutes. If you didn't ask for this, ignore this email — your password won't change.`,
-        ].join("\n"),
-      });
+      void sendTemplate(user.email, "passwordResetOtp", { name: user.name, otp, minutes: OTP_TTL_MIN });
     }
   }
   return { message: GENERIC_SENT, resendAfterSec: RESEND_COOLDOWN_SEC, otpValidMin: OTP_TTL_MIN };

@@ -145,7 +145,9 @@ function Group({ group, onNavigate }: { group: NavGroup; onNavigate?: () => void
 // The menu itself — used by the desktop sidebar (open or icon rail) and the mobile sheet
 export function SidebarNav({ collapsed, onNavigate }: NavProps) {
   const pages = useAuthStore((s) => s.pages);
-  const nav = buildNav(pages);
+  const teamSize = useAuthStore((s) => s.user?.team_size ?? 0);
+  // "My Team" only for people someone reports to
+  const nav = buildNav(teamSize ? pages : pages.filter((p) => p.slug !== "my-team"));
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <Brand collapsed={collapsed} />

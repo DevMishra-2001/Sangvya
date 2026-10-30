@@ -58,7 +58,7 @@ const envSchema = z.object({
   SMTP_PORT: num(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  MAIL_FROM: z.string().optional(),
+  MAIL_FROM: z.string().optional(), // e.g. "Workkind <no-reply@workkind.in>" (defaults to SMTP_USER)
 });
 
 const parsed = envSchema.safeParse(process.env);

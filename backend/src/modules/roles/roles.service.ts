@@ -10,7 +10,8 @@ import type { UpdateRoleInput } from "./roles.schema.js";
 import { audit } from "../../utils/audit.js";
 
 // All five, highest first, with how many of this company's employees have each
-export async function listRoles(companyId: number) {
+// employee_count: in this company, or across the platform without one
+export async function listRoles(companyId: number | null) {
   const rows = await db
     .select({
       id: roles.id,
@@ -21,7 +22,7 @@ export async function listRoles(companyId: number) {
       employee_count: sql<number>`(${count(employees.id)})::int`,
     })
     .from(roles)
-    .leftJoin(employees, and(eq(employees.role_id, roles.id), eq(employees.company_id, companyId)))
+    .leftJoin(employees, companyId ? and(eq(employees.role_id, roles.id), eq(employees.company_id, companyId)) : eq(employees.role_id, roles.id))
     .groupBy(roles.id)
     .orderBy(desc(roles.level));
   return { roles: rows };

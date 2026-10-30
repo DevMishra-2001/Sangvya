@@ -5,6 +5,7 @@ import { announcements, designations, employees, users } from "../../db/schema.j
 import { ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import type { CreateAnnouncementInput } from "./announcements.schema.js";
+import { companyRecipients, notify } from "../notifications/notify.js";
 
 // Author can delete their own; HR/superadmin can delete any
 const canDelete = (user: Express.AuthUser, createdBy: number | null) => createdBy === user.id || can(user, "users.manage");
@@ -53,6 +54,17 @@ export async function createAnnouncement(companyId: number, user: Express.AuthUs
     .insert(announcements)
     .values({ company_id: companyId, title, message: message || null, created_by: user.id })
     .returning();
+  void (async () =>
+    notify({
+      companyId,
+      to: await companyRecipients(companyId),
+      type: "announcement",
+      title: `📢 ${title}`,
+      body: message || null,
+      link: "/",
+      entity: ["announcement", announcement.id],
+      actorId: user.id,
+    }))();
   return { announcement: { ...announcement, created_by_name: null, canDelete: true } };
 }
 

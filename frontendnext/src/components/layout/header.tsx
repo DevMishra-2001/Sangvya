@@ -9,6 +9,7 @@ import { CompanySwitcher } from "@/components/companies/company-switcher";
 import { ProfileButton } from "./profile-panel";
 import { SidebarNav } from "./sidebar";
 import { WorkTimer } from "./work-timer";
+import { NotificationBell } from "./notification-bell";
 import { CheckInButton } from "@/components/attendance/check-in-dialog";
 
 function greetingFor(date: Date) {
@@ -76,6 +77,7 @@ export function Header() {
 
       <div className="flex items-center gap-2 justify-self-end">
         <CompanySwitcher />
+        <NotificationBell />
         <ProfileButton />
       </div>
     </header>

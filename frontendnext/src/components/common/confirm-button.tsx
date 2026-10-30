@@ -38,3 +38,34 @@ export function ConfirmDelete({ title, description, onConfirm, label = "Delete" 
     </AlertDialog>
   );
 }
+
+// Asks before an action; the trigger is whatever button you pass as children
+export function ConfirmAction({
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  children,
+}: {
+  title: string;
+  description?: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{confirmLabel}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

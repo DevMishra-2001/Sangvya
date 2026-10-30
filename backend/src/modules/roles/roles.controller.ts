@@ -1,10 +1,10 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { currentUser, tenant } from "../../utils/requestContext.js";
+import { currentUser } from "../../utils/requestContext.js";
 import { listRoles, updateRole } from "./roles.service.js";
 
 // GET /api/roles
 export const listRolesHandler = asyncHandler(async (req, res) => {
-  res.json(await listRoles(tenant(req).companyId));
+  res.json(await listRoles(currentUser(req).companyId));
 });
 
 // PATCH /api/roles/:id  { name?, isActive? }  (Super Admin)

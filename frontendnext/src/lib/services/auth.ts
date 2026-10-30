@@ -20,7 +20,4 @@ export const authService = {
     (await api.post<{ name: string; email: string; companyName: string | null; expiresAt: string }>("/auth/invite/verify", { token })).data,
   acceptInvite: async (token: string, password: string) =>
     (await api.post<AuthResponse & { companyName: string | null }>("/auth/invite/accept", { token, password })).data,
-  changePassword: async (input: { currentPassword?: string; newPassword: string }) => {
-    await api.post("/auth/change-password", input);
-  },
 };

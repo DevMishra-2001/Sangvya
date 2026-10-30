@@ -107,7 +107,7 @@ async function employeeRoleId(employeeId: number | null) {
 }
 
 // Platform pages a Super Admin can use without being in any company
-const PLATFORM_SLUGS = new Set(["platform-dashboard", "companies", "admins", "audit-log", "page-master"]);
+const PLATFORM_SLUGS = new Set(["platform-dashboard", "companies", "admins", "roles", "audit-log", "page-master"]);
 
 export async function accessFor(user: { role: string; employee_id: number | null; company_id?: number | null }): Promise<Access> {
   const { pages, grants, roles: list, offModules } = await loadCache();

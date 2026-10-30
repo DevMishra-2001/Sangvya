@@ -99,6 +99,76 @@
       "when": 1793264741812,
       "tag": "0013_audit_modules_password",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793343223213,
+      "tag": "0014_departments",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793343223605,
+      "tag": "0015_drop_employee_department_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793344867068,
+      "tag": "0016_employee_lifecycle_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793346477493,
+      "tag": "0017_shifts_late_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793355160185,
+      "tag": "0018_leave_half_day_cancel",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793356114152,
+      "tag": "0019_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793356279907,
+      "tag": "0020_optional_holidays",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793359585446,
+      "tag": "0021_payroll_draft_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793360668815,
+      "tag": "0022_reports_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793362329584,
+      "tag": "0023_report_settings",
+      "breakpoints": true
     }
   ]
 }

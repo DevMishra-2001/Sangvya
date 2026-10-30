@@ -4,7 +4,9 @@ import { scopeToCompany } from "../../middlewares/tenant.middleware.js";
 import { validate } from "../../middlewares/validate.js";
 import { idParams } from "../../utils/zod.js";
 import {
+  allBalancesHandler,
   applyLeaveHandler,
+  cancelLeaveHandler,
   decideLeaveHandler,
   getLeavePolicyHandler,
   listLeavesHandler,
@@ -18,6 +20,9 @@ leaves.use(authenticate, scopeToCompany);
 
 // Everyone with the Leave module can list — the service narrows it to own leaves without "leave.viewAll"
 leaves.get("/", requirePermission("leave.apply"), listLeavesHandler);
+leaves.get("/balances", requirePermission("leave.viewAll"), allBalancesHandler);
+// Own leave (pending, or approved and not started yet); HR any — checked in the service
+leaves.post("/:id/cancel", requirePermission("leave.apply"), validate({ params: idParams }), cancelLeaveHandler);
 leaves.post("/", requirePermission("leave.apply"), validate({ body: applyLeaveSchema }), applyLeaveHandler);
 leaves.patch(
   "/:id/status",

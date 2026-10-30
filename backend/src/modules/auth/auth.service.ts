@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
+import { teamSize } from "../self/team.service.js";
 import { clearAuthCookies } from "../../utils/authCookie.js";
 import { ForbiddenError, UnauthorizedError } from "../../utils/httpErrors.js";
 import { findCompany } from "../companies/companies.service.js";
@@ -22,7 +23,14 @@ export async function authPayload<T extends AuthUserRow>(user: T) {
   const { password_hash: _hash, ...rest } = user;
   const access = await accessFor(user);
   return {
-    user: { ...rest, role: access.role, is_superadmin: access.isSuperadmin, permissions: access.permissions },
+    user: {
+      ...rest,
+      role: access.role,
+      is_superadmin: access.isSuperadmin,
+      permissions: access.permissions,
+      // People who report to me — the "My team" page shows only for managers
+      team_size: await teamSize(user.company_id, user.employee_id),
+    },
     company: await currentCompany(user.company_id),
     pages: access.pages,
     session: SESSION_INFO,

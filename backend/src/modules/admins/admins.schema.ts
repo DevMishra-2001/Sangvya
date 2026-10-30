@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { strongPassword } from "../../utils/passwordPolicy.js";
 import { requiredText } from "../../utils/zod.js";
 
-// A company owner's login, created by the Super Admin. They set up their
-// company the first time they log in, and become its Admin.
-export const createAdminSchema = z.object({
+// Invite a company owner. No password here: they set their own from the
+// activation link. companyName only pre-fills their company setup form.
+export const inviteAdminSchema = z.object({
   name: requiredText("Name is required", 150),
   email: z.string({ required_error: "Valid email is required" }).trim().toLowerCase().email("Valid email is required"),
-  password: strongPassword,
+  companyName: z.preprocess((v) => (typeof v === "string" ? v.trim() : v) || undefined, z.string().max(200, "Company name can be at most 200 characters").optional()),
 });
 
-export type CreateAdminInput = z.infer<typeof createAdminSchema>;
+export type InviteAdminInput = z.infer<typeof inviteAdminSchema>;

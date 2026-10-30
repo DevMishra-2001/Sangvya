@@ -1,61 +1,75 @@
-// The five fixed designations (Super Admin, Admin, HR, Accountant, Developer).
-// They're shared by every company; only their display name and Active status
-// can change (Super Admin only). What each one can open is set in the Page Master.
-import { and, count, desc, eq, sql } from "drizzle-orm";
+// A company's job titles ("UX Designer", "Accounts Lead"). Each company keeps
+// its own list; titles are shown on profiles and payslips and never affect
+// access (that's the role — modules/roles).
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { designations, employees } from "../../db/schema.js";
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
-import { clearAccessCache } from "../pages/access.service.js";
-import type { UpdateDesignationInput } from "./designations.schema.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../utils/httpErrors.js";
+import type { DesignationInput } from "./designations.schema.js";
 
-// All five, highest first, with how many of this company's employees have each
+async function findByName(companyId: number, name: string) {
+  const [row] = await db
+    .select()
+    .from(designations)
+    .where(and(eq(designations.company_id, companyId), sql`lower(${designations.name}) = lower(${name.trim()})`));
+  return row;
+}
+
 export async function listDesignations(companyId: number) {
   const rows = await db
     .select({
       id: designations.id,
-      key: designations.key,
       name: designations.name,
-      level: designations.level,
       is_active: designations.is_active,
       employee_count: sql<number>`(${count(employees.id)})::int`,
     })
     .from(designations)
-    .leftJoin(employees, and(eq(employees.designation_id, designations.id), eq(employees.company_id, companyId)))
+    .leftJoin(employees, eq(employees.designation_id, designations.id))
+    .where(eq(designations.company_id, companyId))
     .groupBy(designations.id)
-    .orderBy(desc(designations.level));
+    .orderBy(asc(sql`lower(${designations.name})`));
   return { designations: rows };
 }
 
-export async function updateDesignation(id: number, { name, isActive }: UpdateDesignationInput) {
-  const [current] = await db.select().from(designations).where(eq(designations.id, id));
-  if (!current) throw new NotFoundError("Designation not found");
-  if (current.key === "superadmin" && isActive === false) throw new BadRequestError("Super Admin can't be made inactive");
-  if (name !== undefined) {
-    const [clash] = await db.select({ id: designations.id }).from(designations).where(sql`lower(${designations.name}) = lower(${name})`);
-    if (clash && clash.id !== id) throw new ConflictError(`"${name}" already exists`);
-  }
-  const [designation] = await db
+export async function createDesignation(companyId: number, { name, isActive }: DesignationInput) {
+  if (await findByName(companyId, name)) throw new ConflictError(`"${name}" already exists`);
+  const [row] = await db.insert(designations).values({ company_id: companyId, name, is_active: isActive }).returning();
+  return { designation: { id: row.id, name: row.name, is_active: row.is_active, employee_count: 0 } };
+}
+
+export async function updateDesignation(companyId: number, id: number, { name, isActive }: DesignationInput) {
+  const clash = await findByName(companyId, name);
+  if (clash && clash.id !== id) throw new ConflictError(`"${name}" already exists`);
+  const [row] = await db
     .update(designations)
-    .set({ ...(name !== undefined ? { name } : {}), ...(isActive !== undefined ? { is_active: isActive } : {}) })
-    .where(eq(designations.id, id))
+    .set({ name, is_active: isActive })
+    .where(and(eq(designations.company_id, companyId), eq(designations.id, id)))
     .returning();
-  clearAccessCache();
-  return { designation };
+  if (!row) throw new NotFoundError("Designation not found");
+  return { designation: { id: row.id, name: row.name, is_active: row.is_active } };
 }
 
-// Can `actor` give this designation to someone? It must exist, be active (unless
-// the person already has it), and not rank above the actor. Super Admin is never given out.
-export async function assertAssignable(actor: Express.AuthUser, designationId: number, currentId: number | null = null) {
-  const [d] = await db.select().from(designations).where(eq(designations.id, designationId));
-  if (!d) throw new NotFoundError("Designation not found");
-  if (designationId === currentId) return; // unchanged
-  if (d.key === "superadmin") throw new ForbiddenError("Super Admin can't be given from the app");
-  if (!d.is_active) throw new BadRequestError(`"${d.name}" is inactive`);
-  if (!actor.isSuperadmin && d.level > actor.level) throw new ForbiddenError(`You can't give the ${d.name} designation`);
+// Employees who had it keep working — their designation just becomes empty
+export async function deleteDesignation(companyId: number, id: number) {
+  const [deleted] = await db
+    .delete(designations)
+    .where(and(eq(designations.company_id, companyId), eq(designations.id, id)))
+    .returning({ id: designations.id });
+  if (!deleted) throw new NotFoundError("Designation not found");
 }
 
-// Older clients send a designation name instead of an id
-export async function findDesignationByName(name: string) {
-  const [d] = await db.select().from(designations).where(sql`lower(${designations.name}) = lower(${name.trim()})`);
-  return d;
+// For the employee form: the designation must be this company's and active
+// (unless the employee already has it)
+export async function assertDesignationUsable(companyId: number, id: number, currentId: number | null = null) {
+  const [row] = await db.select().from(designations).where(and(eq(designations.company_id, companyId), eq(designations.id, id)));
+  if (!row) throw new NotFoundError("Designation not found");
+  if (id !== currentId && !row.is_active) throw new BadRequestError(`"${row.name}" is inactive`);
+}
+
+// Older clients send the title as text: use it, adding it to the list if new
+export async function findOrCreateDesignation(companyId: number, name: string) {
+  const existing = await findByName(companyId, name);
+  if (existing) return existing;
+  const [row] = await db.insert(designations).values({ company_id: companyId, name: name.trim() }).returning();
+  return row;
 }

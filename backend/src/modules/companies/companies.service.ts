@@ -9,8 +9,9 @@ import { NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { createTrialSubscription, syncSubscriptionQuantity } from "../billing/billing.service.js";
 import { SUPERADMIN_ROLE } from "../../config/permissions.js";
-import { designationByKey } from "../pages/access.service.js";
+import { roleByKey } from "../pages/access.service.js";
 import type { CreateCompanyInput } from "./companies.schema.js";
+import { audit } from "../../utils/audit.js";
 
 // Optional form text: blank → null
 const clean = (v: string | null | undefined) => v?.trim() || null;
@@ -45,6 +46,24 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
         state: clean(input.state),
         country: clean(input.country),
         postal_code: clean(input.postalCode),
+        legal_name: clean(input.legalName),
+        business_type: input.businessType,
+        year_established: input.yearEstablished ?? null,
+        office_locations: clean(input.officeLocations),
+        timezone: input.timezone,
+        pan: input.pan ?? null,
+        gstin: input.gstin ?? null,
+        cin_llpin: input.cinLlpin ?? null,
+        tan: input.tan ?? null,
+        billing_address: clean(input.billingAddress),
+        work_days: input.workDays.join(","),
+        office_start: input.officeStart,
+        office_end: input.officeEnd,
+        attendance_mode: input.attendanceMode,
+        leave_year: input.leaveYear,
+        fiscal_year_start: input.fiscalYearStart ?? (input.leaveYear === "financial" ? 4 : 1),
+        currency: input.currency,
+        employee_id_prefix: input.employeeIdPrefix ?? null,
       })
       .returning();
 
@@ -52,13 +71,13 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
     await createTrialSubscription(company.id, env.TRIAL_DAYS, tx);
 
     // The owner is the company's Admin (the platform Super Admin keeps Super Admin)
-    const designation = await designationByKey(owner.role === SUPERADMIN_ROLE ? "superadmin" : "admin");
-    if (!designation) throw new Error("Designations are missing — run the database migrations");
+    const role = await roleByKey(owner.role === SUPERADMIN_ROLE ? "superadmin" : "admin");
+    if (!role) throw new Error("Roles are missing — run the database migrations");
 
     // The owner is an employee of their company too (attendance, leave, tickets…)
     const [employee] = await tx
       .insert(employees)
-      .values({ company_id: company.id, name: owner.name, email: owner.email, designation_id: designation.id, join_date: localDate() })
+      .values({ company_id: company.id, name: owner.name, email: owner.email, role_id: role.id, join_date: localDate() })
       .returning({ id: employees.id });
 
     await tx.insert(companyMembers).values({ user_id: owner.id, company_id: company.id, employee_id: employee.id });
@@ -67,6 +86,7 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
   });
 
   await syncSubscriptionQuantity(companyId); // headcount is now 1
+  audit(owner, { action: "company.created", companyId, target: ["company", companyId], summary: `${owner.name} created the company ${input.companyName}` });
   return companyId;
 }
 

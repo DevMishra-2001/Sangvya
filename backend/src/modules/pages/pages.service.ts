@@ -1,19 +1,20 @@
-// Page Master (Super Admin): the app's pages and which designations can open each.
+// Page Master (Super Admin): the app's pages and which roles can open each.
 import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../../config/db.js";
-import { appPageAccess, appPages, designations } from "../../db/schema.js";
+import { appPageRoles, appPages, roles } from "../../db/schema.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../utils/httpErrors.js";
 import { clearAccessCache } from "./access.service.js";
 import type { PageInput } from "./pages.schema.js";
+import { audit } from "../../utils/audit.js";
 
-// Every page (active or not) with the designations that can open it
+// Every page (active or not) with the roles that can open it
 export async function listPages() {
   const [pages, grants] = await Promise.all([
     db.select().from(appPages).orderBy(asc(appPages.sort_order), asc(appPages.id)),
-    db.select().from(appPageAccess),
+    db.select().from(appPageRoles),
   ]);
   return {
-    pages: pages.map((p) => ({ ...p, designation_ids: grants.filter((g) => g.page_id === p.id).map((g) => g.designation_id) })),
+    pages: pages.map((p) => ({ ...p, role_ids: grants.filter((g) => g.page_id === p.id).map((g) => g.role_id) })),
   };
 }
 
@@ -37,9 +38,9 @@ async function assertValid(input: PageInput, id: number | null) {
     }
   }
 
-  if (input.designationIds.length) {
-    const found = await db.select({ id: designations.id }).from(designations).where(inArray(designations.id, input.designationIds));
-    if (found.length !== new Set(input.designationIds).size) throw new BadRequestError("Unknown designation");
+  if (input.roleIds.length) {
+    const found = await db.select({ id: roles.id }).from(roles).where(inArray(roles.id, input.roleIds));
+    if (found.length !== new Set(input.roleIds).size) throw new BadRequestError("Unknown role");
   }
 }
 
@@ -54,38 +55,41 @@ const columns = (input: PageInput) => ({
   is_active: input.isActive,
 });
 
-async function saveGrants(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], pageId: number, designationIds: number[]) {
-  await tx.delete(appPageAccess).where(eq(appPageAccess.page_id, pageId));
-  const unique = [...new Set(designationIds)];
-  if (unique.length) await tx.insert(appPageAccess).values(unique.map((d) => ({ page_id: pageId, designation_id: d })));
+async function saveGrants(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], pageId: number, roleIds: number[]) {
+  await tx.delete(appPageRoles).where(eq(appPageRoles.page_id, pageId));
+  const unique = [...new Set(roleIds)];
+  if (unique.length) await tx.insert(appPageRoles).values(unique.map((r) => ({ page_id: pageId, role_id: r })));
 }
 
-export async function createPage(input: PageInput) {
+export async function createPage(actor: Express.AuthUser, input: PageInput) {
   await assertValid(input, null);
   const page = await db.transaction(async (tx) => {
     const [row] = await tx.insert(appPages).values(columns(input)).returning();
-    await saveGrants(tx, row.id, input.designationIds);
+    await saveGrants(tx, row.id, input.roleIds);
     return row;
   });
   clearAccessCache();
-  return { page: { ...page, designation_ids: [...new Set(input.designationIds)] } };
+  audit(actor, { action: "page.created", target: ["page", page.id], summary: `Added the page ${page.name} (${page.url ?? "menu group"})`, meta: { roleIds: input.roleIds } });
+  return { page: { ...page, role_ids: [...new Set(input.roleIds)] } };
 }
 
-export async function updatePage(id: number, input: PageInput) {
+export async function updatePage(actor: Express.AuthUser, id: number, input: PageInput) {
   await assertValid(input, id);
   const page = await db.transaction(async (tx) => {
     const [row] = await tx.update(appPages).set(columns(input)).where(eq(appPages.id, id)).returning();
     if (!row) throw new NotFoundError("Page not found");
-    await saveGrants(tx, id, input.designationIds);
+    await saveGrants(tx, id, input.roleIds);
     return row;
   });
   clearAccessCache();
-  return { page: { ...page, designation_ids: [...new Set(input.designationIds)] } };
+  audit(actor, { action: "page.updated", target: ["page", id], summary: `Updated the page ${page.name} — access: ${input.roleIds.length} role(s), ${input.isActive ? "active" : "inactive"}`, meta: { roleIds: input.roleIds } });
+  return { page: { ...page, role_ids: [...new Set(input.roleIds)] } };
 }
 
 // Child pages move up to the top level (their parent link is cleared)
-export async function deletePage(id: number) {
-  const [deleted] = await db.delete(appPages).where(eq(appPages.id, id)).returning({ id: appPages.id });
+export async function deletePage(actor: Express.AuthUser, id: number) {
+  const [deleted] = await db.delete(appPages).where(eq(appPages.id, id)).returning({ id: appPages.id, name: appPages.name });
   if (!deleted) throw new NotFoundError("Page not found");
   clearAccessCache();
+  audit(actor, { action: "page.removed", target: ["page", id], summary: `Removed the page ${deleted.name}` });
 }

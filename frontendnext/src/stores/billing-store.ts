@@ -47,7 +47,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       new window.Razorpay({
         key: data.razorpayKeyId,
         subscription_id: data.razorpaySubscriptionId,
-        name: "Sangvya",
+        name: "Workkind",
         description: `${data.quantity} employees × ₹${get().status?.pricePerEmployee ?? 15}/month`,
         handler: () => setTimeout(() => get().load(), 2500),
         modal: { ondismiss: () => toast.info("Checkout closed before completing payment") },

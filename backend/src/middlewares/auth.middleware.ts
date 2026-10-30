@@ -56,7 +56,13 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
       throw new ConflictError("You logged in as a different user in another tab", "SESSION_CHANGED");
     }
 
-    // Access comes from the designation, re-read every request so changes apply at once
+    // A temporary password (set by their admin) must be changed before anything
+    // else: only the auth routes and the password change itself are allowed
+    if (user.must_change_password && !/^\/api\/(auth\/|settings\/password)/.test(req.originalUrl)) {
+      throw new ForbiddenError("Set your own password to continue", "PASSWORD_CHANGE_REQUIRED");
+    }
+
+    // Access comes from the role, re-read every request so changes apply at once
     const access = await accessFor(user);
     req.user = {
       id: user.id,
@@ -65,7 +71,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
       employeeId: user.employee_id,
       sessionId: session.id,
       isSuperadmin: access.isSuperadmin,
-      designationKey: access.designation?.key ?? null,
+      roleKey: access.role?.key ?? null,
       level: access.level,
       permissions: access.permissions,
     };
@@ -76,7 +82,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 }
 
 // Restricts a route to users holding a permission, e.g. requirePermission("leave.approve").
-// Routes never name designations directly.
+// Routes never name roles directly.
 export function requirePermission(permission: Permission) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user || !can(req.user, permission)) return next(new ForbiddenError());

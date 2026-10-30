@@ -8,8 +8,8 @@ const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Sangvya", template: "%s · Sangvya" },
-  description: "Sangvya — HR management for growing teams",
+  title: { default: "Workkind", template: "%s · Workkind" },
+  description: "Workkind — HR management for growing teams",
 };
 
 // Applies the saved accent color before the first paint, so the page never

@@ -21,6 +21,7 @@ export const updateEmployeeHandler = asyncHandler(async (req, res) => {
 
 // DELETE /api/employees/:id
 export const deleteEmployeeHandler = asyncHandler(async (req, res) => {
-  await deleteEmployee(tenant(req).companyId, Number(req.params.id));
+  await deleteEmployee(tenant(req).companyId, currentUser(req), Number(req.params.id));
   res.json({ success: true });
 });
+

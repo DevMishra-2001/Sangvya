@@ -3,7 +3,7 @@ import { db } from "../../config/db.js";
 import { candidates, jobPostings } from "../../db/schema.js";
 import { NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
-import { designationByKey } from "../pages/access.service.js";
+import { roleByKey } from "../pages/access.service.js";
 import { insertEmployee } from "../employees/employees.service.js";
 import type { CandidateInput, CandidateUpdateInput, JobInput } from "./recruitment.schema.js";
 
@@ -127,8 +127,8 @@ export async function convertToEmployee(companyId: number, id: number) {
 
   const employee = await insertEmployee(companyId, {
     name: candidate.name,
-    // New hires start as Developer (the lowest access); HR can change it
-    designation_id: (await designationByKey("developer"))?.id ?? null,
+    // New hires start with the Employee role (the lowest access); HR can change it
+    role_id: (await roleByKey("employee"))?.id ?? null,
     email: candidate.email,
     join_date: localDate(),
   });

@@ -9,7 +9,7 @@
 // This only guards pages — the backend checks permissions on every API call.
 import { NextResponse, type NextRequest } from "next/server";
 import { ACCESS_COOKIE, REFRESH_COOKIE, cookieValueFromSetCookie, verifyAccessToken } from "@/lib/auth/token";
-import { ONBOARDING_ROUTE, canVisit, isPublicRoute } from "@/lib/permissions";
+import { ONBOARDING_ROUTE, canVisit, isOpenRoute, isPublicRoute } from "@/lib/permissions";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5000";
 
@@ -39,6 +39,9 @@ function withCookies(response: NextResponse, setCookies: string[]) {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // Activation links work whether or not someone is logged in here
+  if (isOpenRoute(pathname)) return NextResponse.next();
 
   let payload = await verifyAccessToken(request.cookies.get(ACCESS_COOKIE)?.value);
   let loggedIn = Boolean(payload);
@@ -94,5 +97,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Pages only: skip the API (forwarded to the backend), Next internals and files
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|mp4|webm)$).*)"],
 };

@@ -1,0 +1,464 @@
+================================================================================
+                    WORKKIND HRMS SAAS - ARCHITECTURE & IMPLEMENTATION PLAN
+================================================================================
+Author: Antigravity & Ashish Pal
+Project: Workkind (Multi-Tenant HRMS Platform)
+Tech Stack: 
+  - Backend: Node.js, Express, TypeScript, PostgreSQL, Drizzle ORM, Zod, JWT
+  - Frontend: Next.js 16 (App Router), TypeScript, Tailwind CSS, Zustand, Radix UI
+================================================================================
+
+TABLE OF CONTENTS:
+1. Executive Summary & Core Philosophy
+2. Roles vs. Designations (The Crucial Architecture Distinction)
+3. Step-by-Step Priority Roadmap (What to build first & why)
+4. Email Invitation & Account Activation Flow (Admin & Employee)
+5. Company Creation & Legal Data (PAN, GSTIN, Verification)
+6. Company-Wise Module Provisioning (Feature Flags & Plans)
+7. Super Admin vs. Company Admin Responsibilities
+8. Database Schema Enhancements (Drizzle ORM)
+9. API Endpoints Contract
+10. Phase-by-Phase Execution Checklist
+
+================================================================================
+1. EXECUTIVE SUMMARY & CORE PHILOSOPHY
+================================================================================
+Workkind is an enterprise-grade, multi-tenant SaaS HRMS. Every company (tenant)
+shares the same backend code and PostgreSQL database, but all queries and mutations
+are strictly isolated by `company_id`.
+
+Key Tenets:
+1. Zero Plaintext Passwords: Super Admin NEVER knows or sets someone else's password.
+   All users (Admins & Employees) set their own passwords via secure, time-limited
+   cryptographic tokens sent to their verified emails.
+2. Tenant Isolation: Every business record (employees, attendance, leaves, payroll)
+   must include `company_id`. Middleware verifies the authenticated user belongs to
+   the targeted company.
+3. Decoupled Permissions: What a person is called (Designation) does not dictate
+   what they can do in the software (Role & Permissions).
+
+================================================================================
+2. ROLES VS. DESIGNATIONS (CRUCIAL ARCHITECTURAL DISTINCTION)
+================================================================================
+Problem in simple systems:
+  Setting "designation = HR" and giving access to payroll means an "Accounts Lead"
+  cannot manage payroll unless their designation is changed.
+
+The Workkind Solution:
+--------------------------------------------------------------------------------
+A. DESIGNATION (Organizational Title):
+   - Examples: "Senior Software Engineer", "Marketing Lead", "Chief People Officer"
+   - Purpose: Displayed on ID cards, org chart, payslips, email signatures.
+   - It has ZERO authority over database permissions.
+
+B. SYSTEM ROLE (Permission Container):
+   1. SUPERADMIN (Platform Level):
+      - Developers / Workkind founders.
+      - Manages all companies, tenant billing, platform health, feature flags.
+   2. COMPANY_ADMIN (Tenant Owner):
+      - Has full access to their own company's data.
+      - Can configure company policies, departments, and assign employee roles.
+   3. HR_MANAGER (Departmental Admin):
+      - Can view/edit employee records, approve leaves, manage attendance, process payroll.
+   4. TEAM_LEAD / MANAGER:
+      - Can approve leaves and view attendance ONLY for their direct reportees.
+   5. EMPLOYEE:
+      - Employee Self Service (ESS): Punch in/out, view own payslips, apply for leave,
+        view team holiday calendar.
+
+--------------------------------------------------------------------------------
+Permission Granularity Matrix:
+Module        | Action Permissions
+Employees     | employee.view_all, employee.create, employee.edit, employee.delete
+Attendance    | attendance.view_team, attendance.view_all, attendance.regularize
+Leaves        | leave.request_own, leave.approve_team, leave.approve_all
+Payroll       | payroll.view_own, payroll.process, payroll.export_reports
+
+================================================================================
+3. STEP-BY-STEP PRIORITY ROADMAP (KAISE MANAGE KAREIN?)
+================================================================================
+
+PHASE 1: SECURE INVITATION & ACTIVATION SYSTEM (Start Here!)
+--------------------------------------------------------------------------------
+Why first? Because without this, creating an admin requires insecure manual
+passwords, and the first-time password reset cannot work cleanly.
+- Superadmin enters: Admin Name, Email, (Optional Company Name).
+- Backend generates `invitation_token` (SHA-256 hash stored in DB, expires in 24h).
+- Email sent via Nodemailer/Resend with link: `https://workkind.com/activate?token=...`
+- Admin clicks, sets strong password -> Account activated -> Email verified.
+
+PHASE 2: FIRST-TIME COMPANY SETUP WIZARD (ONBOARDING)
+--------------------------------------------------------------------------------
+After activation and login, if Admin has `company_id == null`:
+- Redirect to `/onboarding` (Multi-step wizard):
+  Step 1: Company Profile (Legal Name, Trade Name, Industry, Headcount Range, Logo)
+  Step 2: Legal & Tax (PAN, GSTIN, CIN, Registered Office Address)
+  Step 3: Workplace Defaults (Work days e.g. Mon-Fri, Shift timing, Timezone)
+- Submission creates company record, links admin as owner, generates trial subscription.
+
+PHASE 3: COMPANY-WISE MODULE PROVISIONING (FEATURE FLAGS)
+--------------------------------------------------------------------------------
+Allow Superadmin to toggle which modules a company can see and use:
+- Module table: `[attendance, leaves, payroll, recruitment, performance]`
+- Company-module mapping: `company_modules` table.
+- If Company A only pays for Attendance & Leaves, Payroll is disabled in their sidebar
+  and backend routes reject calls with `403 Feature Not Subscribed`.
+
+PHASE 4: EMPLOYEE MANAGEMENT & EMPLOYEE INVITATION FLOW
+--------------------------------------------------------------------------------
+Company Admin can:
+- Add single employee or Bulk CSV upload.
+- Toggle "Send Invitation Email" -> Employee receives activation link to set password.
+- Assign:
+  * Designation (e.g., "Full Stack Developer")
+  * System Role (e.g., "Employee" or "Team Lead")
+  * Reporting Manager (for approval workflows)
+
+PHASE 5: ROLE-BASED DASHBOARDS
+--------------------------------------------------------------------------------
+- Superadmin Dashboard: Global metrics (Total Tenants, Active Users, Revenue, Trials).
+- Company Admin Dashboard: Today's Attendance, Leave Requests Pending, Headcount.
+- Employee Dashboard: Quick punch in/out, Remaining leave balances, Upcoming holidays.
+
+================================================================================
+4. EMAIL INVITATION & ACTIVATION FLOW DETAILS
+================================================================================
+
+FLOW A: SUPERADMIN CREATES COMPANY ADMIN
+--------------------------------------------------------------------------------
+1. Superadmin clicks "Invite Company Admin" in Superadmin Panel.
+2. Form fields:
+   - Admin Full Name: "Ramesh Sharma"
+   - Admin Work Email: "ramesh@acme.com"
+   - Company Name (Draft): "Acme Technologies Pvt Ltd"
+   - Enabled Modules: [Attendance, Leaves, Recruitment] (Default: Standard)
+3. Backend Action:
+   - Creates a pending user row with `is_activated = false`, `password_hash = ''`.
+   - Generates crypto random token: `crypto.randomBytes(32).toString('hex')`.
+   - Hashes token using SHA-256 and stores in `user_invitations` table.
+   - Sends email:
+     Subject: "Welcome to Workkind - Activate your company admin account"
+     Body: "Hi Ramesh, You've been invited to set up Acme Technologies on Workkind.
+            Click here to set your password and get started: [Activate Account]"
+4. Activation URL:
+   `https://workkind.com/activate?token=a1b2c3d4...`
+5. On the Activation Page:
+   - User sees "Welcome to Workkind, Ramesh!"
+   - Enters New Password + Confirms New Password.
+   - Live password policy checklist (8+ chars, uppercase, lowercase, number, symbol).
+   - Submits -> Token verified -> Password hashed with bcrypt/Argon2 -> `is_activated = true`.
+   - Automatically logs user in (issues session cookies) and forwards to `/onboarding`.
+
+FLOW B: COMPANY ADMIN INVITES EMPLOYEE
+--------------------------------------------------------------------------------
+Same exact token mechanism!
+- Admin adds employee: `priya@acme.com`, designation "UX Designer", Role "Employee".
+- Priya gets email: "Acme Technologies invited you to join Workkind".
+- Priya clicks -> Sets password -> Lands directly on Employee Self Service portal!
+
+================================================================================
+5. COMPANY CREATION & LEGAL DATA (PAN, GSTIN, VERIFICATION)
+================================================================================
+
+What fields to collect during Company Setup Wizard:
+--------------------------------------------------------------------------------
+STEP 1: Basic Business Info
+- Legal Entity Name: e.g. "Acme Technologies Private Limited"
+- Brand / Display Name: e.g. "Acme"
+- Industry: (Tech, Healthcare, Retail, Manufacturing, Education, Finance, etc.)
+- Employee Count Band: 1-10, 11-50, 51-200, 201-500, 500+
+- Official Company Website & Support Email
+- Company Logo upload
+
+STEP 2: Legal & Tax Compliance (India)
+- Business Structure: 
+  * Private Limited (Pvt Ltd)
+  * Public Limited
+  * Limited Liability Partnership (LLP)
+  * Partnership Firm
+  * Sole Proprietorship
+- Company PAN (Mandatory for business verification):
+  * Regex validation: `^[A-Z]{5}[0-9]{4}[A-Z]{1}$`
+  * 4th character validation: 'C' for Company, 'P' for Individual/Proprietor, 'F' for Firm.
+- GSTIN (Optional - only mandatory if turnover > threshold):
+  * Regex validation: `^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$`
+  * First 2 digits match state code; middle 10 digits match PAN.
+- CIN (Corporate Identification Number - for Pvt Ltd / Ltd):
+  * Regex validation: `^[LU]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$`
+- Registered Office Address:
+  * Address Line 1 & Line 2
+  * City, State, Country, PIN Code
+
+STEP 3: Workplace Defaults
+- Standard Working Days: Mon-Fri or Mon-Sat
+- Shift Timings: e.g., 09:30 AM to 06:30 PM (with grace period e.g. 15 mins)
+- Default Leave Cycle: Calendar Year (Jan-Dec) or Financial Year (Apr-Mar)
+- Currency: INR (₹) / USD ($)
+
+--------------------------------------------------------------------------------
+HOW TO VERIFY IF A COMPANY IS LEGITIMATE?
+--------------------------------------------------------------------------------
+1. Client-Side & Backend Checksums (Instant & Zero Cost):
+   - GSTIN contains PAN inside characters 3-12. If entered PAN != GSTIN[2..12], reject!
+   - State code check: Pin code state matches GSTIN state prefix.
+2. Progressive Verification Status:
+   Every company starts with `verification_status`:
+   - `unverified`: Just registered. Allowed full trial access to HRMS.
+   - `in_review`: Documents / tax IDs submitted.
+   - `verified`: Government tax records match company legal name.
+   - `rejected`: Flagged for fraudulent activity or impersonation.
+3. Automated API Verification (Production Integration):
+   - In production, integrate services like:
+     * Sandbox.co.in or Surepass.io or Karza (Perfios)
+     * Cost: ~₹1-₹2 per PAN/GSTIN verification call.
+     * Returns: Legal Registered Name, Status (Active/Inactive), Tax Filing Status.
+   - If `api_legal_name` matches `submitted_name` with high fuzzy score (>85%),
+     auto-set `verification_status = 'verified'`!
+4. Manual Superadmin Review (MVP):
+   - Superadmin panel shows "Pending Verifications" badge.
+   - Superadmin views PAN/GSTIN and clicks "Mark as Verified" or "Request Correction".
+
+================================================================================
+6. COMPANY-WISE MODULE PROVISIONING (FEATURE FLAGS)
+================================================================================
+
+Why is this needed?
+- A 10-person startup may only want Attendance & Leaves (₹15/emp/mo).
+- A 100-person enterprise wants Attendance + Leaves + Payroll + Recruitment.
+- Superadmin can turn modules on/off per company based on their plan or custom deal.
+
+Architecture:
+1. `modules` table (Platform master):
+   id: 1, key: 'attendance', name: 'Attendance & Time Tracking'
+   id: 2, key: 'leaves', name: 'Leave Management'
+   id: 3, key: 'payroll', name: 'Payroll & Statutory Compliance'
+   id: 4, key: 'recruitment', name: 'Recruitment & ATS'
+   id: 5, key: 'performance', name: 'Performance Reviews'
+
+2. `company_modules` table:
+   `company_id`, `module_key`, `is_enabled`, `enabled_at`, `expires_at`
+
+3. Frontend Dynamic Sidebar:
+   - When User logs in, backend returns `user.company.enabled_modules: string[]`.
+   - Sidebar renders only the navigation items for enabled modules.
+
+4. Backend API Guard Middleware:
+   ```ts
+   // Example Express middleware
+   export const requireModule = (moduleKey: string) => {
+     return (req, res, next) => {
+       const company = req.company;
+       if (!company.enabledModules.includes(moduleKey)) {
+         return res.status(403).json({
+           error: `Module '${moduleKey}' is not enabled for your company. Please upgrade your subscription.`
+         });
+       }
+       next();
+     };
+   };
+   ```
+
+================================================================================
+7. SUPER ADMIN VS. COMPANY ADMIN RESPONSIBILITIES
+================================================================================
+
+SUPER ADMIN (Platform Owner):
+--------------------------------------------------------------------------------
+1. Platform Dashboard:
+   - Total Companies (Active, Inactive, Suspended).
+   - Total Platform Employees across all companies.
+   - Monthly Recurring Revenue (MRR) & Active Razorpay subscriptions.
+   - Pending Company Verifications.
+2. Tenant Management:
+   - View list of all registered companies.
+   - Impersonate / "Log in as Company Admin" (for customer support / debugging).
+   - Suspend company (e.g. for non-payment or TOS violation).
+   - Module Gating: Toggle modules on/off per company.
+3. Admin Invitations:
+   - Send invitation links to onboard new companies.
+   - Resend invitation or revoke expired links.
+4. Global Audit Log:
+   - Track major platform events (Company created, Subscription upgraded, Admin banned).
+5. Global Page Master:
+   - Define canonical app pages, routes, and baseline permission mappings.
+
+COMPANY ADMIN (Tenant Customer):
+--------------------------------------------------------------------------------
+1. Company Setup & Policy:
+   - Manage office locations, departments, working hours, company holidays.
+2. Employee Roster:
+   - Onboard employees, manage profiles, set designations, assign managers.
+3. Daily Operations:
+   - View live daily attendance, punch logs, late marks.
+   - Approve / reject leave requests.
+4. Payroll Processing:
+   - Configure salary structures (Basic, HRA, Special Allowance).
+   - Run 1-click monthly payroll, generate payslip PDFs.
+5. Subscription & Invoicing:
+   - View Razorpay billing status, upgrade seat count, download tax invoices.
+
+================================================================================
+8. DATABASE SCHEMA ENHANCEMENTS (DRIZZLE ORM)
+================================================================================
+
+Below are the recommended schema additions to be placed in `backend/src/db/schemas`:
+
+--------------------------------------------------------------------------------
+A. User Invitations Table (`user_invitations.schema.ts`):
+--------------------------------------------------------------------------------
+```typescript
+import { pgTable, integer, varchar, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { id, createdAt, timestamptz, fk } from "../columns.js";
+import { companies } from "./company.schema.js";
+import { users } from "./user.schema.js";
+
+export const userInvitations = pgTable("user_invitations", {
+  id: id(),
+  email: varchar("email", { length: 150 }).notNull(),
+  name: varchar("name", { length: 150 }).notNull(),
+  role: varchar("role", { length: 30 }).notNull().default("member"), // 'company_admin' | 'employee'
+  company_id: integer("company_id"), // null if inviting a new company admin
+  company_name_draft: varchar("company_name_draft", { length: 200 }),
+  token_hash: text("token_hash").notNull(),
+  expires_at: timestamptz("expires_at").notNull(),
+  accepted_at: timestamptz("accepted_at"),
+  invited_by: integer("invited_by"), // superadmin or company admin user_id
+  created_at: createdAt(),
+}, (t) => [
+  fk("user_invitations", t.company_id, companies.id, "cascade"),
+  fk("user_invitations", t.invited_by, users.id, "set null"),
+]);
+```
+
+--------------------------------------------------------------------------------
+B. Enhanced Company Legal & Verification Columns (`company.schema.ts`):
+--------------------------------------------------------------------------------
+```typescript
+// Additions to companies table:
+trade_name: varchar("trade_name", { length: 200 }),
+business_type: varchar("business_type", { length: 50 }), // 'pvt_ltd', 'llp', 'proprietorship', etc.
+pan: varchar("pan", { length: 10 }),
+gstin: varchar("gstin", { length: 15 }),
+cin: varchar("cin", { length: 21 }),
+verification_status: varchar("verification_status", { length: 30 }).notNull().default("unverified"),
+// 'unverified' | 'pending' | 'verified' | 'rejected'
+verification_notes: text("verification_notes"),
+verified_at: timestamptz("verified_at"),
+status: varchar("status", { length: 30 }).notNull().default("active"), // 'active' | 'suspended' | 'trial'
+```
+
+--------------------------------------------------------------------------------
+C. Company Modules Table (`company_module.schema.ts`):
+--------------------------------------------------------------------------------
+```typescript
+export const companyModules = pgTable("company_modules", {
+  id: id(),
+  company_id: integer("company_id").notNull(),
+  module_key: varchar("module_key", { length: 50 }).notNull(), // 'attendance', 'leave', 'payroll', etc.
+  is_enabled: boolean("is_enabled").notNull().default(true),
+  created_at: createdAt(),
+}, (t) => [
+  fk("company_modules", t.company_id, companies.id, "cascade"),
+  unique("company_module_unique").on(t.company_id, t.module_key),
+]);
+```
+
+--------------------------------------------------------------------------------
+D. Roles & Permissions Tables (`role.schema.ts`):
+--------------------------------------------------------------------------------
+```typescript
+export const roles = pgTable("roles", {
+  id: id(),
+  company_id: integer("company_id"), // null = system-wide default role
+  name: varchar("name", { length: 60 }).notNull(), // 'Company Admin', 'HR Manager', 'Employee'
+  slug: varchar("slug", { length: 60 }).notNull(),
+  description: text("description"),
+  created_at: createdAt(),
+});
+
+export const rolePermissions = pgTable("role_permissions", {
+  role_id: integer("role_id").notNull(),
+  permission_key: varchar("permission_key", { length: 100 }).notNull(), // e.g. 'leave.approve'
+}, (t) => [
+  fk("role_permissions", t.role_id, roles.id, "cascade"),
+  primaryKey({ columns: [t.role_id, t.permission_key] }),
+]);
+```
+
+================================================================================
+9. API ENDPOINTS CONTRACT
+================================================================================
+
+AUTH & INVITATION ENDPOINTS:
+- `POST /api/auth/invite/admin` [Superadmin only]
+  Body: `{ name, email, companyNameDraft, enabledModules: string[] }`
+  Response: `{ success: true, message: "Invitation sent" }`
+
+- `GET /api/auth/invite/verify?token=...` [Public]
+  Response: `{ valid: true, email: "...", name: "...", companyNameDraft: "..." }`
+
+- `POST /api/auth/invite/accept` [Public]
+  Body: `{ token, password }`
+  Response: `{ success: true, user, token, mustCompleteOnboarding: true }`
+
+- `POST /api/auth/invite/employee` [Company Admin only]
+  Body: `{ name, email, designationId, roleId, departmentId, reportingManagerId }`
+
+COMPANY ONBOARDING & SETUP:
+- `POST /api/companies/onboarding` [Company Admin only]
+  Body: `{
+    legalName, tradeName, industry, employeeRange,
+    pan, gstin, cin, address, city, state, postalCode,
+    shiftStart, shiftEnd, workDays
+  }`
+  Response: `{ company, setupCompleted: true }`
+
+SUPERADMIN MANAGEMENT:
+- `GET /api/superadmin/companies` [Superadmin only]
+  Returns list of all companies with headcount, subscription status, verification.
+- `PATCH /api/superadmin/companies/:id/modules` [Superadmin only]
+  Body: `{ enabledModules: ['attendance', 'leaves', 'payroll'] }`
+- `PATCH /api/superadmin/companies/:id/verification` [Superadmin only]
+  Body: `{ status: 'verified' | 'rejected', notes: '...' }`
+- `PATCH /api/superadmin/companies/:id/status` [Superadmin only]
+  Body: `{ status: 'active' | 'suspended' }`
+
+================================================================================
+10. PHASE-BY-PHASE EXECUTION CHECKLIST
+================================================================================
+
+[ ] STEP 1: Database Migration (Drizzle)
+    - Add `user_invitations` table.
+    - Add legal/tax fields (`pan`, `gstin`, `cin`, `verification_status`) to `companies`.
+    - Add `company_modules` table.
+    - Run `npm run db:push` / drizzle migration.
+
+[ ] STEP 2: Email Service & Invitation Token Generator
+    - Configure email sender (Nodemailer / Resend).
+    - Implement `inviteCompanyAdmin()` and token verification in `backend/src/modules/auth`.
+
+[ ] STEP 3: Frontend Activation Page (`/activate`)
+    - Create `/activate?token=...` page in `frontendnext`.
+    - Check token validity, show company & admin name.
+    - Password entry form with live password policy checklist.
+    - On success, redirect to `/onboarding`.
+
+[ ] STEP 4: Enhanced Company Onboarding Wizard (`/onboarding`)
+    - 3-step modern wizard matching Workkind styling:
+      * Step 1: Company Profile (Logo, Name, Industry, Headcount).
+      * Step 2: Tax & Compliance (PAN, GSTIN, Address with checksum validation).
+      * Step 3: Workplace Defaults (Work days, shift hours).
+    - Auto-create company and link user as Company Admin.
+
+[ ] STEP 5: Superadmin Company & Module Management UI
+    - Superadmin dashboard view with statistics.
+    - Companies list table with verification badges and module switches.
+    - "Invite Admin" modal.
+
+[ ] STEP 6: Company-Wise Feature Gating Middleware
+    - Backend `requireModule(key)` middleware.
+    - Frontend sidebar dynamically filtering navigation links based on active company modules.
+
+================================================================================
+END OF WORKKIND ARCHITECTURAL PLAN
+================================================================================

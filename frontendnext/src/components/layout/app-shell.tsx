@@ -9,6 +9,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Header } from "./header";
 import { pageUrls } from "./nav-items";
 import { Sidebar } from "./sidebar";
+import { CompanySuspended } from "./company-suspended";
+import { ForcePasswordChange } from "@/components/auth/force-password-change";
+import { onCompanySuspended } from "@/lib/api/client";
 
 // Sidebar + header around every logged-in page. proxy.ts already made sure the
 // visitor is logged in and allowed on this page; here we load who they are.
@@ -50,6 +53,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyFontSize(fontSize ?? FONT_SIZE.default);
   }, [fontSize]);
+
+  // Suspended by the Super Admin: an API call said so → reload who I am (company.status)
+  const company = useAuthStore((s) => s.company);
+  useEffect(() => {
+    onCompanySuspended(() => void loadMe());
+    return () => onCompanySuspended(() => {});
+  }, [loadMe]);
+  if (user?.must_change_password) return <ForcePasswordChange name={user.name} />;
+  if (user && company?.status === "suspended" && !user.is_superadmin) return <CompanySuspended companyName={company.name} />;
 
   return (
     <div className="flex min-h-screen">

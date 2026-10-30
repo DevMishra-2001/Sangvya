@@ -1,27 +1,24 @@
-import { boolean, pgTable, smallint, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { createdAt, id } from "../columns.js";
+import { sql } from "drizzle-orm";
+import { boolean, index, integer, pgTable, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { createdAt, fk, id } from "../columns.js";
+import { companies } from "./company.schema.js";
 
-// The fixed designations, highest first. `key` is what the code checks;
-// `level` stops anyone from giving a designation above their own.
-//   superadmin — the platform developer (set in the DB, never from the app)
-//   admin      — a company owner
-export const DESIGNATION_KEYS = ["superadmin", "admin", "hr", "accountant", "developer"] as const;
-export type DesignationKey = (typeof DESIGNATION_KEYS)[number];
-
-// One shared list for every company. Which pages each designation can open is
-// set in the Page Master (app_page_access).
+// Job titles ("UX Designer", "Accounts Lead") — each company keeps its own list.
+// Shown on profiles and payslips; they never affect access (that's the role).
 export const designations = pgTable(
   "designations",
   {
     id: id(),
-    key: varchar("key", { length: 20 }).notNull().$type<DesignationKey>(),
+    company_id: integer("company_id").notNull(),
     name: varchar("name", { length: 100 }).notNull(),
-    level: smallint("level").notNull(),
-    // Inactive = can't be given to anyone new; people who have it keep it
+    // Inactive = not offered for new employees; people who have it keep it
     is_active: boolean("is_active").notNull().default(true),
     created_at: createdAt(),
   },
   (t) => [
-    uniqueIndex("idx_designations_key").on(t.key),
+    fk("designations", t.company_id, companies.id, "cascade"),
+    index("idx_designations_company").on(t.company_id),
+    // One name per company, case-insensitive
+    uniqueIndex("idx_designations_name").on(t.company_id, sql`lower(${t.name})`),
   ],
 );

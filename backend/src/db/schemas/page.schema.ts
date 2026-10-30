@@ -1,6 +1,6 @@
 import { boolean, integer, pgTable, primaryKey, smallint, varchar } from "drizzle-orm/pg-core";
 import { createdAt, fk, id } from "../columns.js";
-import { designations } from "./designation.schema.js";
+import { roles } from "./role.schema.js";
 
 // Page Master: every page of the app, managed by the Super Admin. The sidebar,
 // the page guard and the API permissions all come from these rows.
@@ -24,16 +24,17 @@ export const appPages = pgTable(
   (t) => [fk("app_pages", t.parent_id, t.id, "set null")],
 );
 
-// Which designations can open which page
-export const appPageAccess = pgTable(
-  "app_page_access",
+
+// Which roles can open which page
+export const appPageRoles = pgTable(
+  "app_page_roles",
   {
     page_id: integer("page_id").notNull(),
-    designation_id: integer("designation_id").notNull(),
+    role_id: integer("role_id").notNull(),
   },
   (t) => [
-    primaryKey({ name: "app_page_access_pkey", columns: [t.page_id, t.designation_id] }),
-    fk("app_page_access", t.page_id, appPages.id, "cascade"),
-    fk("app_page_access", t.designation_id, designations.id, "cascade"),
+    primaryKey({ name: "app_page_roles_pkey", columns: [t.page_id, t.role_id] }),
+    fk("app_page_roles", t.page_id, appPages.id, "cascade"),
+    fk("app_page_roles", t.role_id, roles.id, "cascade"),
   ],
 );

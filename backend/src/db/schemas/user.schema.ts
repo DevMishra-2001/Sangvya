@@ -18,12 +18,17 @@ export const users = pgTable(
     email: varchar("email", { length: 150 }).notNull().unique("users_email_key"),
     password_hash: text("password_hash").notNull(),
     // "superadmin" = platform developer (npm run make-superadmin); everyone else is
-    // "member" and gets access from their designation in the current company
+    // "member" and gets access from their role in the current company
     role: varchar("role", { length: 30 }).notNull().default("member"),
     created_at: createdAt(),
     employee_id: integer("employee_id"),
+    // Set when they first set their password (activation link). NULL = invited, not activated yet
+    activated_at: timestamptz("activated_at"),
     // Blocked logins can't log in; their open sessions are ended when blocked
     is_blocked: boolean("is_blocked").notNull().default(false),
+    // Set when someone else sets their password (e.g. the admin creating an
+    // employee's login): they must choose their own on next login
+    must_change_password: boolean("must_change_password").notNull().default(false),
     // The user's own UI font size (10–17px, 13 = normal)
     font_size: smallint("font_size").notNull().default(13),
   },

@@ -6,7 +6,7 @@ import { findCompany } from "../companies/companies.service.js";
 import { accessFor } from "../pages/access.service.js";
 import { findUserByEmail, findUserById } from "../users/users.service.js";
 import type { LoginInput } from "./auth.schema.js";
-import { endSession, refreshSession, SESSION_INFO, startSession } from "./session.service.js";
+import { endSession, refreshSession, reissueAccessToken, SESSION_INFO, startSession } from "./session.service.js";
 
 interface AuthUserRow {
   id: number;
@@ -18,11 +18,11 @@ interface AuthUserRow {
 
 // What every auth response returns. `pages` is the user's menu and page access
 // (from the Page Master) — the frontend loads it once with this call and keeps it.
-async function authPayload<T extends AuthUserRow>(user: T) {
+export async function authPayload<T extends AuthUserRow>(user: T) {
   const { password_hash: _hash, ...rest } = user;
   const access = await accessFor(user);
   return {
-    user: { ...rest, designation: access.designation, is_superadmin: access.isSuperadmin, permissions: access.permissions },
+    user: { ...rest, role: access.role, is_superadmin: access.isSuperadmin, permissions: access.permissions },
     company: await currentCompany(user.company_id),
     pages: access.pages,
     session: SESSION_INFO,
@@ -34,17 +34,44 @@ async function currentCompany(companyId: number | null) {
   if (!companyId) return null;
   const company = await findCompany(companyId);
   if (!company) return null;
-  const { created_at: _created, ...details } = company;
+  // Tax IDs and billing details stay out of what every employee's browser gets
+  // (and so do the Super Admin's review notes)
+  const {
+    created_at: _created,
+    pan: _pan,
+    gstin: _gstin,
+    cin_llpin: _cin,
+    tan: _tan,
+    billing_address: _billing,
+    verification_notes: _notes,
+    status_reason: _reason,
+    reviewed_by: _reviewer,
+    ...details
+  } = company;
   return details;
 }
 
 export async function login(req: Request, res: Response, { email, password }: LoginInput) {
   const user = await findUserByEmail(email);
+  // Invited but not activated yet: there's no password to check
+  if (user && !user.activated_at) {
+    throw new ForbiddenError("Your account isn't activated yet. Use the activation link from your invitation email.", "NOT_ACTIVATED");
+  }
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     throw new UnauthorizedError("Invalid email or password");
   }
   if (user.is_blocked) throw new ForbiddenError("Your login has been blocked. Please contact your company admin.", "LOGIN_BLOCKED");
   await startSession(res, req, user);
+  return authPayload(user);
+}
+
+// GET /auth/me (each app load): also renews the access token, so the pages it
+// lists for the proxy's page guard always match the menu sent here — e.g. right
+// after a page is added in the Page Master or by a migration.
+export async function meWithFreshToken(res: Response, userId: number, sessionId: number) {
+  const user = await findUserById(userId);
+  if (!user) throw new UnauthorizedError("Account no longer exists", "SESSION_REVOKED");
+  await reissueAccessToken(res, user, sessionId);
   return authPayload(user);
 }
 

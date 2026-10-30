@@ -1,5 +1,5 @@
 import type { Permission } from "../config/permissions.js";
-import type { DesignationKey } from "../db/schemas/designation.schema.js";
+import type { RoleKey } from "../db/schemas/role.schema.js";
 
 declare global {
   namespace Express {
@@ -8,9 +8,9 @@ declare global {
       // null until a new superadmin creates their first company
       companyId: number | null;
       email: string;
-      // From their designation in the current company (modules/pages/access.service.ts)
+      // From their role in the current company (modules/pages/access.service.ts)
       isSuperadmin: boolean;
-      designationKey: DesignationKey | null;
+      roleKey: RoleKey | null;
       level: number;
       permissions: Permission[];
       employeeId: number | null;

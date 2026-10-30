@@ -18,7 +18,7 @@ import { PAGE_ICON_NAMES, pageIcon } from "@/lib/page-icons";
 import { pageSchema, slugify, type PageForm, type PagePayload } from "@/lib/schemas/page";
 import type { PageRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useDesignationsStore } from "@/stores/designations-store";
+import { useRolesStore } from "@/stores/roles-store";
 import { usePagesStore } from "@/stores/pages-store";
 
 const EMPTY: PageForm = {
@@ -30,7 +30,7 @@ const EMPTY: PageForm = {
   sortOrder: "",
   showInMenu: "yes",
   isActive: "active",
-  designationIds: [],
+  roleIds: [],
 };
 
 const toForm = (p: PageRow): PageForm => ({
@@ -42,7 +42,7 @@ const toForm = (p: PageRow): PageForm => ({
   sortOrder: String(p.sort_order),
   showInMenu: p.show_in_menu ? "yes" : "no",
   isActive: p.is_active ? "active" : "inactive",
-  designationIds: p.designation_ids.map(String),
+  roleIds: p.role_ids.map(String),
 });
 
 // Rows in menu order: each top-level page followed by its children
@@ -51,15 +51,15 @@ function ordered(list: PageRow[]) {
   return top.flatMap((p) => [{ page: p, depth: 0 }, ...list.filter((c) => c.parent_id === p.id).map((c) => ({ page: c, depth: 1 }))]);
 }
 
-// Super Admin: every page of the app, its menu place, and which designations can open it.
+// Super Admin: every page of the app, its menu place, and which roles can open it.
 // What people see in the sidebar (and can open) comes from here.
 export function PageMasterView() {
   const pages = usePagesStore((s) => s.list);
   const load = usePagesStore((s) => s.load);
   const save = usePagesStore((s) => s.save);
   const remove = usePagesStore((s) => s.remove);
-  const designations = useDesignationsStore((s) => s.list);
-  const loadDesignations = useDesignationsStore((s) => s.load);
+  const roles = useRolesStore((s) => s.list);
+  const loadRoles = useRolesStore((s) => s.load);
   const [editing, setEditing] = useState<PageRow | null>(null);
   const {
     register,
@@ -74,8 +74,8 @@ export function PageMasterView() {
 
   useEffect(() => {
     load();
-    loadDesignations();
-  }, [load, loadDesignations]);
+    loadRoles();
+  }, [load, loadRoles]);
 
   // Fill every field (setValue — reset() doesn't refresh inputs reliably here)
   function fill(values: PageForm) {
@@ -106,12 +106,12 @@ export function PageMasterView() {
     },
   });
 
-  const designationName = (id: number) => designations.find((d) => d.id === id)?.name ?? "?";
+  const roleName = (id: number) => roles.find((r) => r.id === id)?.name ?? "?";
   const groups = pages.filter((p) => !p.url && p.id !== editing?.id);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Page Master" description="Every page of the app and which designations can open it. The menu is built from this list." className="mb-0" />
+      <PageHeader title="Page Master" description="Every page of the app and which roles can open it. The menu is built from this list." className="mb-0" />
 
       <FormCard title={editing ? `Edit “${editing.name}”` : "New page"} crumbs={["Master", "Page Master"]} icon={LayoutList}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
@@ -150,13 +150,13 @@ export function PageMasterView() {
             <FormField label="Order" htmlFor="pg-order" error={errors.sortOrder}>
               <Input id="pg-order" inputMode="numeric" placeholder="0" {...register("sortOrder")} />
             </FormField>
-            <FormField label="Designations" htmlFor="pg-access" error={errors.designationIds as { message?: string } | undefined} span="md">
+            <FormField label="Roles" htmlFor="pg-access" error={errors.roleIds as { message?: string } | undefined} span="md">
               <FormMultiSelect
                 control={control}
-                name="designationIds"
+                name="roleIds"
                 id="pg-access"
                 placeholder="Who can open it"
-                options={designations.filter((d) => d.key !== "superadmin").map((d) => ({ value: String(d.id), label: d.name }))}
+                options={roles.filter((r) => r.key !== "superadmin").map((r) => ({ value: String(r.id), label: r.name }))}
               />
             </FormField>
             <FormField label="In menu" htmlFor="pg-menu" error={errors.showInMenu}>
@@ -204,7 +204,7 @@ export function PageMasterView() {
               <TableHead className="w-14">Order</TableHead>
               <TableHead>Page</TableHead>
               <TableHead>URL</TableHead>
-              <TableHead>Designations</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead className="w-24">Menu</TableHead>
               <TableHead className="w-24">Status</TableHead>
               <TableHead className="w-24 text-right">Actions</TableHead>
@@ -226,10 +226,10 @@ export function PageMasterView() {
                   <TableCell className="font-mono text-xs">{p.url ?? "—"}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {p.designation_ids.length ? (
-                        p.designation_ids.map((id) => (
+                      {p.role_ids.length ? (
+                        p.role_ids.map((id) => (
                           <Badge key={id} variant="secondary">
-                            {designationName(id)}
+                            {roleName(id)}
                           </Badge>
                         ))
                       ) : (

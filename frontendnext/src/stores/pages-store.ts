@@ -16,14 +16,21 @@ interface PagesState {
 }
 
 const bySort = (a: PageRow, b: PageRow) => a.sort_order - b.sort_order || a.id - b.id;
+let loading: Promise<void> | null = null; // one request at a time
 
 export const usePagesStore = create<PagesState>((set, get) => ({
   list: [],
   loaded: false,
 
-  async load() {
-    const result = await run(pagesService.list);
-    if (result.ok) set({ list: result.data.sort(bySort), loaded: true });
+  load() {
+    loading ??= run(pagesService.list)
+      .then((result) => {
+        if (result.ok) set({ list: result.data.sort(bySort), loaded: true });
+      })
+      .finally(() => {
+        loading = null;
+      });
+    return loading;
   },
 
   async save(id, payload) {

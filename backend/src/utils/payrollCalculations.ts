@@ -70,28 +70,37 @@ export function calculateMonthlyTDS(monthlyGross: number) {
   return Math.round(calculateAnnualTax(taxableIncome) / 12);
 }
 
+export interface Deductions {
+  pf: boolean;
+  esi: boolean;
+  pt: boolean;
+  tds: boolean;
+}
+
 export interface PayslipInput {
   basic: number;
   hra: number;
   allowances: number;
   paidDays: number;
   totalDays: number;
+  deductions?: Deductions; // company payroll settings (all on by default)
 }
 
 // ---- Full payslip calculation ----
 // paidDays / totalDays lets absent days reduce gross pay proportionally
 // before statutory deductions are applied.
-export function calculatePayslip({ basic, hra, allowances, paidDays, totalDays }: PayslipInput) {
+export function calculatePayslip({ basic, hra, allowances, paidDays, totalDays, deductions = { pf: true, esi: true, pt: true, tds: true } }: PayslipInput) {
   const proration = totalDays > 0 ? paidDays / totalDays : 1;
   const proratedBasic = Math.round(basic * proration);
   const proratedHra = Math.round(hra * proration);
   const proratedAllowances = Math.round(allowances * proration);
   const gross = proratedBasic + proratedHra + proratedAllowances;
 
-  const pf = calculatePF(proratedBasic);
-  const esi = calculateESI(gross);
-  const professionalTax = calculateProfessionalTax(gross);
-  const tds = calculateMonthlyTDS(gross);
+  const none = { employee: 0, employer: 0 };
+  const pf = deductions.pf ? calculatePF(proratedBasic) : none;
+  const esi = deductions.esi ? calculateESI(gross) : none;
+  const professionalTax = deductions.pt ? calculateProfessionalTax(gross) : 0;
+  const tds = deductions.tds ? calculateMonthlyTDS(gross) : 0;
   const totalDeductions = pf.employee + esi.employee + professionalTax + tds;
 
   return {

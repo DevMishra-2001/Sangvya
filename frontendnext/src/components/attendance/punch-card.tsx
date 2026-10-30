@@ -52,7 +52,14 @@ export function PunchCard() {
         <CardDescription>
           {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · {statusText}
           {holiday && <span className="text-primary"> · Holiday: {holiday.name}</span>}
-          {isSunday && !holiday && <span className="text-primary"> · Sunday</span>}
+          {isSunday && !holiday && <span className="text-primary"> · Weekly off</span>}
+          {rules.shiftName && rules.start && (
+            <span>
+              {" "}
+              · {rules.shiftName} {rules.start}–{rules.end}
+            </span>
+          )}
+          {!!day?.lateMinutes && <span className="text-warning"> · Late by {fmtMinutes(day.lateMinutes)}</span>}
         </CardDescription>
         <CardAction>
           <CheckInButton />

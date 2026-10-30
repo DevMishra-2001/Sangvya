@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, date, doublePrecision, index, pgTable, text, unique, varchar, integer } from "drizzle-orm/pg-core";
+import { boolean, check, date, doublePrecision, index, pgTable, text, unique, varchar, integer } from "drizzle-orm/pg-core";
 import { createdAt, fk, id, timestamptz } from "../columns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
@@ -24,6 +24,9 @@ export const attendance = pgTable(
     punch_out_remarks: text("punch_out_remarks"),
     // Set once the end-of-day check (manager alert) has run for this day
     day_closed_at: timestamptz("day_closed_at"),
+    // Minutes after the shift start (beyond the grace time) of the first check-in;
+    // 0 = on time, NULL = not checked in / marked by HR
+    late_minutes: integer("late_minutes"),
   },
   (t) => [
     fk("attendance", t.company_id, companies.id, "cascade"),
@@ -85,6 +88,9 @@ export const holidays = pgTable(
     company_id: integer("company_id").notNull(),
     date: date("date").notNull(),
     name: varchar("name", { length: 150 }).notNull(),
+    // Optional (restricted) holiday: a normal working day unless the employee
+    // takes it, using their OL quota. Not optional = everyone's day off.
+    is_optional: boolean("is_optional").notNull().default(false),
     created_at: createdAt(),
   },
   (t) => [

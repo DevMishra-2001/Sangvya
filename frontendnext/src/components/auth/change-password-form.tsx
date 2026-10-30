@@ -8,17 +8,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Eye, EyeOff, Lock, Users } from "lucide-react";
 import { PasswordPopover } from "@/components/common/password-hint";
 import { Spinner } from "@/components/ui/spinner";
-import { run } from "@/lib/api/run";
 import { changePasswordSchema, type ChangePasswordInput } from "@/lib/schemas/auth";
-import { authService } from "@/lib/services/auth";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface ChangePasswordFormProps {
-  requireCurrentPassword?: boolean;
   onSuccess?: () => void;
   title?: string;
   subtitle?: string;
   // Save the password somewhere else (e.g. accepting an invitation) instead of
-  // the change-password API. Return true on success.
+  // changing the logged-in user's password. Return true on success.
   submitPassword?: (newPassword: string) => Promise<boolean>;
   submitLabel?: string;
   // Replaces the "Back to login" footer (null hides it)
@@ -26,7 +24,6 @@ interface ChangePasswordFormProps {
 }
 
 export function ChangePasswordForm({
-  requireCurrentPassword = false,
   onSuccess,
   title = "Set New Password",
   subtitle = "Choose a secure password for your Workkind account.",
@@ -35,7 +32,7 @@ export function ChangePasswordForm({
   footer,
 }: ChangePasswordFormProps) {
   const router = useRouter();
-  const [showCurrent, setShowCurrent] = useState(false);
+  const changePassword = useAuthStore((s) => s.changePassword);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,7 +45,6 @@ export function ChangePasswordForm({
   } = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
-      currentPassword: "",
       newPassword: "",
       confirmPassword: "",
     },
@@ -58,29 +54,11 @@ export function ChangePasswordForm({
 
   async function onSubmit(data: ChangePasswordInput) {
     setBusy(true);
-    if (submitPassword) {
-      const ok = await submitPassword(data.newPassword);
-      setBusy(false);
-      if (ok) onSuccess?.();
-      return;
-    }
-    const result = await run(
-      () =>
-        authService.changePassword({
-          currentPassword: data.currentPassword || "",
-          newPassword: data.newPassword,
-        }),
-      { success: "Password updated successfully!" }
-    );
+    const ok = await (submitPassword ?? changePassword)(data.newPassword);
     setBusy(false);
-
-    if (result.ok) {
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.replace("/login");
-      }
-    }
+    if (!ok) return;
+    if (onSuccess) onSuccess();
+    else router.replace("/");
   }
 
   return (
@@ -107,36 +85,6 @@ export function ChangePasswordForm({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        {/* Optional Current Password */}
-        {requireCurrentPassword && (
-          <div className="flex flex-col gap-1.5">
-            <div className="relative">
-              <Lock className="size-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                id="currentPassword"
-                type={showCurrent ? "text" : "password"}
-                placeholder="Current or temporary password"
-                autoComplete="current-password"
-                {...register("currentPassword")}
-                className="h-12 w-full rounded-xl border border-slate-200/90 pl-11 pr-11 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-xs outline-none transition-all focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 aria-invalid:border-red-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrent((prev) => !prev)}
-                aria-label={showCurrent ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-              >
-                {showCurrent ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            {errors.currentPassword?.message && (
-              <span className="text-xs font-medium text-red-500 mt-0.5">
-                {errors.currentPassword.message}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* New Password — rules show in a tooltip while it's focused */}
         <div className="group/pw relative flex flex-col gap-1.5">
           <div className="relative">
@@ -146,7 +94,7 @@ export function ChangePasswordForm({
               type={showNew ? "text" : "password"}
               placeholder="New password"
               autoComplete="new-password"
-              autoFocus={!requireCurrentPassword}
+              autoFocus
               {...register("newPassword")}
               className="h-12 w-full rounded-xl border border-slate-200/90 pl-11 pr-11 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-xs outline-none transition-all focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10 aria-invalid:border-red-500"
             />

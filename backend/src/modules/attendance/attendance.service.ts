@@ -82,7 +82,7 @@ export async function findOpenAttendance(companyId: number, employeeId: number, 
 
 // Creates the day's row, or fills punch_in on a row HR already marked.
 // Returns undefined if the day was already punched in.
-export async function insertPunchIn(companyId: number, employeeId: number, date: string, at: Date, { location, remarks }: PunchDetails) {
+export async function insertPunchIn(companyId: number, employeeId: number, date: string, at: Date, { location, remarks }: PunchDetails, late: number) {
   const [record] = await db
     .insert(attendance)
     .values({
@@ -93,6 +93,7 @@ export async function insertPunchIn(companyId: number, employeeId: number, date:
       punch_in: at,
       punch_in_location: location,
       punch_in_remarks: remarks,
+      late_minutes: late,
     })
     .onConflictDoUpdate({
       target: [attendance.employee_id, attendance.date],
@@ -101,6 +102,7 @@ export async function insertPunchIn(companyId: number, employeeId: number, date:
         status: "present",
         punch_in_location: sql`excluded.punch_in_location`,
         punch_in_remarks: sql`excluded.punch_in_remarks`,
+        late_minutes: sql`excluded.late_minutes`,
       },
       setWhere: isNull(attendance.punch_in),
     })

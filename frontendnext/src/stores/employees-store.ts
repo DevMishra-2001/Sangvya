@@ -11,6 +11,8 @@ interface EmployeesState {
   add: (payload: EmployeePayload) => Promise<boolean>;
   update: (id: Id, payload: EmployeePayload) => Promise<boolean>;
   remove: (id: Id) => Promise<void>;
+  // Put a fresh copy of one employee in the list (profile page actions)
+  upsert: (employee: Employee) => void;
 }
 
 export const useEmployeesStore = create<EmployeesState>((set, get) => ({
@@ -33,6 +35,11 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
     const result = await run(() => employeesService.update(id, payload), { success: "Employee updated" });
     if (result.ok) set({ list: get().list.map((e) => (e.id === id ? result.data : e)) });
     return result.ok;
+  },
+
+  upsert(employee) {
+    const list = get().list;
+    set({ list: list.some((e) => e.id === employee.id) ? list.map((e) => (e.id === employee.id ? employee : e)) : [employee, ...list] });
   },
 
   async remove(id) {

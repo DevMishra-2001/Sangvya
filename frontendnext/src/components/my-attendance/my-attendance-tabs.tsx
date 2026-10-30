@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarRange, ClipboardList, FileBarChart, Fingerprint } from "lucide-react";
+import { CalendarRange, ClipboardList, FileBarChart, Fingerprint, History, PartyPopper } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -10,6 +10,8 @@ const TABS = [
   { href: "/my-attendance/calendar", label: "Calendar", icon: CalendarRange },
   { href: "/my-attendance/report", label: "Report", icon: FileBarChart },
   { href: "/my-attendance/leaves", label: "Leave approvals", icon: ClipboardList },
+  { href: "/my-attendance/corrections", label: "Corrections", icon: History },
+  { href: "/my-attendance/holidays", label: "Holidays", icon: PartyPopper },
 ];
 
 // Tab strip across the top of the My Attendance pages

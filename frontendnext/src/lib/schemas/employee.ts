@@ -10,7 +10,8 @@ export const employeeSchema = z
     designationId: optionalId, // job title
     // Role (access). Empty = not sent: a new employee gets Employee, an edit keeps the current one
     roleId: z.string().transform((v) => (v ? Number(v) : undefined)),
-    department: optionalText(100),
+    departmentId: optionalId,
+    shiftId: optionalId, // empty = company default shift
     email: z
       .string()
       .trim()
@@ -24,6 +25,9 @@ export const employeeSchema = z
     managerId: optionalId,
     joinDate: optionalDate,
     salary: optionalNumber("Salary must be a positive number", { min: 0 }),
+    employmentType: z.enum(["full_time", "part_time", "contract", "intern"]),
+    emergencyContactName: optionalText(150),
+    emergencyContactPhone: optionalText(30).refine((v) => v === null || /^[+\d][\d\s()-]{5,}$/.test(v), "Enter a valid phone number"),
     // Login: a password creates their login (or sets a new one); "" = leave as is.
     // It's temporary — they must choose their own on first login.
     password: z

@@ -28,6 +28,7 @@ export interface User {
   role: UserRole | null;
   is_superadmin: boolean; // the platform developer: sees every page
   permissions: Permission[];
+  team_size: number; // people who report to me (0 = not a manager)
   must_change_password: boolean; // logging in with a temporary password set by their admin
 }
 
@@ -160,12 +161,41 @@ export interface Role {
   level: number;
   is_active: boolean; // inactive = can't be given to anyone new
   employee_count: number; // in the current company
+  company_id: Id | null; // null = built-in role; set = this company's custom role
+  description: string | null;
+}
+
+// Custom roles page: the company's roles, bases to start from, pages to pick
+export interface CustomRole {
+  id: Id;
+  name: string;
+  description: string | null;
+  base: "hr" | "accountant" | "employee";
+  is_active: boolean;
+  employee_count: number;
+  page_ids: number[];
+}
+
+export interface CustomRolesData {
+  roles: CustomRole[];
+  bases: { key: CustomRole["base"]; name: string; page_ids: number[] }[];
+  pages: { id: number; name: string; slug: string; group: string | null }[];
 }
 
 // A company's job title — shown on profiles, no effect on access
 export interface Designation {
   id: Id;
   name: string;
+  is_active: boolean; // inactive = not offered for new employees
+  employee_count: number;
+}
+
+export interface Department {
+  id: Id;
+  name: string;
+  code: string | null; // short code, e.g. ENG
+  head_id: Id | null; // the employee who heads it
+  head_name: string | null;
   is_active: boolean; // inactive = not offered for new employees
   employee_count: number;
 }
@@ -208,7 +238,10 @@ export interface Employee {
   designation: string | null; // job title
   role_id: Id | null;
   role: string | null; // role name — decides their access
-  department: string | null;
+  department_id: Id | null;
+  department: string | null; // department name
+  shift_id: Id | null; // null = the company's default shift
+  shift: string | null;
   email: string | null;
   join_date: ISODate | null;
   salary: string | null;
@@ -222,6 +255,32 @@ export interface Employee {
   address: string | null;
   has_login: boolean; // can log in (Users page / password in the employee form)
   login_blocked: boolean;
+  employment_type: EmploymentType;
+  status: EmployeeStatus; // active | notice (leaving on exit_date) | exited
+  exit_date: ISODate | null; // last working day
+  exit_reason: ExitReason | null;
+  exit_notes: string | null;
+  exited_at: ISODateTime | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  created_at: ISODateTime;
+}
+
+export type EmploymentType = "full_time" | "part_time" | "contract" | "intern";
+export type EmployeeStatus = "active" | "notice" | "exited";
+export type ExitReason = "resigned" | "terminated" | "retired" | "contract_end" | "absconded" | "other";
+export type DocumentCategory = "id_proof" | "address_proof" | "education" | "experience" | "offer_letter" | "contract" | "payslip" | "other";
+
+// A file on an employee's record (opened through a short-lived link)
+export interface EmployeeDocument {
+  id: Id;
+  employee_id: Id;
+  name: string;
+  category: DocumentCategory;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_by_name: string | null;
   created_at: ISODateTime;
 }
 
@@ -275,21 +334,28 @@ export interface AttendanceDay {
   onBreak: boolean;
   shortDay: boolean;
   longBreak: boolean;
+  lateMinutes: number | null; // minutes late at the first check-in (0 = on time)
 }
 
+// From the employee's shift
 export interface WorkRules {
   requiredMinutes: number;
   maxBreakMinutes: number;
+  shiftName?: string;
+  start?: string; // "09:00"
+  end?: string;
+  graceMinutes?: number;
 }
 
 export interface Holiday {
   id: Id;
   date: ISODate;
   name: string;
+  is_optional?: boolean; // optional holiday: a working day unless taken with OL
 }
 
 export type LeaveType = "leave" | "cl" | "sl" | "ol" | "el" | "comp_off";
-export type LeaveStatus = "pending" | "approved" | "rejected";
+export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Leave {
   id: Id;
@@ -303,6 +369,13 @@ export interface Leave {
   reviewed_at: ISODateTime | null;
   employee_name?: string;
   reviewed_by_name?: string | null;
+  half_day?: "first" | "second" | null; // a half-day leave (counts 0.5)
+  review_note?: string | null; // the approver's note
+  cancelled_at?: ISODateTime | null;
+  manager_id?: Id | null;
+  manager_name?: string | null; // their reporting manager
+  approver?: "manager" | "hr"; // who decides: the manager, or HR when there's none (or they left)
+  can_decide?: boolean; // can I approve / reject it
 }
 
 export interface Balance {
@@ -313,6 +386,7 @@ export interface Balance {
 
 export interface Balances {
   financialYear: { start: ISODate; end: ISODate };
+  leaveYear?: { start: ISODate; end: ISODate; kind: "calendar" | "financial" };
   cl: Balance;
   sl: Balance & { carriedForward: number };
   ol: Balance;
@@ -322,7 +396,8 @@ export interface Balances {
 
 export interface TodayResponse {
   date: ISODate;
-  isSunday: boolean;
+  isWeeklyOff?: boolean;
+  isSunday: boolean; // = isWeeklyOff (kept for older code)
   holiday: Holiday | null;
   day: AttendanceDay | null;
   rules: WorkRules;
@@ -337,6 +412,7 @@ export interface CalendarResponse {
   leaves: Leave[];
   balances: Balances;
   rules: WorkRules;
+  weeklyOffs?: number[]; // day numbers, 0 = Sunday
 }
 
 export type DayFlag =
@@ -453,8 +529,40 @@ export interface PayrollRun {
   id: Id;
   month: number;
   year: number;
-  status: string;
+  status: "draft" | "finalized"; // draft: can recalculate / delete
   run_at: ISODateTime;
+  finalized_at: ISODateTime | null;
+  finalized_by_name: string | null;
+  employee_count: number;
+  total_gross: string;
+  total_net: string;
+}
+
+export interface PayrollSettings {
+  pfEnabled: boolean;
+  esiEnabled: boolean;
+  ptEnabled: boolean;
+  tdsEnabled: boolean;
+}
+
+// GET /me/payslips
+export interface MyPayslip {
+  id: Id;
+  month: number;
+  year: number;
+  gross: string;
+  total_deductions: string;
+  net_pay: string;
+  paid_days: string;
+  lop_days: string;
+  total_days: number;
+  basic: string;
+  hra: string;
+  allowances: string;
+  pf_employee: string;
+  esi_employee: string;
+  professional_tax: string;
+  tds: string;
 }
 
 export interface Payslip {
@@ -462,6 +570,9 @@ export interface Payslip {
   employee_id: Id;
   employee_name: string;
   designation: string | null;
+  paid_days: string;
+  lop_days: string;
+  total_days: number;
   gross: string;
   pf_employee: string;
   esi_employee: string;
@@ -582,4 +693,162 @@ export interface PlatformOverview {
   growth: { month: string; companies: number }[];
   toReview: { id: Id; name: string; verification_status: VerificationStatus; created_at: string }[];
   recent: AuditEntry[];
+}
+
+// Company Admin / HR dashboard (GET /dashboard/overview). A section is null
+// when its module is switched off for the company.
+export interface CompanyOverview {
+  date: ISODate;
+  workingDay: { isWorkingDay: boolean; holiday: string | null };
+  headcount: { total: number; newThisMonth: number; onNotice: number };
+  attendance: { present: number; late: number; onLeave: number; notIn: number; rate: number } | null;
+  leave: {
+    pendingCount: number;
+    pending: { id: Id; employee_name: string; leave_type: LeaveType; from_date: ISODate; to_date: ISODate; days: number; approver_name: string | null }[];
+  } | null;
+  alerts: { missingPunchOutCount: number; missingPunchOuts: { employee_name: string; date: ISODate }[] } | null;
+  corrections: { pendingCount: number } | null;
+  upcoming: {
+    birthdays: { id: Id; name: string; photo_url: string | null; date: ISODate }[];
+    anniversaries: { id: Id; name: string; photo_url: string | null; date: ISODate; years: number }[];
+    holidays: { date: ISODate; name: string; is_optional?: boolean }[];
+  };
+  departments: { name: string; count: number }[];
+  setup: { key: string; label: string; done: boolean; url: string | null }[];
+}
+
+// GET /me/team — a manager's team today
+export type TeamDayState = "in" | "late" | "out" | "leave" | "not_in";
+export interface TeamMember {
+  id: Id;
+  name: string;
+  photo_url: string | null;
+  designation: string | null;
+  department: string | null;
+  status: EmployeeStatus;
+  exit_date: ISODate | null;
+  today: { state: TeamDayState; punch_in: ISODateTime | null; punch_out: ISODateTime | null } | null; // null = attendance off
+  on_leave: { leave_type: LeaveType; until: ISODate } | null;
+  pending_leaves: number | null; // null = leave off
+}
+export interface MyTeam {
+  date: ISODate;
+  members: TeamMember[];
+  pendingLeaves: number | null;
+  pendingCorrections: number | null;
+}
+
+// A company shift (working hours)
+export interface Shift {
+  id: Id;
+  name: string;
+  start_time: string; // "09:00"
+  end_time: string; // earlier than start = overnight
+  grace_minutes: number;
+  break_minutes: number;
+  is_default: boolean;
+  is_active: boolean;
+  employee_count: number;
+  hours_minutes: number;
+}
+
+// A request to fix a past day's check-in / check-out
+export interface AttendanceCorrection {
+  id: Id;
+  employee_id: Id;
+  employee_name: string;
+  employee_photo: string | null;
+  date: ISODate;
+  punch_in: ISODateTime;
+  punch_out: ISODateTime;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  review_note: string | null;
+  reviewed_at: ISODateTime | null;
+  reviewed_by_name: string | null;
+  created_at: ISODateTime;
+  current_in: ISODateTime | null; // what the day shows now
+  current_out: ISODateTime | null;
+  manager_id: Id | null;
+  manager_name: string | null;
+  approver: "manager" | "hr";
+  can_decide: boolean;
+}
+
+// GET /leaves/balances — everyone's balances (HR)
+export interface EmployeeBalances {
+  employee: { id: Id; name: string; photo_url: string | null; department: string | null; join_date: ISODate | null };
+  balances: Balances;
+}
+
+// The bell
+export interface AppNotification {
+  id: Id;
+  type: string; // e.g. "leave.requested"
+  title: string;
+  body: string | null;
+  link: string | null; // app path opened on click
+  entity_type: string | null;
+  entity_id: Id | null;
+  actor_name: string | null;
+  read_at: ISODateTime | null;
+  created_at: ISODateTime;
+}
+
+// ---- Reports ----
+export type ReportCell = string | number | null;
+export interface ReportColumn {
+  key: string;
+  label: string;
+  type?: "text" | "number" | "money" | "date" | "code";
+  width?: number;
+}
+export interface ReportFilter {
+  key: string;
+  label: string;
+  type: "month" | "date" | "select";
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  default: string | null;
+}
+export interface ReportResponse {
+  report: { key: string; title: string; description: string; group: string };
+  filters: ReportFilter[];
+  applied: Record<string, string>;
+  result: {
+    title: string;
+    subtitle?: string;
+    columns: ReportColumn[];
+    rows: Record<string, ReportCell>[];
+    totals?: Record<string, ReportCell>;
+    landscape?: boolean;
+    fileName: string;
+  };
+}
+
+// Employee import (CSV / Excel)
+export interface EmployeeImportRow {
+  line: number;
+  name: string;
+  code: string;
+  email: string;
+  designation: string;
+  department: string;
+  manager: string;
+  login: boolean;
+  errors: string[];
+  notes: string[];
+}
+
+export interface EmployeeImportCheck {
+  summary: { total: number; ready: number; invalid: number };
+  ignoredColumns: string[];
+  rows: EmployeeImportRow[];
+}
+
+export interface EmployeeImportResult {
+  imported: number;
+  skipped: number;
+  logins: number;
+  loginFailures: { line: number; name: string; message: string }[];
 }

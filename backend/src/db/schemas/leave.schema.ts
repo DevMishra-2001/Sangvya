@@ -13,17 +13,25 @@ export const leaveRequests = pgTable(
     from_date: date("from_date").notNull(),
     to_date: date("to_date").notNull(),
     reason: text("reason"),
-    status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected | cancelled
     created_at: createdAt(),
     // leave (legacy) | cl | sl | ol | el | comp_off
     leave_type: varchar("leave_type", { length: 20 }).notNull().default("leave"),
     reviewed_by: integer("reviewed_by"),
     reviewed_at: timestamptz("reviewed_at"),
+    // A one-day leave for half the day: "first" | "second" (counts 0.5)
+    half_day: varchar("half_day", { length: 10 }).$type<"first" | "second">(),
+    // The approver's note to the employee (why approved / rejected)
+    review_note: text("review_note"),
+    // Withdrawn by the employee, or cancelled by HR — the days go back to the balance
+    cancelled_by: integer("cancelled_by"),
+    cancelled_at: timestamptz("cancelled_at"),
   },
   (t) => [
     fk("leave_requests", t.company_id, companies.id, "cascade"),
     fk("leave_requests", t.employee_id, employees.id, "cascade"),
     fk("leave_requests", t.reviewed_by, users.id, "set null"),
+    fk("leave_requests", t.cancelled_by, users.id, "set null"),
     index("idx_leave_company_status").on(t.company_id, t.status),
   ],
 );

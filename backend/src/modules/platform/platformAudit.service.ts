@@ -1,5 +1,4 @@
-// Super Admin: the audit log — newest first, filtered by action, company or a
-// search over the summary / actor email, paged with a cursor (last row's id).
+// Super Admin: the audit log — newest first, filtered by action, company or a search over the summary / actor email, paged with a cursor (last row's id).
 import { and, desc, eq, ilike, like, lt, or, type SQL } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { auditLogs, companies } from "../../db/schema.js";

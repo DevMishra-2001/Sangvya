@@ -156,7 +156,7 @@ export function PageMasterView() {
                 name="roleIds"
                 id="pg-access"
                 placeholder="Who can open it"
-                options={roles.filter((r) => r.key !== "superadmin").map((r) => ({ value: String(r.id), label: r.name }))}
+                options={roles.filter((r) => r.key !== "superadmin" && !r.company_id).map((r) => ({ value: String(r.id), label: r.name }))}
               />
             </FormField>
             <FormField label="In menu" htmlFor="pg-menu" error={errors.showInMenu}>

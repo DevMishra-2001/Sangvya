@@ -1,7 +1,9 @@
 // The logged-in employee's own attendance: punch in/out, breaks, the month
 // calendar (attendance + holidays + leaves) and leave balances.
 import { BadRequestError, ConflictError } from "../../utils/httpErrors.js";
-import { isSunday, localDate, MAX_BREAK_MINUTES, monthBounds, REQUIRED_MINUTES, summarize } from "../../utils/workday.js";
+import { localDate, monthBounds, summarize } from "../../utils/workday.js";
+import { workCalendar } from "../companies/workCalendar.js";
+import { lateMinutes, rulesFor, rulesPayload, type ShiftRules } from "../shifts/shiftRules.js";
 import {
   breaksFor,
   endBreak,
@@ -20,13 +22,12 @@ import {
   type PunchDetails,
 } from "../attendance/attendance.service.js";
 import { findEmployeeById, getEmployeeById, setEmployeePhoto } from "../employees/employees.service.js";
-import { findHolidayByDate, findHolidaysInRange } from "../holidays/holidays.service.js";
+import { findDayOffHoliday, findHolidayByDate, findHolidaysInRange } from "../holidays/holidays.service.js";
 import { countLeaveDays, getBalances } from "../leaves/leaveBalance.service.js";
 import { findLeavesForEmployeeInRange, findOverlappingLeaves } from "../leaves/leaves.service.js";
 import { dayFlags, LOCATIONS, primaryStatus } from "./attendanceStatus.js";
 import type { PunchInput } from "./self.schema.js";
 
-const RULES = { requiredMinutes: REQUIRED_MINUTES, maxBreakMinutes: MAX_BREAK_MINUTES };
 
 // Who is acting: the logged-in user's company + linked employee
 export interface Self {
@@ -82,7 +83,7 @@ function toSessions(punches: AttendancePunch[]) {
 }
 
 // One attendance row (+ its breaks and punches) shaped for the frontend
-function dayPayload(record: AttendanceRecord, breaks: AttendanceBreak[] = [], punches: AttendancePunch[] = [], now = new Date()) {
+function dayPayload(record: AttendanceRecord, rules: ShiftRules, breaks: AttendanceBreak[] = [], punches: AttendancePunch[] = [], now = new Date()) {
   return {
     id: record.id,
     date: record.date,
@@ -95,15 +96,16 @@ function dayPayload(record: AttendanceRecord, breaks: AttendanceBreak[] = [], pu
     punchOutRemarks: record.punch_out_remarks,
     breaks: breaks.map((b) => ({ start: b.break_start, end: b.break_end })),
     sessions: toSessions(punches),
-    ...summarize(record, breaks, now),
+    lateMinutes: record.late_minutes, // minutes late at the first check-in (0 = on time)
+    ...summarize(record, breaks, now, rules),
   };
 }
 
-async function withBreaks(companyId: number, record: AttendanceRecord | undefined) {
+async function withBreaks(companyId: number, record: AttendanceRecord | undefined, rules?: ShiftRules) {
   if (!record) return null;
   const breaks = (await breaksFor(companyId, [record.id]))[record.id] || [];
   const punches = (await punchesFor(companyId, [record.id]))[record.id] || [];
-  return dayPayload(record, breaks, punches);
+  return dayPayload(record, rules ?? (await rulesFor(companyId, record.employee_id)), breaks, punches);
 }
 
 // The day to show/act on: a still-open shift if there is one, otherwise today's row.
@@ -125,8 +127,18 @@ const punchDetails = (input: PunchInput): PunchDetails => ({
 export async function today(self: Self) {
   const date = localDate();
   const record = await currentRecord(self);
-  const holiday = await findHolidayByDate(self.companyId, date);
-  return { date, isSunday: isSunday(date), holiday: holiday || null, day: await withBreaks(self.companyId, record), rules: RULES };
+  const holiday = await findDayOffHoliday(self.companyId, date);
+  const rules = await rulesFor(self.companyId, self.employeeId);
+  const cal = await workCalendar(self.companyId);
+  const weeklyOff = cal.isWeeklyOff(date);
+  return {
+    date,
+    isWeeklyOff: weeklyOff,
+    isSunday: weeklyOff, // older clients
+    holiday: holiday || null,
+    day: await withBreaks(self.companyId, record, rules),
+    rules: rulesPayload(rules),
+  };
 }
 
 // First punch of the day starts it. Punching in again after a punch-out the same
@@ -142,13 +154,15 @@ export async function punchIn(self: Self, input: PunchInput) {
   const now = new Date();
   const details = punchDetails(input);
   const existing = await findAttendance(companyId, employeeId, date);
+  const rules = await rulesFor(companyId, employeeId);
+  // The first check-in of the day decides the late mark (from their shift)
   const record = existing?.punch_in
     ? await resumeAttendance(companyId, existing.id, now)
-    : await insertPunchIn(companyId, employeeId, date, now, details);
+    : await insertPunchIn(companyId, employeeId, date, now, details, lateMinutes(rules, now));
   if (!record) throw new ConflictError("Your attendance just changed — please refresh");
 
   await logPunch(companyId, record.id, "in", now, details);
-  return { day: await withBreaks(companyId, record) };
+  return { day: await withBreaks(companyId, record, rules) };
 }
 
 // Kept for API compatibility; the app now treats punch-out → punch-in as the break.
@@ -201,16 +215,18 @@ export async function calendar({ companyId, employeeId }: Self, monthParam?: str
   const leaves = await findOverlappingLeaves(companyId, employeeId, from, to, { includeRejected: true });
   const employee = await getEmployeeById(companyId, employeeId);
   const now = new Date();
+  const rules = await rulesFor(companyId, employeeId);
 
   return {
     month,
     today: localDate(),
     employee: { id: employee.id, name: employee.name },
-    days: records.map((r) => dayPayload(r, breaks[r.id] || [], punches[r.id] || [], now)),
+    days: records.map((r) => dayPayload(r, rules, breaks[r.id] || [], punches[r.id] || [], now)),
     holidays,
     leaves,
     balances: await getBalances(companyId, employee, localDate()),
-    rules: RULES,
+    rules: rulesPayload(rules),
+    weeklyOffs: (await workCalendar(companyId)).offDows, // day numbers, 0 = Sunday
   };
 }
 
@@ -220,10 +236,12 @@ export async function attendanceDay({ companyId, employeeId }: Self, dateParam?:
   const todayDate = localDate();
   const date = dateParam || todayDate;
   const employee = await getEmployeeById(companyId, employeeId);
-  const day = await withBreaks(companyId, await findAttendance(companyId, employeeId, date));
+  const rules = await rulesFor(companyId, employeeId);
+  const day = await withBreaks(companyId, await findAttendance(companyId, employeeId, date), rules);
   const holiday = await findHolidayByDate(companyId, date);
   const leaves = await findOverlappingLeaves(companyId, employeeId, date, date);
-  const flags = dayFlags({ date, today: todayDate, day, holiday, leaves });
+  const cal = await workCalendar(companyId);
+  const flags = dayFlags({ date, today: todayDate, day, holiday: holiday && !holiday.is_optional ? holiday : null, weeklyOff: cal.isWeeklyOff(date), leaves });
 
   return {
     date,
@@ -235,7 +253,7 @@ export async function attendanceDay({ companyId, employeeId }: Self, dateParam?:
     flags,
     status: primaryStatus(flags),
     locations: LOCATIONS,
-    rules: RULES,
+    rules: rulesPayload(rules),
   };
 }
 
@@ -257,7 +275,7 @@ export async function myLeaves({ companyId, employeeId }: Self, monthParam?: str
     // Days inside this month only (a leave may run into the next month)
     const start = l.from_date > from ? l.from_date : from;
     const end = l.to_date < to ? l.to_date : to;
-    withDays.push({ ...l, days: await countLeaveDays(companyId, start, end), monthFrom: start, monthTo: end });
+    withDays.push({ ...l, days: await countLeaveDays(companyId, start, end, l.half_day), monthFrom: start, monthTo: end });
   }
   return { month, employee: { id: employee.id, name: employee.name }, leaves: withDays };
 }

@@ -12,7 +12,7 @@ import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { userInvitations, users } from "../../db/schema.js";
 import { BadRequestError } from "../../utils/httpErrors.js";
-import { sendMail } from "../../utils/mailer.js";
+import { sendTemplate } from "../mail/mail.service.js";
 import { authPayload } from "../auth/auth.service.js";
 import { startSession } from "../auth/session.service.js";
 import { findUserById } from "../users/users.service.js";
@@ -51,21 +51,7 @@ export async function createInvitation(userId: number, { companyName, invitedBy 
 // The admin invitation email (printed to the console when SMTP isn't set up)
 export function sendAdminInvitation(user: { name: string; email: string }, token: string, companyName: string | null | undefined, expiresAt: Date) {
   const link = activationLink(token);
-  void sendMail({
-    to: user.email,
-    subject: "You're invited to set up your company on Workkind",
-    text: [
-      `Hi ${user.name},`,
-      "",
-      `You've been invited to set up ${companyName ? `${companyName} ` : "your company "}on Workkind.`,
-      "Open this link to set your password and get started:",
-      "",
-      link,
-      "",
-      `The link works once and expires on ${expiresAt.toUTCString()}.`,
-      "If you weren't expecting this, you can ignore this email.",
-    ].join("\n"),
-  });
+  void sendTemplate(user.email, "adminInvitation", { name: user.name, companyName, link, expiresAt });
   return link;
 }
 

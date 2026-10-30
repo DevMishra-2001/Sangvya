@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Save, ShieldCheck } from "lucide-react";
@@ -20,7 +20,8 @@ import { useRolesStore } from "@/stores/roles-store";
 // The five fixed roles. They decide what each person can open (set per page in
 // the Page Master) and do. Only their name and status can change (Super Admin).
 export function RolesView() {
-  const list = useRolesStore((s) => s.list);
+  const all = useRolesStore((s) => s.list);
+  const list = useMemo(() => all.filter((r) => !r.company_id), [all]); // built-in roles only
   const load = useRolesStore((s) => s.load);
   const update = useRolesStore((s) => s.update);
   const [editing, setEditing] = useState<Role | null>(null);

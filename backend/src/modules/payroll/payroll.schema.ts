@@ -16,5 +16,13 @@ export const runPayrollSchema = z.object({
 
 export const runIdParams = z.object({ runId: idField() });
 
+export const payrollSettingsSchema = z.object({
+  pfEnabled: z.boolean(),
+  esiEnabled: z.boolean(),
+  ptEnabled: z.boolean(),
+  tdsEnabled: z.boolean(),
+});
+export type PayrollSettingsInput = z.infer<typeof payrollSettingsSchema>;
+
 export type SalaryStructureInput = z.infer<typeof salaryStructureSchema>;
 export type RunPayrollInput = z.infer<typeof runPayrollSchema>;

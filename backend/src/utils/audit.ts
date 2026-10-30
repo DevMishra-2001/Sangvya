@@ -1,6 +1,4 @@
-// Records a major event in the audit log (Super Admin → Audit log). Never
-// throws and never slows the request: a failed write is only logged.
-//   audit(actor, { action: "company.suspended", companyId, target: ["company", id], summary: "Suspended Acme" })
+// Records a major event in the audit log (never fails the request)
 import { db } from "../config/db.js";
 import { auditLogs } from "../db/schema.js";
 

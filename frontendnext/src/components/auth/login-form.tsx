@@ -9,7 +9,6 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail, Users } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
 import { useAuthStore } from "@/stores/auth-store";
-import { ChangePasswordForm } from "./change-password-form";
 
 // Only same-site paths, so ?next= can't send someone to another website
 const safeNext = (next: string | null) => (next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
@@ -20,9 +19,6 @@ export function LoginForm() {
   const login = useAuthStore((s) => s.login);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
-  const [mustChangePassword] = useState(false);
-
-  const mode = params.get("mode");
 
   const {
     register,
@@ -38,17 +34,6 @@ export function LoginForm() {
     if (res) {
       router.replace(safeNext(params.get("next")));
     }
-  }
-
-  if (mode === "change-password" || mustChangePassword) {
-    return (
-      <ChangePasswordForm
-        title="Set New Password"
-        subtitle="For security, please set a new personal password to continue."
-        requireCurrentPassword={false}
-        onSuccess={() => router.replace(safeNext(params.get("next")))}
-      />
-    );
   }
 
   return (

@@ -1,13 +1,5 @@
 import { api } from "@/lib/api/client";
-import type {
-  AttendanceDay,
-  AttendanceDayResponse,
-  Balances,
-  CalendarResponse,
-  ISODate,
-  MyLeavesResponse,
-  TodayResponse,
-} from "@/lib/types";
+import type { AttendanceDay, AttendanceDayResponse, Balances, CalendarResponse, ISODate, MyLeavesResponse, MyTeam, TodayResponse } from "@/lib/types";
 
 export type PunchAction = "punch-in" | "punch-out" | "break-start" | "break-end";
 
@@ -22,6 +14,8 @@ export interface PunchDetails {
 
 // The logged-in employee's own attendance (/api/me)
 export const selfService = {
+  // People who report to me, with today's attendance
+  team: async () => (await api.get<MyTeam>("/me/team")).data,
   today: async () => (await api.get<TodayResponse>("/me/today")).data,
   punch: async (action: PunchAction, details: PunchDetails = {}) =>
     (await api.post<{ day: AttendanceDay }>(`/me/${action}`, details)).data.day,

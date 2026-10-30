@@ -11,6 +11,7 @@ import { broadcast } from "@/lib/session/activity";
 import type { CompanyInput } from "@/lib/schemas/company";
 import { companiesService } from "@/lib/services/companies";
 import type { AppPage, AuthResponse, Company, Id, SessionInfo, User } from "@/lib/types";
+import { useNotificationsStore } from "./notifications-store";
 
 interface AuthState {
   user: User | null;
@@ -69,6 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     async logout({ fromOtherTab = false } = {}) {
       setSessionUser(null);
       set({ user: null, company: null, pages: [] });
+      useNotificationsStore.getState().reset(); // the next person mustn't see these
       if (fromOtherTab) return;
       broadcast({ type: "logout" });
       await authService.logout().catch(() => {}); // already logged out / offline — local state is cleared anyway

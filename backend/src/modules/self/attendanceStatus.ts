@@ -1,13 +1,12 @@
 // Status flags for one employee-day (the Attendance tab legend counts these).
 //   online             checked in today, not checked out yet
 //   offline            not working right now: checked out, or not checked in yet today
-//   leave_off          approved leave, Sunday or holiday
+//   leave_off          approved leave, a weekly off or a holiday
 //   missing            a past working day with no check-in and no leave
 //   short              checked out with total time below the required hours
 //   forced_short       a past day checked in but never checked out
 //   long_break         breaks longer than allowed
 //   forced_long_break  a break started on a past day and never ended
-import { isSunday } from "../../utils/workday.js";
 
 // Work mode picked at check-in ("remote" = work from home)
 export const LOCATIONS = ["office", "client_site", "remote", "office_client", "other"] as const;
@@ -27,14 +26,15 @@ interface DayFlagsInput {
   date: string;
   today: string;
   day: DayLike | null;
-  holiday: unknown;
+  holiday: unknown; // a holiday that's a day off (not an optional one)
+  weeklyOff: boolean; // from the company's working days
   leaves: { status: string }[];
 }
 
-export function dayFlags({ date, today, day, holiday, leaves }: DayFlagsInput): DayFlag[] {
+export function dayFlags({ date, today, day, holiday, weeklyOff, leaves }: DayFlagsInput): DayFlag[] {
   const flags = new Set<DayFlag>();
   const approvedLeave = leaves.find((l) => l.status === "approved");
-  const offDay = isSunday(date) || Boolean(holiday) || Boolean(approvedLeave);
+  const offDay = weeklyOff || Boolean(holiday) || Boolean(approvedLeave);
   const past = date < today;
 
   if (day?.punchIn) {

@@ -10,13 +10,21 @@ interface RolesState {
   update: (id: Id, changes: { name: string; isActive: boolean }) => Promise<boolean>;
 }
 
+let loading: Promise<void> | null = null; // one request at a time
+
 export const useRolesStore = create<RolesState>((set, get) => ({
   list: [],
   loaded: false,
 
-  async load() {
-    const result = await run(rolesService.list);
-    if (result.ok) set({ list: result.data, loaded: true });
+  load() {
+    loading ??= run(rolesService.list)
+      .then((result) => {
+        if (result.ok) set({ list: result.data, loaded: true });
+      })
+      .finally(() => {
+        loading = null;
+      });
+    return loading;
   },
 
   async update(id, changes) {

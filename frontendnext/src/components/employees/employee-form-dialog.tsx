@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { employeeSchema, type EmployeeForm, type EmployeePayload } from "@/lib/schemas/employee";
 import type { Employee } from "@/lib/types";
+import { useDepartmentsStore } from "@/stores/departments-store";
+import { useShiftsStore } from "@/stores/shifts-store";
 import { useDesignationsStore } from "@/stores/designations-store";
 import { useRolesStore } from "@/stores/roles-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -20,6 +22,7 @@ import { useEmployeesStore } from "@/stores/employees-store";
 import { FormSelect } from "@/components/common/select-field";
 import { FormDatePicker } from "@/components/common/date-picker";
 import { isoDate } from "@/lib/format";
+import { EMPLOYMENT_TYPE_OPTIONS } from "@/lib/constants";
 
 // DB rows are snake_case; the form uses camelCase strings
 function toForm(emp: Employee | null): EmployeeForm {
@@ -29,7 +32,8 @@ function toForm(emp: Employee | null): EmployeeForm {
     employeeCode: emp?.employee_code ?? "",
     designationId: emp?.designation_id ? String(emp.designation_id) : "",
     roleId: emp?.role_id ? String(emp.role_id) : "",
-    department: emp?.department ?? "",
+    departmentId: emp?.department_id ? String(emp.department_id) : "",
+    shiftId: emp?.shift_id ? String(emp.shift_id) : "",
     email: emp?.email ?? "",
     dateOfBirth: emp?.date_of_birth?.slice(0, 10) ?? "",
     olQuota: emp?.ol_quota ?? "",
@@ -39,6 +43,9 @@ function toForm(emp: Employee | null): EmployeeForm {
     phone: emp?.phone ?? "",
     gender: emp?.gender ?? "",
     address: emp?.address ?? "",
+    employmentType: emp?.employment_type ?? "full_time",
+    emergencyContactName: emp?.emergency_contact_name ?? "",
+    emergencyContactPhone: emp?.emergency_contact_phone ?? "",
     password: "",
     loginAccess: emp?.login_blocked ? "blocked" : "allowed",
   };
@@ -50,6 +57,10 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
   const update = useEmployeesStore((s) => s.update);
   const designations = useDesignationsStore((s) => s.list);
   const loadDesignations = useDesignationsStore((s) => s.load);
+  const departments = useDepartmentsStore((s) => s.list);
+  const shifts = useShiftsStore((s) => s.list);
+  const loadShifts = useShiftsStore((s) => s.load);
+  const loadDepartments = useDepartmentsStore((s) => s.load);
   const roles = useRolesStore((s) => s.list);
   const loadRoles = useRolesStore((s) => s.load);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -75,9 +86,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
   useEffect(() => {
     if (open) {
       loadDesignations();
+      loadDepartments();
+      loadShifts();
       loadRoles();
     }
-  }, [open, loadDesignations, loadRoles]);
+  }, [open, loadDesignations, loadDepartments, loadShifts, loadRoles]);
 
   const password = useWatch({ control, name: "password" });
 
@@ -161,11 +174,17 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
                 placeholder="Employee"
                 options={roles
                   .filter((r) => r.id === employee?.role_id || (r.is_active && r.key !== "superadmin" && r.level <= myLevel))
-                  .map((r) => ({ value: String(r.id), label: r.name }))}
+                  .map((r) => ({ value: String(r.id), label: r.company_id ? `${r.name} (custom)` : r.name }))}
               />
             </FormField>
-            <FormField label="Department" htmlFor="emp-department" error={errors.department}>
-              <Input id="emp-department" autoComplete="off" {...register("department")} />
+            <FormField label="Department" htmlFor="emp-department" error={errors.departmentId}>
+              <FormSelect
+                control={control}
+                name="departmentId"
+                id="emp-department"
+                emptyLabel="— None —"
+                options={departments.filter((d) => d.id === employee?.department_id || d.is_active).map((d) => ({ value: String(d.id), label: d.name }))}
+              />
             </FormField>
             <FormField label="Reports to (manager)" htmlFor="emp-manager" error={errors.managerId}>
               <FormSelect
@@ -173,8 +192,22 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
                 name="managerId"
                 id="emp-manager"
                 emptyLabel="— None —"
-                options={employees.filter((e) => e.id !== employee?.id).map((e) => ({ value: String(e.id), label: `${e.name}${e.designation ? ` — ${e.designation}` : ""}` }))}
+                options={employees.filter((e) => e.id !== employee?.id && (e.status !== "exited" || e.id === employee?.manager_id)).map((e) => ({ value: String(e.id), label: `${e.name}${e.designation ? ` — ${e.designation}` : ""}` }))}
               />
+            </FormField>
+            <FormField label="Shift" htmlFor="emp-shift" error={errors.shiftId}>
+              <FormSelect
+                control={control}
+                name="shiftId"
+                id="emp-shift"
+                emptyLabel={`Company default${shifts.find((s) => s.is_default) ? ` (${shifts.find((s) => s.is_default)!.name})` : ""}`}
+                options={shifts
+                  .filter((s) => s.id === employee?.shift_id || (s.is_active && !s.is_default))
+                  .map((s) => ({ value: String(s.id), label: `${s.name} · ${s.start_time}–${s.end_time}` }))}
+              />
+            </FormField>
+            <FormField label="Employment type" htmlFor="emp-type" error={errors.employmentType}>
+              <FormSelect control={control} name="employmentType" id="emp-type" options={EMPLOYMENT_TYPE_OPTIONS} />
             </FormField>
             <FormField label="Join date" htmlFor="emp-join" error={errors.joinDate}>
               <FormDatePicker control={control} name="joinDate" id="emp-join" dropdowns clearable />
@@ -187,6 +220,12 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
             </FormField>
             <FormField label="Address" htmlFor="emp-address" error={errors.address} span="md">
               <Input id="emp-address" autoComplete="off" placeholder="House, street, city" {...register("address")} />
+            </FormField>
+            <FormField label="Emergency contact" htmlFor="emp-ec-name" error={errors.emergencyContactName}>
+              <Input id="emp-ec-name" autoComplete="off" placeholder="Name and relation" {...register("emergencyContactName")} />
+            </FormField>
+            <FormField label="Emergency phone" htmlFor="emp-ec-phone" error={errors.emergencyContactPhone}>
+              <Input id="emp-ec-phone" type="tel" autoComplete="off" placeholder="+91 98765 43210" aria-invalid={Boolean(errors.emergencyContactPhone)} {...register("emergencyContactPhone")} />
             </FormField>
             {canManageLogins && (
               <>

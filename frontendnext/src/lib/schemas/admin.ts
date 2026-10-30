@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { strongPassword } from "@/lib/password-policy";
-import { email, requiredText } from "./common";
+import { email, optionalText, requiredText } from "./common";
 
-// A company owner's login (created by the Super Admin)
+// Invite a company owner — they set their own password from the activation link
 export const adminSchema = z.object({
   name: requiredText("Name is required", 150),
   email,
-  password: strongPassword,
+  companyName: optionalText(200),
 });
 
-export type AdminInput = z.infer<typeof adminSchema>;
+export type AdminForm = z.input<typeof adminSchema>;
+export type AdminInput = z.output<typeof adminSchema>;

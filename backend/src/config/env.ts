@@ -43,6 +43,9 @@ const envSchema = z.object({
   MAX_BREAK_MINUTES: num(60),
   COMP_OFF_VALID_DAYS: num(90),
 
+  // Activation links (admin invitations) stay valid this long
+  INVITE_TTL_HOURS: num(48),
+
   // ImageKit (image uploads: company logos, check-in photos). Uploads are off until set.
   IMAGEKIT_PUBLIC_KEY: z.string().optional(),
   IMAGEKIT_PRIVATE_KEY: z.string().optional(),

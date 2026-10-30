@@ -76,7 +76,7 @@ export function BillingView() {
           {isTrial && (
             <p className="text-sm text-muted-foreground">
               {isTrialExpired
-                ? "Your free trial has ended. Subscribe to keep using Sangvya without interruption."
+                ? "Your free trial has ended. Subscribe to keep using Workkind without interruption."
                 : `You're on a free trial. Billing is ${inr(pricePerEmployee)} per employee per month, and adjusts automatically as you add or remove employees.`}
             </p>
           )}

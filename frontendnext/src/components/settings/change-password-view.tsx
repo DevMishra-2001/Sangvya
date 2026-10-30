@@ -7,7 +7,7 @@ import { FormField } from "@/components/common/form-field";
 import { FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
 import { PasswordInput } from "@/components/common/password-input";
 import { PageHeader } from "@/components/common/page-header";
-import { PasswordChecklist } from "@/components/common/password-checklist";
+import { PasswordHint } from "@/components/common/password-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { newPasswordSchema, type NewPasswordInput } from "@/lib/schemas/auth";
@@ -41,7 +41,9 @@ export function ChangePasswordView() {
               <Input id="cp-account" value={user.name} title={user.email} readOnly disabled />
             </FormField>
             <FormField label="New password" htmlFor="cp-new" error={errors.newPassword}>
-              <PasswordInput id="cp-new" autoComplete="new-password" aria-invalid={Boolean(errors.newPassword)} {...register("newPassword")} />
+              <PasswordHint password={newPassword}>
+                <PasswordInput id="cp-new" autoComplete="new-password" aria-invalid={Boolean(errors.newPassword)} {...register("newPassword")} />
+              </PasswordHint>
             </FormField>
             <FormField label="Confirm password" htmlFor="cp-confirm" error={errors.confirmPassword}>
               <PasswordInput id="cp-confirm" autoComplete="new-password" aria-invalid={Boolean(errors.confirmPassword)} {...register("confirmPassword")} />
@@ -51,7 +53,6 @@ export function ChangePasswordView() {
                 {isSubmitting ? "Updating…" : "Update"}
               </Button>
             </FormActions>
-            <PasswordChecklist password={newPassword} className="col-span-12 xl:col-span-8" />
           </FormGrid>
         </form>
       </FormCard>

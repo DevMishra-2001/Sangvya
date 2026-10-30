@@ -41,7 +41,7 @@ export type RefreshResult =
 const hashToken = (t: string) => crypto.createHmac("sha256", env.JWT_SECRET).update(t).digest("hex");
 const newRefreshToken = () => crypto.randomBytes(48).toString("hex");
 
-// `pages` (the URLs this user's designation can open) lets the Next.js proxy guard
+// `pages` (the URLs this user's role can open) lets the Next.js proxy guard
 // pages without an API call. It's only a UI hint — every API request re-reads the
 // user and checks permissions.
 async function signAccessToken(user: SessionUser, sessionId: number) {

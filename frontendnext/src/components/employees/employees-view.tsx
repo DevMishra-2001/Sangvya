@@ -71,6 +71,7 @@ export function EmployeesView() {
                   <TableHead>Name</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Designation</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Reports to</TableHead>
                   <TableHead>Joined</TableHead>
@@ -90,6 +91,7 @@ export function EmployeesView() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{emp.employee_code || "—"}</TableCell>
                     <TableCell>{emp.designation || "—"}</TableCell>
+                    <TableCell>{emp.role ? <Badge variant="outline">{emp.role}</Badge> : "—"}</TableCell>
                     <TableCell>{emp.department || "—"}</TableCell>
                     <TableCell>{nameOf(emp.manager_id)}</TableCell>
                     <TableCell>{fmtDate(emp.join_date)}</TableCell>
@@ -120,7 +122,7 @@ export function EmployeesView() {
                 ))}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={canManage ? 9 : 8} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={canManage ? 10 : 9} className="py-8 text-center text-muted-foreground">
                       No employees match “{search}”.
                     </TableCell>
                   </TableRow>

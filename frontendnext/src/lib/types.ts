@@ -7,14 +7,14 @@ export type ISODate = string; // "YYYY-MM-DD"
 export type ISODateTime = string; // ISO timestamp
 
 // ---- Auth ----
-export type DesignationKey = "superadmin" | "admin" | "hr" | "accountant" | "developer";
+export type RoleKey = "superadmin" | "admin" | "hr" | "accountant" | "employee";
 
-// The user's designation in the current company — it decides what they can open
-export interface UserDesignation {
+// The user's role in the current company — it decides what they can open and do
+export interface UserRole {
   id: Id;
-  key: DesignationKey;
+  key: RoleKey;
   name: string;
-  level: number; // higher = more senior (Super Admin 5 … Developer 1)
+  level: number; // higher = more senior (Super Admin 5 … Employee 1)
 }
 
 export interface User {
@@ -25,9 +25,10 @@ export interface User {
   email: string;
   font_size: number;
   created_at: ISODateTime;
-  designation: UserDesignation | null;
+  role: UserRole | null;
   is_superadmin: boolean; // the platform developer: sees every page
   permissions: Permission[];
+  must_change_password: boolean; // logging in with a temporary password set by their admin
 }
 
 // A page the user can open (Page Master). url null = a menu group.
@@ -45,7 +46,7 @@ export interface AppPage {
 // A page as the Page Master edits it
 export interface PageRow extends AppPage {
   is_active: boolean;
-  designation_ids: Id[];
+  role_ids: Id[];
 }
 
 // My own employee record (profile panel)
@@ -81,6 +82,62 @@ export interface Company {
   state?: string | null;
   country?: string | null;
   postal_code?: string | null;
+  status?: "active" | "suspended";
+  verification_status?: VerificationStatus;
+}
+
+// ---- Platform companies (Super Admin) ----
+export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+export type CompanyStatus = "active" | "suspended";
+
+export interface PlatformCompany {
+  id: Id;
+  name: string;
+  legal_name: string | null;
+  logo_url: string | null;
+  industry: string | null;
+  business_type: string | null;
+  employee_range: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  created_at: ISODateTime;
+  verification_status: VerificationStatus;
+  status: CompanyStatus;
+  employee_count: number;
+  user_count: number;
+  owners: { name: string; email: string }[];
+  subscription_status: string | null; // trial | active | past_due | cancelled
+  trial_ends_at: ISODateTime | null;
+}
+
+// Everything about one company, tax IDs included
+export interface PlatformCompanyDetail extends PlatformCompany {
+  website: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  postal_code: string | null;
+  year_established: number | null;
+  office_locations: string | null;
+  timezone: string | null;
+  pan: string | null;
+  gstin: string | null;
+  cin_llpin: string | null;
+  tan: string | null;
+  billing_address: string | null;
+  verification_notes: string | null;
+  verified_at: ISODateTime | null;
+  status_reason: string | null;
+  status_changed_at: ISODateTime | null;
+  work_days: string | null;
+  office_start: string | null;
+  office_end: string | null;
+  attendance_mode: string | null;
+  leave_year: string | null;
+  fiscal_year_start: number | null;
+  currency: string | null;
+  employee_id_prefix: string | null;
 }
 
 export interface CompanyListItem extends Pick<Company, "id" | "name" | "industry" | "logo_url"> {
@@ -95,24 +152,37 @@ export interface AuthResponse {
 }
 
 // ---- Designations ----
-export interface Designation {
+// ---- Roles (access) ----
+export interface Role {
   id: Id;
-  key: DesignationKey;
+  key: RoleKey;
   name: string;
   level: number;
   is_active: boolean; // inactive = can't be given to anyone new
   employee_count: number; // in the current company
 }
 
+// A company's job title — shown on profiles, no effect on access
+export interface Designation {
+  id: Id;
+  name: string;
+  is_active: boolean; // inactive = not offered for new employees
+  employee_count: number;
+}
+
 // ---- Admins (Super Admin) ----
-// A company owner's login. "pending" = hasn't registered their company yet.
+// A company owner's login:
+//   invited → link sent, not activated yet · expired → link expired, resend it
+//   setup → activated, setting up their company · active → has a company
 export interface AdminRow {
   id: Id;
   name: string;
   email: string;
   created_at: ISODateTime;
+  activated_at: ISODateTime | null;
   companies: { id: Id; name: string }[];
-  status: "pending" | "active";
+  status: "invited" | "expired" | "setup" | "active";
+  invite_expires_at: ISODateTime | null;
 }
 
 // ---- Users & roles ----
@@ -125,8 +195,8 @@ export interface UserRow {
   is_superadmin: boolean;
   created_at: ISODateTime;
   employee_name: string | null;
-  designation: string | null; // from the linked employee — decides their access
-  designation_level: number | null;
+  role: string | null; // from the linked employee — decides their access
+  role_level: number | null;
 }
 
 // ---- Employees ----
@@ -135,7 +205,9 @@ export interface Employee {
   company_id: Id;
   name: string;
   designation_id: Id | null;
-  designation: string | null; // the designation's name
+  designation: string | null; // job title
+  role_id: Id | null;
+  role: string | null; // role name — decides their access
   department: string | null;
   email: string | null;
   join_date: ISODate | null;
@@ -478,4 +550,36 @@ export interface SubscribeResponse {
   razorpayKeyId: string;
   quantity: number;
   monthlyAmount: number;
+}
+
+// A module the Super Admin can switch on/off for a company
+export interface CompanyModule {
+  key: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface AuditEntry {
+  id: Id;
+  action: string;
+  summary: string;
+  actor_email: string | null;
+  company_id: Id | null;
+  company_name?: string | null;
+  target_type?: string | null;
+  target_id?: Id | null;
+  meta?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PlatformOverview {
+  companies: { total: number; active: number; suspended: number; verified: number; toReview: number };
+  employees: number;
+  logins: number;
+  activeUsers30d: number;
+  subscriptions: { trial: number; active: number; pastDue: number; cancelled: number; mrr: number };
+  growth: { month: string; companies: number }[];
+  toReview: { id: Id; name: string; verification_status: VerificationStatus; created_at: string }[];
+  recent: AuditEntry[];
 }

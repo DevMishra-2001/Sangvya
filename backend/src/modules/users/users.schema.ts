@@ -3,7 +3,7 @@ import { strongPassword } from "../../utils/passwordPolicy.js";
 import { idField, optionalId, requiredText } from "../../utils/zod.js";
 
 // A login is always linked to an employee: what they can open comes from that
-// employee's designation (Page Master).
+// employee's role (Page Master).
 export const createUserSchema = z.object({
   name: requiredText("Name is required"),
   email: z.string().trim().email("Valid email is required"),

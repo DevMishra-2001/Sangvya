@@ -6,9 +6,12 @@ import { optionalId, optionalIsoDate, optionalNumber, optionalText, requiredText
 // Used for both create (POST) and update (PUT) — the form always sends every field.
 export const employeeSchema = z.object({
   name: requiredText("Name is required"),
+  // Job title from the company's list (no effect on access)
   designationId: optionalId("Invalid designation"),
-  // Older clients send the designation as text; it's matched (or added) by name
+  // Older clients send the job title as text; it's matched (or added) by name
   designation: optionalText(),
+  // System role — what they can open and do
+  roleId: optionalId("Invalid role"),
   department: optionalText(),
   email: optionalText(),
   joinDate: optionalIsoDate("Invalid join date"),

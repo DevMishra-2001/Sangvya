@@ -58,7 +58,7 @@ export function ProfileButton() {
           <PersonAvatar name={name} photoUrl={mine?.photoUrl} />
           <span className="hidden max-w-36 flex-col items-start leading-tight md:flex">
             <span className="truncate text-sm font-semibold">{name}</span>
-            <span className="truncate text-2xs font-normal text-muted-foreground">{user.designation?.name ?? mine?.designation ?? "No designation"}</span>
+            <span className="truncate text-2xs font-normal text-muted-foreground">{mine?.designation ?? user.role?.name ?? "—"}</span>
           </span>
           <ChevronDown className="hidden text-muted-foreground md:block" />
         </Button>
@@ -84,7 +84,8 @@ export function ProfileButton() {
           <div className="mb-1 text-2xs font-semibold tracking-wider text-muted-foreground uppercase">Details</div>
           <dl className="divide-y">
             <Detail label="Email" value={user.email} />
-            <Detail label="Designation" value={user.designation?.name} />
+            <Detail label="Role" value={user.role?.name} />
+            <Detail label="Designation" value={mine?.designation} />
             {mine && (
               <>
                 <Detail label="Employee code" value={mine.code} />

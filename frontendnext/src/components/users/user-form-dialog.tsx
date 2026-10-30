@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/common/form-field";
-import { PasswordChecklist } from "@/components/common/password-checklist";
+import { PasswordHint } from "@/components/common/password-hint";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ export function UserFormDialog({
       <DialogContent className={FORM_DIALOG}>
         <DialogHeader>
           <DialogTitle>New user login</DialogTitle>
-          <DialogDescription>What they can open comes from the employee&apos;s designation (set it on the Employees page).</DialogDescription>
+          <DialogDescription>What they can open comes from the employee&apos;s role (set it on the Employees page).</DialogDescription>
         </DialogHeader>
         <form id="user-form" onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid density="dialog">
@@ -90,9 +90,10 @@ export function UserFormDialog({
               <Input id="user-email" type="email" autoComplete="off" aria-invalid={Boolean(errors.email)} {...register("email")} />
             </FormField>
             <FormField label="Password" htmlFor="user-password" error={errors.password}>
-              <PasswordInput id="user-password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} {...register("password")} />
+              <PasswordHint password={password}>
+                <PasswordInput id="user-password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} {...register("password")} />
+              </PasswordHint>
             </FormField>
-            <PasswordChecklist password={password} className="col-span-12" />
           </FormGrid>
         </form>
         <DialogFooter>

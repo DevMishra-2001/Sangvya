@@ -25,7 +25,7 @@ export const pageSchema = z.object({
     .transform((v) => (v ? Number(v) : 0)),
   showInMenu: z.enum(["yes", "no"]).transform((v) => v === "yes"),
   isActive: z.enum(["active", "inactive"]).transform((v) => v === "active"),
-  designationIds: z.array(z.string()).transform((ids) => ids.map(Number)),
+  roleIds: z.array(z.string()).transform((ids) => ids.map(Number)),
 });
 
 export type PageForm = z.input<typeof pageSchema>;

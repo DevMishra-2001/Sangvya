@@ -10,8 +10,12 @@ export type Permission =
   | "employees.view"
   | "employees.manage"
   | "designations.manage"
+  | "roles.manage"
   | "pages.manage"
   | "admins.manage"
+  | "platform.companies"
+  | "platform.audit"
+  | "platform.overview"
   | "attendance.view"
   | "attendance.mark"
   | "attendance.self"
@@ -39,6 +43,10 @@ export type Permission =
 // Logged-out pages. A logged-in user visiting one is sent to the dashboard.
 export const PUBLIC_ROUTES = ["/login", "/forgot-password"];
 
+// Open to everyone, logged in or not (an activation link may be opened in a
+// browser where someone else is logged in — accepting it switches the login)
+export const OPEN_ROUTES = ["/activate"];
+
 // Where a logged-in user without a company sets one up (no sidebar)
 export const ONBOARDING_ROUTE = "/onboarding";
 
@@ -49,6 +57,7 @@ const ALWAYS_OPEN = ["/", "/forbidden", ONBOARDING_ROUTE];
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 export const isPublicRoute = (pathname: string) => PUBLIC_ROUTES.some((p) => matches(pathname, p));
+export const isOpenRoute = (pathname: string) => OPEN_ROUTES.some((p) => matches(pathname, p));
 
 // Can someone with these page URLs open `pathname`? A page also covers its
 // sub-routes (/payroll → /payroll/123), except "/" which only means the dashboard.

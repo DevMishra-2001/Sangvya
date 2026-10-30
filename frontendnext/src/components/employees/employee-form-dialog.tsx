@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/common/form-field";
 import { ImageUpload } from "@/components/common/image-upload";
 import { FORM_DIALOG, FormGrid } from "@/components/common/form-layout";
-import { PasswordChecklist } from "@/components/common/password-checklist";
+import { PasswordHint } from "@/components/common/password-hint";
 import { PasswordInput } from "@/components/common/password-input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { employeeSchema, type EmployeeForm, type EmployeePayload } from "@/lib/schemas/employee";
 import type { Employee } from "@/lib/types";
 import { useDesignationsStore } from "@/stores/designations-store";
+import { useRolesStore } from "@/stores/roles-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEmployeesStore } from "@/stores/employees-store";
 import { FormSelect } from "@/components/common/select-field";
@@ -27,6 +28,7 @@ function toForm(emp: Employee | null): EmployeeForm {
     name: emp?.name ?? "",
     employeeCode: emp?.employee_code ?? "",
     designationId: emp?.designation_id ? String(emp.designation_id) : "",
+    roleId: emp?.role_id ? String(emp.role_id) : "",
     department: emp?.department ?? "",
     email: emp?.email ?? "",
     dateOfBirth: emp?.date_of_birth?.slice(0, 10) ?? "",
@@ -48,10 +50,13 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
   const update = useEmployeesStore((s) => s.update);
   const designations = useDesignationsStore((s) => s.list);
   const loadDesignations = useDesignationsStore((s) => s.load);
+  const roles = useRolesStore((s) => s.list);
+  const loadRoles = useRolesStore((s) => s.load);
   const [photoUploading, setPhotoUploading] = useState(false);
-  // Designations above mine can't be given (the backend checks the same)
+  // Roles above mine can't be given, and nobody changes their own (the backend checks the same)
   const me = useAuthStore((s) => s.user);
-  const myLevel = me?.is_superadmin ? 99 : (me?.designation?.level ?? 0);
+  const myLevel = me?.is_superadmin ? 99 : (me?.role?.level ?? 0);
+  const isMe = Boolean(employee && employee.id === me?.employee_id && !me?.is_superadmin);
   // Logins are set here only by people who manage users
   const canManageLogins = Boolean(me?.permissions.includes("users.manage"));
   const hasLogin = Boolean(employee?.has_login);
@@ -68,8 +73,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
   }, [open, employee, reset]);
 
   useEffect(() => {
-    if (open) loadDesignations();
-  }, [open, loadDesignations]);
+    if (open) {
+      loadDesignations();
+      loadRoles();
+    }
+  }, [open, loadDesignations, loadRoles]);
 
   const password = useWatch({ control, name: "password" });
 
@@ -141,7 +149,19 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
                 name="designationId"
                 id="emp-designation"
                 emptyLabel="— None —"
-                options={designations.filter((d) => d.id === employee?.designation_id || (d.is_active && d.key !== "superadmin" && d.level <= myLevel)).map((d) => ({ value: String(d.id), label: d.name }))}
+                options={designations.filter((d) => d.id === employee?.designation_id || d.is_active).map((d) => ({ value: String(d.id), label: d.name }))}
+              />
+            </FormField>
+            <FormField label="Role" htmlFor="emp-role" error={errors.roleId} description={isMe ? "Your own role is changed by someone above you" : undefined}>
+              <FormSelect
+                control={control}
+                name="roleId"
+                id="emp-role"
+                disabled={isMe}
+                placeholder="Employee"
+                options={roles
+                  .filter((r) => r.id === employee?.role_id || (r.is_active && r.key !== "superadmin" && r.level <= myLevel))
+                  .map((r) => ({ value: String(r.id), label: r.name }))}
               />
             </FormField>
             <FormField label="Department" htmlFor="emp-department" error={errors.department}>
@@ -170,14 +190,16 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
             </FormField>
             {canManageLogins && (
               <>
-                <FormField label={hasLogin ? "New login password" : "Login password"} htmlFor="emp-password" error={errors.password}>
-                  <PasswordInput
-                    id="emp-password"
-                    autoComplete="new-password"
-                    placeholder={hasLogin ? "Leave empty to keep" : "Leave empty for no login"}
-                    aria-invalid={Boolean(errors.password)}
-                    {...register("password")}
-                  />
+                <FormField label={hasLogin ? "New temporary password" : "Temporary password"} htmlFor="emp-password" error={errors.password}>
+                  <PasswordHint password={password}>
+                    <PasswordInput
+                      id="emp-password"
+                      autoComplete="new-password"
+                      placeholder={hasLogin ? "Leave empty to keep" : "Leave empty for no login"}
+                      aria-invalid={Boolean(errors.password)}
+                      {...register("password")}
+                    />
+                  </PasswordHint>
                 </FormField>
                 <FormField label="Login access" htmlFor="emp-access" error={errors.loginAccess}>
                   <FormSelect
@@ -191,13 +213,12 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boo
                     ]}
                   />
                 </FormField>
-                {password && <PasswordChecklist password={password} className="col-span-12" />}
                 <p className="col-span-12 -mt-2 text-xs text-muted-foreground">
                   {hasLogin
                     ? employee?.login_blocked
                       ? "Their login is blocked — set Login access to Allowed to let them back in."
-                      : "They log in with their email. A new password or a block signs them out everywhere."
-                    : "Set a password to let them log in with their email."}
+                      : "They log in with their email. A new password signs them out everywhere, and they must choose their own on next login."
+                    : "Set a password and share it with them — they log in with their email and must choose their own password the first time."}
                 </p>
               </>
             )}

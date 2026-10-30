@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { NewCompanyView } from "@/components/companies/new-company-view";
 import { PageGate } from "@/components/layout/page-gate";
+import { AuditLogView } from "@/components/audit/audit-log-view";
 
-export const metadata: Metadata = { title: "New company" };
+export const metadata: Metadata = { title: "Audit log" };
 
 export default function Page() {
   return (
     <PageGate>
-      <NewCompanyView />
+      <AuditLogView />
     </PageGate>
   );
 }

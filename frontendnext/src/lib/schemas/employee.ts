@@ -7,7 +7,9 @@ export const employeeSchema = z
     photoUrl: z.string().nullable(),
     name: requiredText("Name is required", 150),
     employeeCode: optionalText(40),
-    designationId: optionalId,
+    designationId: optionalId, // job title
+    // Role (access). Empty = not sent: a new employee gets Employee, an edit keeps the current one
+    roleId: z.string().transform((v) => (v ? Number(v) : undefined)),
     department: optionalText(100),
     email: z
       .string()
@@ -22,7 +24,8 @@ export const employeeSchema = z
     managerId: optionalId,
     joinDate: optionalDate,
     salary: optionalNumber("Salary must be a positive number", { min: 0 }),
-    // Login: a password creates their login (or sets a new one); "" = leave as is
+    // Login: a password creates their login (or sets a new one); "" = leave as is.
+    // It's temporary — they must choose their own on first login.
     password: z
       .string()
       .refine((v) => v === "" || passwordError(v) === null, (v) => ({ message: passwordError(v) ?? "Invalid password" }))

@@ -21,6 +21,8 @@ interface AuthState {
   session: SessionInfo;
   loadMe: () => Promise<void>;
   login: (input: LoginInput) => Promise<boolean>;
+  // Activation link: set my password and log in. Returns the invited company name (to pre-fill setup).
+  acceptInvite: (token: string, password: string) => Promise<{ ok: boolean; companyName: string | null }>;
   logout: (opts?: { fromOtherTab?: boolean }) => Promise<void>;
   sessionEnded: () => void;
   previewFontSize: (size: number) => void;
@@ -53,6 +55,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const result = await run(() => authService.login(input), { error: "Login failed" });
       if (result.ok) signedIn(result.data);
       return result.ok;
+    },
+
+    async acceptInvite(token, password) {
+      const result = await run(() => authService.acceptInvite(token, password), { success: "Account activated — welcome!" });
+      if (!result.ok) return { ok: false, companyName: null };
+      signedIn(result.data);
+      return { ok: true, companyName: result.data.companyName };
     },
 
     // Ends the session on the server and tells other open tabs to log out too.

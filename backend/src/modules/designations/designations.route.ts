@@ -3,13 +3,16 @@ import { authenticate, requirePermission } from "../../middlewares/auth.middlewa
 import { scopeToCompany } from "../../middlewares/tenant.middleware.js";
 import { validate } from "../../middlewares/validate.js";
 import { idParams } from "../../utils/zod.js";
-import { listDesignationsHandler, updateDesignationHandler } from "./designations.controller.js";
-import { updateDesignationSchema } from "./designations.schema.js";
+import { createDesignationHandler, deleteDesignationHandler, listDesignationsHandler, updateDesignationHandler } from "./designations.controller.js";
+import { designationSchema } from "./designations.schema.js";
 
+// A company's job titles: everyone can read them (profiles); Admin/HR manage them
 const router = Router();
 router.use(authenticate, scopeToCompany);
 
 router.get("/", listDesignationsHandler);
-router.patch("/:id", requirePermission("designations.manage"), validate({ params: idParams, body: updateDesignationSchema }), updateDesignationHandler);
+router.post("/", requirePermission("designations.manage"), validate({ body: designationSchema }), createDesignationHandler);
+router.put("/:id", requirePermission("designations.manage"), validate({ params: idParams, body: designationSchema }), updateDesignationHandler);
+router.delete("/:id", requirePermission("designations.manage"), validate({ params: idParams }), deleteDesignationHandler);
 
 export const designationRoutes = router;

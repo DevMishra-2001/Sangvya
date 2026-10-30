@@ -39,14 +39,14 @@ export function UsersView() {
   }, [loadUsers, loadEmployees]);
 
   // Same rule as the backend: logins at or below my level, never the Super Admin, never myself
-  const myLevel = me.is_superadmin ? 99 : (me.designation?.level ?? 0);
-  const canManage = (u: UserRow) => u.id !== me.id && (me.is_superadmin || (!u.is_superadmin && (u.designation_level ?? 0) <= myLevel));
+  const myLevel = me.is_superadmin ? 99 : (me.role?.level ?? 0);
+  const canManage = (u: UserRow) => u.id !== me.id && (me.is_superadmin || (!u.is_superadmin && (u.role_level ?? 0) <= myLevel));
 
   return (
     <div>
       <PageHeader
         title="Users"
-        description="Who can log in. Their access comes from their designation."
+        description="Who can log in. What they can open comes from their role (set on the Employees page)."
         actions={
           <Button onClick={() => setFormOpen(true)}>
             <Plus /> Add user
@@ -59,7 +59,7 @@ export function UsersView() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Designation</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead>Linked employee</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -77,8 +77,8 @@ export function UsersView() {
                   <TableCell>
                     {u.is_superadmin ? (
                       <Badge>Super Admin</Badge>
-                    ) : u.designation ? (
-                      <Badge variant="secondary">{u.designation}</Badge>
+                    ) : u.role ? (
+                      <Badge variant="secondary">{u.role}</Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}

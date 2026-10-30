@@ -34,6 +34,12 @@ export function onSessionEnded(handler: (message: string) => void) {
   sessionEndedHandler = handler;
 }
 
+// Registered by the app shell: the current company was suspended by the Super Admin
+let companySuspendedHandler: () => void = () => {};
+export function onCompanySuspended(handler: () => void) {
+  companySuspendedHandler = handler;
+}
+
 // ---- Refresh (single flight: parallel requests share one refresh call) ----
 let refreshing: Promise<unknown> | null = null;
 export function refreshSession() {
@@ -49,7 +55,7 @@ api.interceptors.request.use((config) => {
 });
 
 // Endpoints that never trigger a refresh-and-retry
-const NO_RETRY = /\/auth\/(login|refresh|logout|forgot-password|verify-otp|reset-password)$/;
+const NO_RETRY = /\/auth\/(login|refresh|logout|forgot-password|verify-otp|reset-password|invite\/verify|invite\/accept)$/;
 const REFRESHABLE = new Set(["TOKEN_EXPIRED", "NO_TOKEN"]);
 
 api.interceptors.response.use(
@@ -59,6 +65,10 @@ api.interceptors.response.use(
     // Use the server's message (e.g. "You can't approve your own leave") as the error message
     if (response?.data?.error) err.message = response.data.error;
 
+    if (response?.status === 403 && response.data?.code === "COMPANY_SUSPENDED") {
+      companySuspendedHandler();
+      return Promise.reject(err);
+    }
     if (response?.status === 409 && response.data?.code === "SESSION_CHANGED") {
       window.location.reload();
       return Promise.reject(err);

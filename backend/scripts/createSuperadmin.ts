@@ -27,6 +27,6 @@ if (existing) {
   process.exit(1);
 }
 
-await db.insert(users).values({ name, email: email.toLowerCase(), password_hash: await bcrypt.hash(password, 10), role: "superadmin" });
+await db.insert(users).values({ name, email: email.toLowerCase(), password_hash: await bcrypt.hash(password, 10), role: "superadmin", activated_at: new Date() });
 console.log(`Super Admin ${email} created. Log in, then create Admin logins from the Admins page.`);
 await pool.end();

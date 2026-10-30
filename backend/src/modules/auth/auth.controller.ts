@@ -1,7 +1,7 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { REFRESH_COOKIE } from "../../utils/authCookie.js";
 import { currentUser } from "../../utils/requestContext.js";
-import { login, logout, me, refresh } from "./auth.service.js";
+import { login, logout, meWithFreshToken, refresh } from "./auth.service.js";
 import { requestOtp, resetPassword, verifyOtp } from "./passwordReset.service.js";
 
 // POST /api/auth/login
@@ -11,7 +11,8 @@ export const loginHandler = asyncHandler(async (req, res) => {
 
 // GET /api/auth/me
 export const meHandler = asyncHandler(async (req, res) => {
-  res.json(await me(currentUser(req).id));
+  const user = currentUser(req);
+  res.json(await meWithFreshToken(res, user.id, user.sessionId));
 });
 
 // POST /api/auth/refresh

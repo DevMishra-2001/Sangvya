@@ -18,8 +18,11 @@ import { employeeRoutes } from "./modules/employees/employees.route.js";
 import { holidayRoutes } from "./modules/holidays/holidays.route.js";
 import { leavePolicyRoutes, leaveRoutes } from "./modules/leaves/leaves.route.js";
 import { pageRoutes } from "./modules/pages/pages.route.js";
+import { platformCompanyRoutes } from "./modules/platform/platformCompanies.route.js";
+import { platformAuditRoutes, platformOverviewRoutes } from "./modules/platform/platform.route.js";
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
+import { roleRoutes } from "./modules/roles/roles.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
 import { settingsRoutes } from "./modules/settings/settings.route.js";
@@ -54,6 +57,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/designations", designationRoutes);
+app.use("/api/roles", roleRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);
@@ -71,6 +75,9 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/pages", pageRoutes);
 app.use("/api/admins", adminRoutes);
+app.use("/api/platform/companies", platformCompanyRoutes);
+app.use("/api/platform/audit", platformAuditRoutes);
+app.use("/api/platform/overview", platformOverviewRoutes);
 
 // ---- 404 + centralized error handling (must be last) ----
 app.use(notFound);

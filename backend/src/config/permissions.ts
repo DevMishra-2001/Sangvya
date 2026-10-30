@@ -1,12 +1,12 @@
-// "Who can do what" — driven by the user's designation.
+// "Who can do what" — driven by the user's ROLE (their designation is just a job title).
 //
 // A user's API permissions are worked out in modules/pages/access.service.ts:
 //   1. BASE_PERMISSIONS              everyone with a login
-//   2. PAGE_PERMISSIONS[page slug]   for every page their designation can open (Page Master)
-//   3. DESIGNATION_PERMISSIONS[key]  a few extra powers that aren't a page of their own
+//   2. PAGE_PERMISSIONS[page slug]   for every page their role can open (Page Master)
+//   3. ROLE_PERMISSIONS[key]         a few extra powers that aren't a page of their own
 // The platform Super Admin has every permission.
-// Routes check permission keys (requirePermission), never designations.
-import type { DesignationKey } from "../db/schemas/designation.schema.js";
+// Routes check permission keys (requirePermission), never roles.
+import type { RoleKey } from "../db/schemas/role.schema.js";
 
 export const PERMISSION_KEYS = [
   "companies.manage",
@@ -14,8 +14,12 @@ export const PERMISSION_KEYS = [
   "employees.view",
   "employees.manage",
   "designations.manage",
+  "roles.manage",
   "pages.manage",
   "admins.manage",
+  "platform.companies",
+  "platform.audit",
+  "platform.overview",
   "attendance.view",
   "attendance.mark",
   "attendance.self",
@@ -51,8 +55,12 @@ export const BASE_PERMISSIONS: Permission[] = ["attendance.self", "leave.apply",
 export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   employees: ["employees.view", "employees.manage"],
   designations: ["designations.manage"],
+  roles: ["roles.manage"],
   "page-master": ["pages.manage"],
   admins: ["admins.manage"],
+  companies: ["platform.companies"],
+  "audit-log": ["platform.audit"],
+  "platform-dashboard": ["platform.overview"],
   attendance: ["attendance.view", "attendance.mark", "employees.view"],
   payroll: ["payroll.view", "payroll.manage", "employees.view"],
   recruitment: ["recruitment.view", "recruitment.candidates", "recruitment.manage"],
@@ -64,9 +72,9 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   "new-company": ["companies.manage"],
 };
 
-// Company-wide powers that come with the designation itself
+// Company-wide powers that come with the role itself
 const COMPANY_WIDE: Permission[] = ["leave.viewAll", "leave.applyForOthers", "leave.approveUnassigned", "tasks.assignAnyone", "announcements.manage", "employees.view"];
-export const DESIGNATION_PERMISSIONS: Partial<Record<DesignationKey, Permission[]>> = {
+export const ROLE_PERMISSIONS: Partial<Record<RoleKey, Permission[]>> = {
   admin: [...COMPANY_WIDE, "companies.manage"],
   hr: COMPANY_WIDE,
 };

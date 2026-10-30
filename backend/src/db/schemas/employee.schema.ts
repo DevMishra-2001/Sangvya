@@ -3,6 +3,7 @@ import { date, index, numeric, pgTable, text, uniqueIndex, varchar, integer } fr
 import { createdAt, fk, id } from "../columns.js";
 import { companies } from "./company.schema.js";
 import { designations } from "./designation.schema.js";
+import { roles } from "./role.schema.js";
 
 export const employees = pgTable(
   "employees",
@@ -10,8 +11,10 @@ export const employees = pgTable(
     id: id(),
     company_id: integer("company_id").notNull(),
     name: varchar("name", { length: 150 }).notNull(),
-    // Job title, from the company's designations list
+    // Job title, from the company's designations list (no effect on access)
     designation_id: integer("designation_id"),
+    // System role — what they can open and do (Page Master)
+    role_id: integer("role_id"),
     department: varchar("department", { length: 100 }),
     email: varchar("email", { length: 150 }),
     join_date: date("join_date"),
@@ -34,6 +37,7 @@ export const employees = pgTable(
     fk("employees", t.company_id, companies.id, "cascade"),
     fk("employees", t.manager_id, t.id, "set null"),
     fk("employees", t.designation_id, designations.id, "set null"),
+    fk("employees", t.role_id, roles.id, "set null"),
     index("idx_employees_company").on(t.company_id),
     // Case-insensitive code uniqueness. drizzle-kit can't compare expression
     // indexes, so `db:push` re-creates this one each time (same definition).

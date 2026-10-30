@@ -16,8 +16,8 @@ import { applyLeaveSchema, leavePolicySchema, leaveStatusSchema } from "./leaves
 const leaves = Router();
 leaves.use(authenticate, scopeToCompany);
 
-// Everyone can list — the service narrows it to own leaves without "leave.viewAll"
-leaves.get("/", listLeavesHandler);
+// Everyone with the Leave module can list — the service narrows it to own leaves without "leave.viewAll"
+leaves.get("/", requirePermission("leave.apply"), listLeavesHandler);
 leaves.post("/", requirePermission("leave.apply"), validate({ body: applyLeaveSchema }), applyLeaveHandler);
 leaves.patch(
   "/:id/status",
@@ -30,7 +30,7 @@ leaves.patch(
 const policy = Router();
 policy.use(authenticate, scopeToCompany);
 
-policy.get("/", getLeavePolicyHandler);
+policy.get("/", requirePermission("leave.apply"), getLeavePolicyHandler);
 policy.put("/", requirePermission("leavePolicy.manage"), validate({ body: leavePolicySchema }), updateLeavePolicyHandler);
 
 export const leaveRoutes = leaves;

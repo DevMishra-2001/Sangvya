@@ -50,6 +50,55 @@
       "when": 1792981123367,
       "tag": "0006_employee_details_login_block",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793259496534,
+      "tag": "0007_roles_split_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793259517607,
+      "tag": "0008_roles_split_b",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793259530518,
+      "tag": "0009_roles_split_c",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793260157662,
+      "tag": "0010_user_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793261166387,
+      "tag": "0011_company_setup_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793262444226,
+      "tag": "0012_company_review_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793264741812,
+      "tag": "0013_audit_modules_password",
+      "breakpoints": true
     }
   ]
 }

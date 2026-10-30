@@ -2,12 +2,13 @@ import bcrypt from "bcryptjs";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { SUPERADMIN_ROLE } from "../../config/permissions.js";
-import { companyMembers, designations, employees, users } from "../../db/schema.js";
+import { companyMembers, employees, roles, users } from "../../db/schema.js";
 import { can } from "../../utils/can.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { revokeAllSessionsForUser } from "../auth/session.service.js";
 import { findEmployeeById } from "../employees/employees.service.js";
 import type { CreateUserInput, UpdateUserInput } from "./users.schema.js";
+import { audit } from "../../utils/audit.js";
 
 // Everything about a user except the password hash
 const publicColumns = {
@@ -19,6 +20,7 @@ const publicColumns = {
   role: users.role,
   font_size: users.font_size,
   is_blocked: users.is_blocked,
+  must_change_password: users.must_change_password,
   created_at: users.created_at,
 };
 
@@ -71,8 +73,13 @@ export async function insertUser(values: {
   return user;
 }
 
+// The user setting their own password: activates an invited login and clears
+// "must change password"
 export async function setUserPassword(id: number, passwordHash: string) {
-  await db.update(users).set({ password_hash: passwordHash }).where(eq(users.id, id));
+  await db
+    .update(users)
+    .set({ password_hash: passwordHash, activated_at: sql`coalesce(${users.activated_at}, now())`, must_change_password: false })
+    .where(eq(users.id, id));
 }
 
 export async function setUserFontSize(id: number, fontSize: number) {
@@ -83,14 +90,14 @@ export async function setUserFontSize(id: number, fontSize: number) {
 // ---- User management (company-scoped) ----
 
 // How senior a login is in this company: the Super Admin outranks everyone,
-// otherwise it's the level of their employee's designation (0 = none)
+// otherwise it's the level of their employee's role (0 = none)
 async function levelOf(user: { role: string; employee_id: number | null }) {
   if (user.role === SUPERADMIN_ROLE) return 99;
   if (!user.employee_id) return 0;
   const [row] = await db
-    .select({ level: designations.level })
+    .select({ level: roles.level })
     .from(employees)
-    .innerJoin(designations, eq(designations.id, employees.designation_id))
+    .innerJoin(roles, eq(roles.id, employees.role_id))
     .where(eq(employees.id, user.employee_id));
   return row?.level ?? 0;
 }
@@ -136,13 +143,13 @@ export async function listUsers(companyId: number) {
       is_superadmin: sql<boolean>`${users.role} = ${SUPERADMIN_ROLE}`,
       created_at: users.created_at,
       employee_name: employees.name,
-      designation: designations.name,
-      designation_level: designations.level,
+      role: roles.name,
+      role_level: roles.level,
     })
     .from(companyMembers)
     .innerJoin(users, eq(users.id, companyMembers.user_id))
     .leftJoin(employees, eq(employees.id, companyMembers.employee_id))
-    .leftJoin(designations, eq(designations.id, employees.designation_id))
+    .leftJoin(roles, eq(roles.id, employees.role_id))
     .where(eq(companyMembers.company_id, companyId))
     .orderBy(asc(users.created_at));
   return { users: rows };
@@ -154,14 +161,16 @@ export async function createUser(companyId: number, actor: Express.AuthUser, inp
   await assertCanManage(actor, { role: "member", employee_id: input.employeeId });
 
   const passwordHash = await bcrypt.hash(input.password, 10);
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     const [user] = await tx
       .insert(users)
-      .values({ company_id: companyId, name: input.name, email: input.email, password_hash: passwordHash, employee_id: input.employeeId })
+      .values({ company_id: companyId, name: input.name, email: input.email, password_hash: passwordHash, employee_id: input.employeeId, activated_at: new Date(), must_change_password: true })
       .returning(publicColumns);
     await tx.insert(companyMembers).values({ user_id: user.id, company_id: companyId, employee_id: input.employeeId ?? null });
     return user;
   });
+  audit(actor, { companyId, action: "login.created", target: ["user", created.id], summary: `Created a login for ${created.email}` });
+  return created;
 }
 
 export async function updateUser(companyId: number, actor: Express.AuthUser, id: number, input: UpdateUserInput) {
@@ -210,6 +219,7 @@ export async function deleteUser(companyId: number, actor: Express.AuthUser, id:
     .from(companyMembers)
     .where(and(eq(companyMembers.user_id, id), ne(companyMembers.company_id, companyId)))
     .limit(1);
+  audit(actor, { companyId, action: "login.removed", target: ["user", id], summary: `Removed the login ${existing.email}` });
   if (!other) {
     await db.delete(users).where(eq(users.id, id));
     return;
@@ -228,7 +238,7 @@ export async function deleteUser(companyId: number, actor: Express.AuthUser, id:
 // The login linked to this employee in this company, if any
 async function findLoginForEmployee(companyId: number, employeeId: number) {
   const [row] = await db
-    .select({ id: users.id, role: users.role, employee_id: companyMembers.employee_id })
+    .select({ id: users.id, role: users.role, employee_id: companyMembers.employee_id, is_blocked: users.is_blocked })
     .from(companyMembers)
     .innerJoin(users, eq(users.id, companyMembers.user_id))
     .where(and(eq(companyMembers.company_id, companyId), eq(companyMembers.employee_id, employeeId)));
@@ -288,10 +298,23 @@ export async function saveEmployeeLogin(
   const isSelf = existing.id === actor.id;
 
   const update: Partial<typeof users.$inferInsert> = {};
-  if (password) update.password_hash = await bcrypt.hash(password, 10);
+  if (password) {
+    update.password_hash = await bcrypt.hash(password, 10);
+    // A password someone else set is temporary: they choose their own on next login
+    update.must_change_password = !isSelf;
+  }
   if (blocked !== undefined && !isSelf) update.is_blocked = blocked;
   if (!Object.keys(update).length) return;
   await db.update(users).set(update).where(eq(users.id, existing.id));
+  if (update.password_hash) audit(actor, { companyId, action: "login.password_set", target: ["user", existing.id], summary: `Set a new password for ${employee.name}` });
+  if (update.is_blocked !== undefined && update.is_blocked !== existing.is_blocked) {
+    audit(actor, {
+      companyId,
+      action: update.is_blocked ? "login.blocked" : "login.unblocked",
+      target: ["user", existing.id],
+      summary: `${update.is_blocked ? "Blocked" : "Unblocked"} ${employee.name}'s login`,
+    });
+  }
 
   // A new password or a block ends their open sessions (keeping mine if it's me)
   if (password || blocked) await revokeAllSessionsForUser(existing.id, isSelf ? actor.sessionId : null);

@@ -24,7 +24,7 @@ export const pageSchema = z.object({
   sortOrder: z.coerce.number({ invalid_type_error: "Order must be a number" }).int().min(0).max(32000).default(0),
   showInMenu: z.boolean().default(true),
   isActive: z.boolean().default(true),
-  designationIds: z.array(z.coerce.number().int().positive()).default([]),
+  roleIds: z.array(z.coerce.number().int().positive()).default([]),
 });
 
 export type PageInput = z.infer<typeof pageSchema>;

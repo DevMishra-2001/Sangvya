@@ -12,10 +12,15 @@ import {
   verifyOtpHandler,
 } from "./auth.controller.js";
 import { forgotPasswordSchema, loginSchema, resetPasswordSchema, verifyOtpSchema } from "./auth.schema.js";
+import { acceptInviteHandler, verifyInviteHandler } from "../invitations/invitations.controller.js";
+import { acceptInviteSchema, verifyInviteSchema } from "../invitations/invitations.schema.js";
 
 const router = Router();
 
-// No public signup: the Super Admin creates Admin logins (Admins page, /api/admins)
+// No public signup: the Super Admin invites Admins (Admins page, /api/admins).
+// The invited person activates their account from the emailed link:
+router.post("/invite/verify", authLimiter, validate({ body: verifyInviteSchema }), verifyInviteHandler);
+router.post("/invite/accept", authLimiter, validate({ body: acceptInviteSchema }), acceptInviteHandler);
 router.post("/login", authLimiter, validate({ body: loginSchema }), loginHandler);
 router.get("/me", authenticate, meHandler);
 router.post("/refresh", refreshHandler);

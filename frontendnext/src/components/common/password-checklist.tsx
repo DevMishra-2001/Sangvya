@@ -3,7 +3,7 @@ import { PASSWORD_RULES } from "@/lib/password-policy";
 import { cn } from "@/lib/utils";
 
 // Live password rules under a password field — each rule turns green when met
-export function PasswordChecklist({ password = "", className }: { password?: string; className?: string }) {
+export function PasswordChecklist({ password = "", className, compact }: { password?: string; className?: string; compact?: boolean }) {
   const met = PASSWORD_RULES.filter((r) => r.test(password)).length;
 
   return (
@@ -16,7 +16,7 @@ export function PasswordChecklist({ password = "", className }: { password?: str
           />
         ))}
       </div>
-      <ul className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className={cn("grid gap-x-4 gap-y-1", compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}>
         {PASSWORD_RULES.map((r) => {
           const ok = password.length > 0 && r.test(password);
           return (

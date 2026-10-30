@@ -19,19 +19,22 @@ import { dateQuery, monthQuery, photoSchema, punchSchema } from "./self.schema.j
 
 const router = Router();
 
-// Everything here acts on the logged-in user's own employee record
-router.use(authenticate, scopeToCompany, requirePermission("attendance.self"), requireEmployeeLink);
+// Everything here acts on the logged-in user's own employee record.
+// Attendance / leave routes need their module's permission (switched off per company).
+router.use(authenticate, scopeToCompany, requireEmployeeLink);
+const attendance = requirePermission("attendance.self");
+const leave = requirePermission("leave.apply");
 
 router.get("/profile", profileHandler);
 router.put("/photo", validate({ body: photoSchema }), updatePhotoHandler);
-router.get("/today", todayHandler);
-router.post("/punch-in", validate({ body: punchSchema }), punchInHandler);
-router.post("/break-start", breakStartHandler);
-router.post("/break-end", breakEndHandler);
-router.post("/punch-out", validate({ body: punchSchema }), punchOutHandler);
-router.get("/calendar", validate({ query: monthQuery }), calendarHandler);
-router.get("/attendance", validate({ query: dateQuery }), attendanceDayHandler);
-router.get("/leave-balance", leaveBalanceHandler);
-router.get("/leaves", validate({ query: monthQuery }), myLeavesHandler);
+router.get("/today", attendance, todayHandler);
+router.post("/punch-in", attendance, validate({ body: punchSchema }), punchInHandler);
+router.post("/break-start", attendance, breakStartHandler);
+router.post("/break-end", attendance, breakEndHandler);
+router.post("/punch-out", attendance, validate({ body: punchSchema }), punchOutHandler);
+router.get("/calendar", attendance, validate({ query: monthQuery }), calendarHandler);
+router.get("/attendance", attendance, validate({ query: dateQuery }), attendanceDayHandler);
+router.get("/leave-balance", leave, leaveBalanceHandler);
+router.get("/leaves", leave, validate({ query: monthQuery }), myLeavesHandler);
 
 export const selfRoutes = router;

@@ -26,10 +26,10 @@ interface NavProps {
   onNavigate?: () => void;
 }
 
-// The current company's logo (or initial) and name; "Sangvya" until one exists
+// The current company's logo (or initial) and name; "Workkind" until one exists
 function Brand({ collapsed }: { collapsed?: boolean }) {
   const company = useAuthStore((s) => s.company);
-  const name = company?.name ?? "Sangvya";
+  const name = company?.name ?? "Workkind";
   return (
     <div className={cn("flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border", collapsed ? "justify-center px-2" : "px-5")}>
       <CompanyLogo name={name} logoUrl={company?.logo_url} />

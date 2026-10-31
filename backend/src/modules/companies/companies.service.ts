@@ -28,44 +28,46 @@ export async function findCompany(id: number) {
   return company;
 }
 
+// Form → company columns (create and update)
+const companyColumns = (input: CreateCompanyInput) => ({
+  name: input.companyName,
+  industry: clean(input.industry),
+  logo_url: input.logoUrl ?? null,
+  employee_range: input.employeeRange ?? null,
+  website: clean(input.website),
+  email: clean(input.email),
+  phone: clean(input.phone),
+  address: clean(input.address),
+  city: clean(input.city),
+  state: clean(input.state),
+  country: clean(input.country),
+  postal_code: clean(input.postalCode),
+  legal_name: clean(input.legalName),
+  business_type: input.businessType,
+  year_established: input.yearEstablished ?? null,
+  office_locations: clean(input.officeLocations),
+  timezone: input.timezone,
+  pan: input.pan ?? null,
+  gstin: input.gstin ?? null,
+  cin_llpin: input.cinLlpin ?? null,
+  tan: input.tan ?? null,
+  billing_address: clean(input.billingAddress),
+  work_days: input.workDays.join(","),
+  office_start: input.officeStart,
+  office_end: input.officeEnd,
+  attendance_mode: input.attendanceMode,
+  leave_year: input.leaveYear,
+  fiscal_year_start: input.fiscalYearStart ?? (input.leaveYear === "financial" ? 4 : 1),
+  currency: input.currency,
+  employee_id_prefix: input.employeeIdPrefix ?? null,
+  employee_code_format: input.employeeCodeFormat,
+  employee_code_digits: input.employeeCodeDigits,
+});
+
 // Creates the company and everything it needs, all or nothing. Returns its id.
 export async function createCompanyForUser(owner: Owner, input: CreateCompanyInput) {
   const companyId = await db.transaction(async (tx) => {
-    const [company] = await tx
-      .insert(companies)
-      .values({
-        name: input.companyName,
-        industry: clean(input.industry),
-        logo_url: input.logoUrl ?? null,
-        employee_range: input.employeeRange ?? null,
-        website: clean(input.website),
-        email: clean(input.email),
-        phone: clean(input.phone),
-        address: clean(input.address),
-        city: clean(input.city),
-        state: clean(input.state),
-        country: clean(input.country),
-        postal_code: clean(input.postalCode),
-        legal_name: clean(input.legalName),
-        business_type: input.businessType,
-        year_established: input.yearEstablished ?? null,
-        office_locations: clean(input.officeLocations),
-        timezone: input.timezone,
-        pan: input.pan ?? null,
-        gstin: input.gstin ?? null,
-        cin_llpin: input.cinLlpin ?? null,
-        tan: input.tan ?? null,
-        billing_address: clean(input.billingAddress),
-        work_days: input.workDays.join(","),
-        office_start: input.officeStart,
-        office_end: input.officeEnd,
-        attendance_mode: input.attendanceMode,
-        leave_year: input.leaveYear,
-        fiscal_year_start: input.fiscalYearStart ?? (input.leaveYear === "financial" ? 4 : 1),
-        currency: input.currency,
-        employee_id_prefix: input.employeeIdPrefix ?? null,
-      })
-      .returning();
+    const [company] = await tx.insert(companies).values(companyColumns(input)).returning();
 
     // Free trial — billing starts once they subscribe from the Billing page
     await createTrialSubscription(company.id, env.TRIAL_DAYS, tx);
@@ -88,6 +90,14 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
   await syncSubscriptionQuantity(companyId); // headcount is now 1
   audit(owner, { action: "company.created", companyId, target: ["company", companyId], summary: `${owner.name} created the company ${input.companyName}` });
   return companyId;
+}
+
+// Company settings page (Admin): edit the details given at setup
+export async function updateCompany(companyId: number, actor: Express.AuthUser, input: CreateCompanyInput) {
+  const [company] = await db.update(companies).set(companyColumns(input)).where(eq(companies.id, companyId)).returning();
+  if (!company) throw new NotFoundError("Company not found");
+  audit(actor, { action: "company.updated", companyId, target: ["company", companyId], summary: `Updated the company details of ${company.name}` });
+  return { company };
 }
 
 // Every company this login can open, current one marked

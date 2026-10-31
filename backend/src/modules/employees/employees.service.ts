@@ -4,11 +4,12 @@
 import { and, asc, count, desc, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
-import { departments, designations, employees, roles, shifts, users } from "../../db/schema.js";
+import { branches, departments, designations, employees, roles, shifts, users } from "../../db/schema.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { syncSubscriptionQuantity } from "../billing/billing.service.js";
 import { assertDepartmentUsable, findOrCreateDepartment } from "../departments/departments.service.js";
 import { assertShiftUsable } from "../shifts/shifts.service.js";
+import { assertBranchUsable } from "../branches/branches.service.js";
 import { assertDesignationUsable, findOrCreateDesignation } from "../designations/designations.service.js";
 import { roleByKey } from "../pages/access.service.js";
 import { assertRoleAssignable } from "../roles/roles.service.js";
@@ -22,6 +23,7 @@ const employeeColumns = {
   department: departments.name,
   shift: shifts.name,
   role: roles.name,
+  branch: branches.name,
   // Their login (if any): exists / blocked
   has_login: sql<boolean>`exists(select 1 from company_members m where m.employee_id = ${employees.id})`,
   login_blocked: sql<boolean>`coalesce((select u.is_blocked from company_members m join users u on u.id = m.user_id where m.employee_id = ${employees.id} limit 1), false)`,
@@ -34,10 +36,19 @@ function selectEmployees() {
     .leftJoin(designations, eq(designations.id, employees.designation_id))
     .leftJoin(departments, eq(departments.id, employees.department_id))
     .leftJoin(shifts, eq(shifts.id, employees.shift_id))
-    .leftJoin(roles, eq(roles.id, employees.role_id));
+    .leftJoin(roles, eq(roles.id, employees.role_id))
+    .leftJoin(branches, eq(branches.id, employees.branch_id));
 }
 
-export type Employee = typeof employees.$inferSelect & { designation: string | null; department: string | null; shift: string | null; role: string | null; has_login: boolean; login_blocked: boolean };
+export type Employee = typeof employees.$inferSelect & {
+  designation: string | null;
+  department: string | null;
+  shift: string | null;
+  role: string | null;
+  branch: string | null;
+  has_login: boolean;
+  login_blocked: boolean;
+};
 
 // ---- Lookups shared with other modules ----
 
@@ -136,6 +147,7 @@ async function resolveRole(companyId: number, actor: Express.AuthUser, input: Em
 }
 
 interface Current {
+  branchId: number | null;
   designationId: number | null;
   departmentId: number | null;
   shiftId: number | null;
@@ -164,6 +176,20 @@ async function toColumns(companyId: number, actor: Express.AuthUser, input: Empl
     employment_type: input.employmentType,
     emergency_contact_name: input.emergencyContactName?.trim() || null,
     emergency_contact_phone: input.emergencyContactPhone?.trim() || null,
+    emergency_contact_relation: input.emergencyContactRelation ?? null,
+    personal_email: input.personalEmail ?? null,
+    marital_status: input.maritalStatus ?? null,
+    blood_group: input.bloodGroup ?? null,
+    nationality: input.nationality ?? null,
+    address_line2: input.addressLine2 ?? null,
+    city: input.city ?? null,
+    state: input.state ?? null,
+    postal_code: input.postalCode ?? null,
+    country: input.country ?? null,
+    branch_id: input.branchId ? (await assertBranchUsable(companyId, input.branchId, current?.branchId ?? null), input.branchId) : null,
+    business_unit: input.businessUnit ?? null,
+    work_mode: input.workMode ?? null,
+    probation_end_date: input.probationEndDate ?? null,
   };
 }
 
@@ -175,7 +201,12 @@ export async function listEmployees(companyId: number) {
   return { employees: await findAllEmployees(companyId) };
 }
 
+function assertDates(input: EmployeeInput) {
+  if (input.probationEndDate && input.joinDate && input.probationEndDate <= input.joinDate) throw new BadRequestError("Probation end must be after the joining date");
+}
+
 export async function createEmployee(companyId: number, actor: Express.AuthUser, input: EmployeeInput) {
+  assertDates(input);
   await assertValidManager(companyId, input.managerId);
   const employee = await insertEmployee(companyId, await toColumns(companyId, actor, input));
   audit(actor, { companyId, action: "employee.created", target: ["employee", employee.id], summary: `Added the employee ${employee.name}` });
@@ -184,6 +215,7 @@ export async function createEmployee(companyId: number, actor: Express.AuthUser,
 
 export async function updateEmployee(companyId: number, actor: Express.AuthUser, id: number, input: EmployeeInput) {
   const existing = await getEmployeeById(companyId, id);
+  assertDates(input);
   await assertValidManager(companyId, input.managerId, id);
   // Changing your own role could lock you out — someone above you does it
   if (id === actor.employeeId && !actor.isSuperadmin && input.roleId !== undefined && input.roleId !== existing.role_id) {
@@ -197,9 +229,10 @@ export async function updateEmployee(companyId: number, actor: Express.AuthUser,
 
   await db
     .update(employees)
-    .set(await toColumns(companyId, actor, input, { designationId: existing.designation_id, departmentId: existing.department_id, shiftId: existing.shift_id, roleId: existing.role_id }))
+    .set(await toColumns(companyId, actor, input, { branchId: existing.branch_id, designationId: existing.designation_id, departmentId: existing.department_id, shiftId: existing.shift_id, roleId: existing.role_id }))
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   const employee = await getEmployeeById(companyId, id);
+  audit(actor, { companyId, action: "employee.updated", target: ["employee", id], summary: `Updated ${employee.name}'s details` });
   if (employee.role_id !== existing.role_id) {
     const names = await db.select({ id: roles.id, name: roles.name }).from(roles);
     const roleName = (rid: number | null) => names.find((r) => r.id === rid)?.name ?? "none";

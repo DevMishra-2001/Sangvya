@@ -21,6 +21,7 @@ import {
   type AttendanceRecord,
   type PunchDetails,
 } from "../attendance/attendance.service.js";
+import { assertInsideBranch } from "../branches/branches.service.js";
 import { findEmployeeById, getEmployeeById, setEmployeePhoto } from "../employees/employees.service.js";
 import { findDayOffHoliday, findHolidayByDate, findHolidaysInRange } from "../holidays/holidays.service.js";
 import { countLeaveDays, getBalances } from "../leaves/leaveBalance.service.js";
@@ -153,6 +154,10 @@ export async function punchIn(self: Self, input: PunchInput) {
   // The time is always the server's "now" — employees can't pick it
   const now = new Date();
   const details = punchDetails(input);
+  // Office check-in (or office-only staff): must be inside their branch's radius
+  if (details.location === "office" || (await findEmployeeById(companyId, employeeId))?.work_mode === "office") {
+    await assertInsideBranch(companyId, employeeId, { lat: details.latitude, lng: details.longitude, accuracyM: details.accuracyM });
+  }
   const existing = await findAttendance(companyId, employeeId, date);
   const rules = await rulesFor(companyId, employeeId);
   // The first check-in of the day decides the late mark (from their shift)

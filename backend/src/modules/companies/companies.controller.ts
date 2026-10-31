@@ -2,11 +2,11 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { NotFoundError } from "../../utils/httpErrors.js";
 import { HttpStatus } from "../../utils/httpStatus.js";
-import { currentUser } from "../../utils/requestContext.js";
+import { currentUser, tenant } from "../../utils/requestContext.js";
 import { me } from "../auth/auth.service.js";
 import { reissueAccessToken } from "../auth/session.service.js";
 import { findUserById } from "../users/users.service.js";
-import { createCompanyForUser, listMyCompanies, switchCompany } from "./companies.service.js";
+import { createCompanyForUser, findCompany, listMyCompanies, switchCompany, updateCompany } from "./companies.service.js";
 
 // The user's company changed: give the browser a token with the new company,
 // and answer with the same payload as GET /auth/me
@@ -37,4 +37,16 @@ export const createCompanyHandler = asyncHandler(async (req, res) => {
 export const switchCompanyHandler = asyncHandler(async (req, res) => {
   await switchCompany(currentUser(req).id, Number(req.params.id));
   await respondWithCurrentUser(req, res, HttpStatus.OK);
+});
+
+// GET /api/companies/current — the company I'm working in (settings page)
+export const currentCompanyHandler = asyncHandler(async (req, res) => {
+  const company = await findCompany(tenant(req).companyId);
+  if (!company) throw new NotFoundError("Company not found");
+  res.json({ company });
+});
+
+// PUT /api/companies/current — update it (Admin)
+export const updateCompanyHandler = asyncHandler(async (req, res) => {
+  res.json(await updateCompany(tenant(req).companyId, currentUser(req), req.body));
 });

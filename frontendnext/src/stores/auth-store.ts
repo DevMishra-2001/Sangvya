@@ -28,6 +28,8 @@ interface AuthState {
   sessionEnded: () => void;
   previewFontSize: (size: number) => void;
   saveFontSize: (size: number) => Promise<boolean>;
+  // Saved to the account (shown at once; put back if saving fails)
+  savePreferences: (prefs: Partial<Pick<User, "theme" | "accent" | "menu_layout">>) => Promise<boolean>;
   changePassword: (newPassword: string) => Promise<boolean>;
   createCompany: (input: CompanyInput) => Promise<boolean>;
   switchCompany: (id: Id) => Promise<boolean>;
@@ -91,6 +93,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
     async saveFontSize(size) {
       const result = await run(() => settingsService.saveFontSize(size), { success: "Font size saved" });
       if (result.ok) get().previewFontSize(result.data);
+      return result.ok;
+    },
+
+    async savePreferences(prefs) {
+      const before = get().user;
+      if (!before) return false;
+      set({ user: { ...before, ...prefs } });
+      const result = await run(() => settingsService.savePreferences({ theme: prefs.theme, accent: prefs.accent, menuLayout: prefs.menu_layout }), { error: "Couldn't save your preference" });
+      if (!result.ok) {
+        const now = get().user;
+        if (now) set({ user: { ...now, theme: before.theme, accent: before.accent, menu_layout: before.menu_layout } });
+      }
       return result.ok;
     },
 

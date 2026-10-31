@@ -1,0 +1,2 @@
+ALTER TABLE "companies" ADD COLUMN "employee_code_format" varchar(20) DEFAULT 'prefix_seq' NOT NULL;--> statement-breakpoint
+ALTER TABLE "companies" ADD COLUMN "employee_code_digits" smallint DEFAULT 3 NOT NULL;

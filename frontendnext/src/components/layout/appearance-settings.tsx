@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, PanelLeft, PanelTop, Sun } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ACCENTS, FONT_SIZE } from "@/lib/appearance";
@@ -21,20 +21,27 @@ function SectionTitle({ children, className }: { children: React.ReactNode; clas
   return <div className={cn("mb-2 text-2xs font-semibold tracking-wider text-muted-foreground uppercase", className)}>{children}</div>;
 }
 
+const ON = "w-full data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary";
+
 function ModePicker() {
   const { theme, setTheme } = useTheme();
+  const savePreferences = useAuthStore((s) => s.savePreferences);
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
       value={theme ?? "system"}
-      onValueChange={(v) => v && setTheme(v)}
+      onValueChange={(v) => {
+        if (!v) return;
+        setTheme(v);
+        savePreferences({ theme: v as "light" | "dark" | "system" });
+      }}
       aria-label="Color mode"
       className="grid w-full grid-cols-3"
     >
       {MODES.map(({ key, label, icon: Icon }) => (
-        <ToggleGroupItem key={key} value={key} className="w-full data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary">
+        <ToggleGroupItem key={key} value={key} className={ON}>
           <Icon /> {label}
         </ToggleGroupItem>
       ))}
@@ -45,6 +52,7 @@ function ModePicker() {
 function AccentPicker() {
   const accent = useAppearanceStore((s) => s.accent);
   const setAccent = useAppearanceStore((s) => s.setAccent);
+  const savePreferences = useAuthStore((s) => s.savePreferences);
   return (
     <div className="grid grid-cols-7 gap-2" role="radiogroup" aria-label="Accent color">
       {ACCENTS.map((a) => (
@@ -55,7 +63,10 @@ function AccentPicker() {
               role="radio"
               aria-checked={accent === a.key}
               aria-label={a.label}
-              onClick={() => setAccent(a.key)}
+              onClick={() => {
+                setAccent(a.key);
+                savePreferences({ accent: a.key });
+              }}
               className={cn(
                 "flex size-7 items-center justify-center rounded-full ring-offset-2 ring-offset-popover transition-shadow",
                 accent === a.key ? "ring-2 ring-foreground" : "hover:ring-2 hover:ring-border",
@@ -119,7 +130,31 @@ function FontSizePicker() {
   );
 }
 
-// Mode, accent color and font size — shown in the profile panel
+// Sidebar on the left, or a menu bar across the top (desktop)
+function LayoutPicker() {
+  const layout = useAuthStore((s) => s.user?.menu_layout ?? "vertical");
+  const savePreferences = useAuthStore((s) => s.savePreferences);
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={layout}
+      onValueChange={(v) => v && savePreferences({ menu_layout: v as "vertical" | "horizontal" })}
+      aria-label="Menu layout"
+      className="grid w-full grid-cols-2"
+    >
+      <ToggleGroupItem value="vertical" className={ON}>
+        <PanelLeft /> Sidebar
+      </ToggleGroupItem>
+      <ToggleGroupItem value="horizontal" className={ON}>
+        <PanelTop /> Top menu
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
+}
+
+// Mode, accent color, font size and menu layout — saved to the account (shown in the profile panel)
 export function AppearanceSettings() {
   return (
     <div>
@@ -129,6 +164,8 @@ export function AppearanceSettings() {
       <AccentPicker />
       <SectionTitle className="mt-5">Font size</SectionTitle>
       <FontSizePicker />
+      <SectionTitle className="mt-5">Menu layout</SectionTitle>
+      <LayoutPicker />
     </div>
   );
 }

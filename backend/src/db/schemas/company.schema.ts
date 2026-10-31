@@ -51,5 +51,7 @@ export const companies = pgTable("companies", {
   fiscal_year_start: smallint("fiscal_year_start"), // month 1–12
   currency: varchar("currency", { length: 3 }),
   employee_id_prefix: varchar("employee_id_prefix", { length: 10 }),
+  employee_code_format: varchar("employee_code_format", { length: 20 }).notNull().default("prefix_seq"), // see utils/employeeCode.ts
+  employee_code_digits: smallint("employee_code_digits").notNull().default(3),
   created_at: createdAt(),
 });

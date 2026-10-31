@@ -49,6 +49,12 @@ export function fmtDate(iso: string | null | undefined): string {
   return new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// "31 Oct 2026, 4:30 pm"
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 export const weekday = (iso: string, style: "long" | "short" = "long") =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { weekday: style });
 

@@ -1,3 +1,4 @@
+import { CODE_FORMAT_KEYS } from "../../utils/employeeCode.js";
 import { z } from "zod";
 import {
   ATTENDANCE_MODES,
@@ -64,6 +65,8 @@ export const createCompanySchema = z
     leaveYear: oneOf(LEAVE_YEARS, "Leave year"),
     fiscalYearStart: z.preprocess(blank, z.coerce.number().int().min(1).max(12).optional()),
     currency: oneOf(CURRENCIES, "Currency"),
+    employeeCodeFormat: z.enum(CODE_FORMAT_KEYS, { errorMap: () => ({ message: "Pick an employee code format" }) }).default("prefix_seq"),
+    employeeCodeDigits: z.coerce.number().int().min(2, "Digits must be 2 to 6").max(6, "Digits must be 2 to 6").default(3),
     employeeIdPrefix: z.preprocess(
       (v) => (typeof v === "string" ? v.trim().toUpperCase() : v) || undefined,
       z.string().regex(/^[A-Z0-9-]{1,10}$/, "Up to 10 letters, numbers or dashes, e.g. ACME-").optional(),

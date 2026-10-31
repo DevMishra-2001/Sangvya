@@ -8,7 +8,7 @@ interface EmployeesState {
   list: Employee[];
   loading: boolean;
   load: () => Promise<void>;
-  add: (payload: EmployeePayload) => Promise<boolean>;
+  add: (payload: EmployeePayload) => Promise<Employee | null>; // the new employee, or null if it failed
   update: (id: Id, payload: EmployeePayload) => Promise<boolean>;
   remove: (id: Id) => Promise<void>;
   // Put a fresh copy of one employee in the list (profile page actions)
@@ -27,8 +27,9 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
 
   async add(payload) {
     const result = await run(() => employeesService.create(payload), { success: "Employee added" });
-    if (result.ok) set({ list: [result.data, ...get().list] });
-    return result.ok;
+    if (!result.ok) return null;
+    set({ list: [result.data, ...get().list] });
+    return result.data;
   },
 
   async update(id, payload) {

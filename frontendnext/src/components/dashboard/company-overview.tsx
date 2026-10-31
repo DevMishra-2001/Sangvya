@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlarmClockOff, ArrowRight, CalendarClock, CheckCircle2, Circle, PartyPopper, UserCheck, UserMinus, Users } from "lucide-react";
+import { AlarmClockOff, ArrowRight, CalendarClock, CheckCircle2, Circle, PartyPopper, UserCheck, Users } from "lucide-react";
 import { PersonAvatar } from "@/components/common/person-avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -22,16 +22,50 @@ const when = (iso: string, today: string) => (iso === today ? "Today" : `${weekd
 
 function Tile({ label, value, hint, icon: Icon, tone }: { label: string; value: React.ReactNode; hint?: string; icon: typeof Users; tone: string }) {
   return (
-    <Card className="py-4">
-      <CardContent className="flex items-start justify-between gap-3">
+    <Card className="h-full py-3 sm:py-4">
+      <CardContent className="flex items-start justify-between gap-2 px-3 sm:gap-3 sm:px-6">
         <div className="min-w-0">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="mt-1 text-3xl font-semibold tabular-nums">{value}</div>
-          {hint && <div className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</div>}
+          <div className="truncate text-xs text-muted-foreground">{label}</div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums sm:text-3xl">{value}</div>
+          {hint && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground sm:truncate">{hint}</div>}
         </div>
-        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tone)}>
-          <Icon className="size-5" />
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-10", tone)}>
+          <Icon className="size-4 sm:size-5" />
         </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Present today, with on leave and not in yet underneath
+function TodayTile({ a, workingDay, holiday }: { a: NonNullable<Overview["attendance"]>; workingDay: boolean; holiday?: string | null }) {
+  const stats = [
+    { label: "On leave", value: a.onLeave, dot: "bg-info" },
+    { label: "Not in", value: workingDay ? a.notIn : "—", dot: "bg-warning" },
+  ];
+  return (
+    <Card className="h-full py-3 sm:py-4">
+      <CardContent className="flex h-full flex-col gap-2 px-3 sm:px-6">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-xs text-muted-foreground">Present today</div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums sm:text-3xl">{a.present}</span>
+              <span className="truncate text-xs text-muted-foreground">{workingDay ? `${a.rate}%${a.late ? ` · ${a.late} late` : ""}` : (holiday ?? "Day off")}</span>
+            </div>
+          </div>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success sm:size-10">
+            <UserCheck className="size-4 sm:size-5" />
+          </span>
+        </div>
+        <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {stats.map((st) => (
+            <span key={st.label} className="flex items-center gap-1.5 text-muted-foreground">
+              <span className={cn("size-2 rounded-full", st.dot)} />
+              {st.label} <span className="font-semibold text-foreground tabular-nums">{st.value}</span>
+            </span>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
@@ -89,7 +123,8 @@ function AttendanceBar({ a }: { a: NonNullable<Overview["attendance"]> }) {
 }
 
 // Admin / HR: the company at a glance — headcount, today's attendance, approvals waiting, HR alerts, upcoming events, headcount by department and setup progress
-export function CompanyOverview() {
+// welcome: the greeting card, shown in the first two columns of the headline row
+export function CompanyOverview({ welcome }: { welcome?: React.ReactNode }) {
   const pages = useAuthStore((s) => s.pages);
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,9 +139,10 @@ export function CompanyOverview() {
   if (error) return <p className="text-sm text-destructive">{error}</p>;
   if (!data) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true" aria-label="Loading company overview">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-busy="true" aria-label="Loading company overview">
+        {welcome && <div className="col-span-2">{welcome}</div>}
+        {[0, 1].map((i) => (
+          <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
       </div>
     );
@@ -121,8 +157,9 @@ export function CompanyOverview() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Headline numbers */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Headline row: greeting (2 columns) · headcount · today */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {welcome && <div className="col-span-2">{welcome}</div>}
         <Tile
           label="Total employees"
           value={headcount.total}
@@ -130,26 +167,11 @@ export function CompanyOverview() {
           icon={Users}
           tone="bg-primary/10 text-primary"
         />
-        {a && (
-          <Tile
-            label="Present today"
-            value={a.present}
-            hint={data.workingDay.isWorkingDay ? `${a.rate}% attendance${a.late ? ` · ${a.late} late` : ""}` : (data.workingDay.holiday ?? "Not a working day")}
-            icon={UserCheck}
-            tone="bg-success/15 text-success"
-          />
+        {a ? (
+          <TodayTile a={a} workingDay={data.workingDay.isWorkingDay} holiday={data.workingDay.holiday} />
+        ) : (
+          leave && <Tile label="Leave requests" value={leave.pendingCount} hint="Waiting for approval" icon={CalendarClock} tone="bg-warning/15 text-warning" />
         )}
-        {(a || leave) && <Tile label="On leave today" value={a?.onLeave ?? 0} hint="Approved leave" icon={CalendarClock} tone="bg-info/15 text-info" />}
-        {a && (
-          <Tile
-            label="Not in yet"
-            value={data.workingDay.isWorkingDay ? a.notIn : "—"}
-            hint={data.workingDay.isWorkingDay ? "No check-in or leave today" : (data.workingDay.holiday ? `Holiday · ${data.workingDay.holiday}` : "Day off")}
-            icon={UserMinus}
-            tone="bg-warning/15 text-warning"
-          />
-        )}
-        {!a && leave && <Tile label="Leave requests" value={leave.pendingCount} hint="Waiting for approval" icon={CalendarClock} tone="bg-warning/15 text-warning" />}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">

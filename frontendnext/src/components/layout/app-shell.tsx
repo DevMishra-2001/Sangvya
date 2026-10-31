@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { usePreferenceSync } from "@/hooks/use-preference-sync";
 import { useSessionKeepAlive } from "@/hooks/use-session-keep-alive";
 import { FONT_SIZE, applyFontSize } from "@/lib/appearance";
 import { ONBOARDING_ROUTE, canVisit } from "@/lib/permissions";
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Header } from "./header";
 import { pageUrls } from "./nav-items";
 import { Sidebar } from "./sidebar";
+import { TopNav } from "./top-nav";
 import { CompanySuspended } from "./company-suspended";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
 import { onCompanySuspended } from "@/lib/api/client";
@@ -25,6 +27,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const fontSize = user?.font_size;
 
   useSessionKeepAlive();
+  usePreferenceSync();
+  const horizontal = user?.menu_layout === "horizontal";
 
   useEffect(() => {
     if (!checked) loadMe();
@@ -65,9 +69,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      {!horizontal && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
+        <Header brand={horizontal} />
+        {horizontal && <TopNav />}
         <main className="mx-auto w-full max-w-[1920px] flex-1 px-4 py-6 sm:px-6 sm:py-6">{children}</main>
       </div>
     </div>

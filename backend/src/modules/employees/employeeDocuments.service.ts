@@ -1,16 +1,14 @@
 // Documents on an employee's record.
 import { and, desc, eq } from "drizzle-orm";
-import { env } from "../../config/env.js";
 import { db } from "../../config/db.js";
 import { getImageKit } from "../../config/imagekit.js";
 import { employeeDocuments, users } from "../../db/schema.js";
 import { audit } from "../../utils/audit.js";
 import { BadRequestError, NotFoundError } from "../../utils/httpErrors.js";
 import type { DocumentInput } from "./employees.schema.js";
+import { storeFile, type UploadedFile } from "../upload/upload.service.js";
 import { getEmployeeById } from "./employees.service.js";
 
-export const DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 const LINK_SECONDS = 5 * 60;
 
 const columns = {
@@ -45,25 +43,17 @@ async function findDocument(companyId: number, employeeId: number, id: number) {
   return doc;
 }
 
+// actor null = the employee themself, through their onboarding link
 export async function uploadDocument(
   companyId: number,
-  actor: Express.AuthUser,
+  actor: Express.AuthUser | null,
   employeeId: number,
-  file: { buffer: Buffer; originalname: string; mimetype: string; size: number } | undefined,
+  file: UploadedFile | undefined,
   input: DocumentInput,
 ) {
   if (!file?.buffer?.length) throw new BadRequestError("Choose a file to upload");
   const employee = await getEmployeeById(companyId, employeeId);
-
-  const ext = file.originalname.match(/\.[a-z0-9]{1,6}$/i)?.[0]?.toLowerCase() ?? "";
-  const base = file.originalname.toLowerCase().replace(/\.[^/.]+$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "document";
-  const result = await getImageKit().upload({
-    file: file.buffer,
-    fileName: `${base}${ext}`,
-    folder: `${env.IMAGEKIT_FOLDER}/companies/${companyId}/documents/${employeeId}`,
-    useUniqueFileName: true,
-    isPrivateFile: true,
-  });
+  const stored = await storeFile("employee-document", { companyId, employeeId }, file);
 
   const [row] = await db
     .insert(employeeDocuments)
@@ -72,15 +62,20 @@ export async function uploadDocument(
       employee_id: employeeId,
       name: input.name || file.originalname.replace(/\.[^/.]+$/, "").slice(0, 150),
       category: input.category,
-      file_id: result.fileId,
-      file_path: result.filePath,
-      file_name: file.originalname.slice(0, 255),
-      mime_type: file.mimetype,
-      size_bytes: file.size,
-      uploaded_by: actor.id,
+      file_id: stored.fileId,
+      file_path: stored.filePath,
+      file_name: stored.fileName,
+      mime_type: stored.mimeType,
+      size_bytes: stored.size,
+      uploaded_by: actor?.id ?? null,
     })
     .returning({ id: employeeDocuments.id });
-  audit(actor, { companyId, action: "document.uploaded", target: ["employee", employeeId], summary: `Uploaded "${input.name || file.originalname}" for ${employee.name}` });
+  audit(actor, {
+    companyId,
+    action: "document.uploaded",
+    target: ["employee", employeeId],
+    summary: actor ? `Uploaded "${input.name || file.originalname}" for ${employee.name}` : `${employee.name} uploaded "${input.name || file.originalname}" (onboarding link)`,
+  });
   const [doc] = await db
     .select(columns)
     .from(employeeDocuments)

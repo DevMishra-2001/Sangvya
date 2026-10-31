@@ -24,6 +24,9 @@ export interface User {
   name: string;
   email: string;
   font_size: number;
+  theme: "light" | "dark" | "system";
+  accent: string;
+  menu_layout: "vertical" | "horizontal";
   created_at: ISODateTime;
   role: UserRole | null;
   is_superadmin: boolean; // the platform developer: sees every page
@@ -85,6 +88,48 @@ export interface Company {
   postal_code?: string | null;
   status?: "active" | "suspended";
   verification_status?: VerificationStatus;
+  // Full details (Company settings page)
+  legal_name?: string | null;
+  business_type?: string | null;
+  year_established?: number | null;
+  office_locations?: string | null;
+  timezone?: string | null;
+  pan?: string | null;
+  gstin?: string | null;
+  cin_llpin?: string | null;
+  tan?: string | null;
+  billing_address?: string | null;
+  work_days?: string | null;
+  office_start?: string | null;
+  office_end?: string | null;
+  attendance_mode?: string | null;
+  leave_year?: string | null;
+  fiscal_year_start?: number | null;
+  currency?: string | null;
+  employee_id_prefix?: string | null;
+  employee_code_format?: string;
+  employee_code_digits?: number;
+}
+
+// A company office / branch; office check-ins must be inside its radius
+export interface Branch {
+  id: Id;
+  name: string;
+  code: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+  phone: string | null;
+  email: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radius_m: number;
+  geofence_enabled: boolean;
+  is_head_office: boolean;
+  is_active: boolean;
+  employee_count: number;
 }
 
 // ---- Platform companies (Super Admin) ----
@@ -263,13 +308,76 @@ export interface Employee {
   exited_at: ISODateTime | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
+  emergency_contact_relation: string | null;
+  personal_email: string | null;
+  marital_status: "single" | "married" | "divorced" | "widowed" | null;
+  blood_group: string | null;
+  nationality: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+  branch_id: Id | null;
+  branch: string | null;
+  business_unit: string | null;
+  work_mode: "office" | "remote" | "hybrid" | "field" | null;
+  probation_end_date: ISODate | null;
   created_at: ISODateTime;
+}
+
+// Statutory IDs + bank (HR / Admin only)
+export interface EmployeePrivate {
+  pan: string | null;
+  aadhaar: string | null;
+  uan: string | null;
+  pf_number: string | null;
+  esi_number: string | null;
+  passport_number: string | null;
+  bank_name: string | null;
+  bank_branch: string | null;
+  ifsc: string | null;
+  account_number: string | null;
+  account_holder: string | null;
+  account_type: "savings" | "current" | "salary" | null;
+}
+
+export interface OnboardingLinkStatus {
+  id: Id;
+  expires_at: ISODateTime;
+  submitted_at: ISODateTime | null;
+  revoked_at: ISODateTime | null;
+  created_at: ISODateTime;
+}
+
+// The public self-onboarding form
+export interface OnboardingForm {
+  company: { name: string; logo_url: string | null } | null;
+  expiresAt: ISODateTime;
+  employee: { name: string; email: string | null; designation: string | null; department: string | null; join_date: ISODate | null; employee_code: string | null };
+  details: Record<string, string | null>;
+  privateOnFile: Record<string, boolean>;
+  documents: { id: Id; name: string; category: DocumentCategory; file_name: string; created_at: ISODateTime }[];
 }
 
 export type EmploymentType = "full_time" | "part_time" | "contract" | "intern";
 export type EmployeeStatus = "active" | "notice" | "exited";
 export type ExitReason = "resigned" | "terminated" | "retired" | "contract_end" | "absconded" | "other";
-export type DocumentCategory = "id_proof" | "address_proof" | "education" | "experience" | "offer_letter" | "contract" | "payslip" | "other";
+export type DocumentCategory =
+  | "pan_card"
+  | "aadhaar"
+  | "passport"
+  | "photo"
+  | "id_proof"
+  | "address_proof"
+  | "education"
+  | "experience"
+  | "previous_payslip"
+  | "bank_proof"
+  | "offer_letter"
+  | "contract"
+  | "payslip"
+  | "other";
 
 // A file on an employee's record (opened through a short-lived link)
 export interface EmployeeDocument {

@@ -32,6 +32,7 @@ import {
   WEEK_DAYS,
   gstState,
 } from "@/lib/company-rules";
+import { CODE_DIGITS, CODE_FORMATS, previewCode } from "@/lib/employee-code";
 import { COMPANY_STEPS, EMPTY_COMPANY, companySchema, type CompanyForm, type CompanyInput } from "@/lib/schemas/company";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
@@ -356,6 +357,17 @@ export function CompanyWizard({ userId, defaultName = "", submitLabel, onCreated
               </FormField>
               <FormField label="Employee ID prefix" htmlFor="co-prefix" error={errors.employeeIdPrefix} description="Optional, e.g. ACME- → ACME-001">
                 <Input id="co-prefix" maxLength={10} placeholder="ACME-" className="uppercase" aria-invalid={Boolean(errors.employeeIdPrefix)} {...register("employeeIdPrefix")} />
+              </FormField>
+              <FormField label="Employee code format" htmlFor="co-code-format" error={errors.employeeCodeFormat} span="md">
+                <FormSelect
+                  control={control}
+                  name="employeeCodeFormat"
+                  id="co-code-format"
+                  options={CODE_FORMATS.map((f) => ({ value: f.value, label: `${f.label} — ${previewCode(values.employeeIdPrefix || "EMP", f.value, Number(values.employeeCodeDigits) || 3)}` }))}
+                />
+              </FormField>
+              <FormField label="Number digits" htmlFor="co-code-digits" error={errors.employeeCodeDigits}>
+                <FormSelect control={control} name="employeeCodeDigits" id="co-code-digits" options={CODE_DIGITS.map((d) => ({ value: d, label: `${d} digits` }))} />
               </FormField>
             </FormGrid>
           )}

@@ -22,10 +22,16 @@ import { mailPreviewRoutes } from "./modules/mail/mail.route.js";
 import { reportRoutes } from "./modules/reports/reports.route.js";
 import { employeeRoutes } from "./modules/employees/employees.route.js";
 import { holidayRoutes } from "./modules/holidays/holidays.route.js";
-import { leavePolicyRoutes, leaveRoutes } from "./modules/leaves/leaves.route.js";
+import {
+  leavePolicyRoutes,
+  leaveRoutes,
+} from "./modules/leaves/leaves.route.js";
 import { pageRoutes } from "./modules/pages/pages.route.js";
 import { platformCompanyRoutes } from "./modules/platform/platformCompanies.route.js";
-import { platformAuditRoutes, platformOverviewRoutes } from "./modules/platform/platform.route.js";
+import {
+  platformAuditRoutes,
+  platformOverviewRoutes,
+} from "./modules/platform/platform.route.js";
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
 import { roleRoutes } from "./modules/roles/roles.route.js";
@@ -34,7 +40,10 @@ import { orgRoutes } from "./modules/org/org.route.js";
 import { assetRoutes } from "./modules/assets/assets.route.js";
 import { probationRoutes } from "./modules/probation/probation.route.js";
 import { exitRoutes } from "./modules/exits/exits.route.js";
-import { onboardingLinkRoutes, onboardingRoutes } from "./modules/onboarding/onboarding.route.js";
+import {
+  onboardingLinkRoutes,
+  onboardingRoutes,
+} from "./modules/onboarding/onboarding.route.js";
 import { customRoleRoutes } from "./modules/roles/customRoles.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
@@ -56,7 +65,9 @@ app.use(cookieParser()); // reads the HttpOnly login cookies
 // JSON bodies everywhere except the Razorpay webhook, which needs the raw bytes
 // to verify its signature (it parses its own body in billing.route.ts).
 const json = express.json();
-app.use((req, res, next) => (req.originalUrl === "/api/billing/webhook" ? next() : json(req, res, next)));
+app.use((req, res, next) =>
+  req.originalUrl === "/api/billing/webhook" ? next() : json(req, res, next),
+);
 
 app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined")); // request logging
 app.use("/api", apiLimiter); // rate limit all API routes

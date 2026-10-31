@@ -37,7 +37,11 @@ import {
 export const listEmployeesHandler = asyncHandler(async (req, res) => {
   const q = req.query as unknown as ListQuery;
   const { companyId } = tenant(req);
-  res.json(q.page ? await listEmployeesPage(companyId, { ...q, page: q.page }) : await listEmployees(companyId));
+  res.json(
+    q.page
+      ? await listEmployeesPage(companyId, { ...q, page: q.page })
+      : await listEmployees(companyId),
+  );
 });
 
 // POST /api/employees

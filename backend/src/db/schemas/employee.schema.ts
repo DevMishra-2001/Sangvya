@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { date, index, numeric, pgTable, text, uniqueIndex, varchar, integer } from "drizzle-orm/pg-core";
+import {
+  date,
+  index,
+  numeric,
+  pgTable,
+  text,
+  uniqueIndex,
+  varchar,
+  integer,
+} from "drizzle-orm/pg-core";
 import { createdAt, fk, id, timestamptz } from "../columns.js";
 import { companies } from "./company.schema.js";
 import { departments } from "./department.schema.js";
@@ -8,14 +17,40 @@ import { roles } from "./role.schema.js";
 import { branches } from "./branch.schema.js";
 import { shifts } from "./shift.schema.js";
 
-export const EMPLOYMENT_TYPES = ["full_time", "part_time", "contract", "intern"] as const;
+export const EMPLOYMENT_TYPES = [
+  "full_time",
+  "part_time",
+  "contract",
+  "intern",
+] as const;
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 export const EMPLOYEE_STATUSES = ["active", "notice", "exited"] as const;
 export type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number];
 export const WORK_MODES = ["office", "remote", "hybrid", "field"] as const;
-export const MARITAL_STATUSES = ["single", "married", "divorced", "widowed"] as const;
-export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
-export const EXIT_REASONS = ["resigned", "terminated", "retired", "contract_end", "absconded", "other"] as const;
+export const MARITAL_STATUSES = [
+  "single",
+  "married",
+  "divorced",
+  "widowed",
+] as const;
+export const BLOOD_GROUPS = [
+  "A+",
+  "A-",
+  "B+",
+  "B-",
+  "AB+",
+  "AB-",
+  "O+",
+  "O-",
+] as const;
+export const EXIT_REASONS = [
+  "resigned",
+  "terminated",
+  "retired",
+  "contract_end",
+  "absconded",
+  "other",
+] as const;
 export type ExitReason = (typeof EXIT_REASONS)[number];
 
 export const employees = pgTable(
@@ -46,23 +81,37 @@ export const employees = pgTable(
     // Profile photo (ImageKit URL)
     photo_url: text("photo_url"),
     phone: varchar("phone", { length: 30 }),
-    gender: varchar("gender", { length: 10 }).$type<"male" | "female" | "other">(),
+    gender: varchar("gender", { length: 10 }).$type<
+      "male" | "female" | "other"
+    >(),
     address: text("address"),
     // full_time | part_time | contract | intern
-    employment_type: varchar("employment_type", { length: 20 }).$type<EmploymentType>().notNull().default("full_time"),
+    employment_type: varchar("employment_type", { length: 20 })
+      .$type<EmploymentType>()
+      .notNull()
+      .default("full_time"),
     // active | notice (leaving: exit_date is their last working day) | exited
-    status: varchar("status", { length: 20 }).$type<EmployeeStatus>().notNull().default("active"),
+    status: varchar("status", { length: 20 })
+      .$type<EmployeeStatus>()
+      .notNull()
+      .default("active"),
     exit_date: date("exit_date"),
     exit_reason: varchar("exit_reason", { length: 30 }).$type<ExitReason>(),
     exit_notes: text("exit_notes"),
     exited_at: timestamptz("exited_at"),
     emergency_contact_name: varchar("emergency_contact_name", { length: 150 }),
     emergency_contact_phone: varchar("emergency_contact_phone", { length: 30 }),
-    emergency_contact_relation: varchar("emergency_contact_relation", { length: 30 }),
+    emergency_contact_relation: varchar("emergency_contact_relation", {
+      length: 30,
+    }),
     // Personal
     personal_email: varchar("personal_email", { length: 150 }),
-    marital_status: varchar("marital_status", { length: 10 }).$type<(typeof MARITAL_STATUSES)[number]>(),
-    blood_group: varchar("blood_group", { length: 3 }).$type<(typeof BLOOD_GROUPS)[number]>(),
+    marital_status: varchar("marital_status", { length: 10 }).$type<
+      (typeof MARITAL_STATUSES)[number]
+    >(),
+    blood_group: varchar("blood_group", { length: 3 }).$type<
+      (typeof BLOOD_GROUPS)[number]
+    >(),
     nationality: varchar("nationality", { length: 60 }),
     // Address (address = line 1)
     address_line2: text("address_line2"),
@@ -73,10 +122,14 @@ export const employees = pgTable(
     // Employment
     branch_id: integer("branch_id"),
     business_unit: varchar("business_unit", { length: 100 }),
-    work_mode: varchar("work_mode", { length: 10 }).$type<(typeof WORK_MODES)[number]>(),
+    work_mode: varchar("work_mode", { length: 10 }).$type<
+      (typeof WORK_MODES)[number]
+    >(),
     probation_end_date: date("probation_end_date"),
     // on_probation | extended | confirmed | not_confirmed (NULL = no probation)
-    probation_status: varchar("probation_status", { length: 15 }).$type<"on_probation" | "extended" | "confirmed" | "not_confirmed">(),
+    probation_status: varchar("probation_status", { length: 15 }).$type<
+      "on_probation" | "extended" | "confirmed" | "not_confirmed"
+    >(),
     confirmed_on: date("confirmed_on"),
   },
   (t) => [

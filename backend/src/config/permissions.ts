@@ -10,6 +10,7 @@ import type { RoleKey } from "../db/schemas/role.schema.js";
 
 export const PERMISSION_KEYS = [
   "companies.manage",
+  "company.manage",
   "users.manage",
   "employees.view",
   "employees.manage",
@@ -83,6 +84,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   billing: ["billing.view", "billing.manage"],
   users: ["users.manage", "employees.view"],
   "new-company": ["companies.manage"],
+  "company-settings": ["company.manage"],
   // Reports menu: one page per report, each opens its report API
   "reports-attendance-register": ["reports.attendance"],
   "reports-late-arrivals": ["reports.attendance"],

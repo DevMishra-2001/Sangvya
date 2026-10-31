@@ -24,7 +24,6 @@ import type { AppNotification } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useNotificationsStore } from "@/stores/notifications-store";
 
-const POLL_MS = 60_000;
 
 // An icon per kind of notification (the part before the dot)
 const ICONS: Record<string, LucideIcon> = {
@@ -53,16 +52,9 @@ export function NotificationBell() {
   const markRead = useNotificationsStore((s) => s.markRead);
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
 
-  // Keep the count fresh: every minute, and when the tab is focused again
+  // Count once when the app loads (login / page refresh); opening the bell refreshes it too
   useEffect(() => {
     refreshCount();
-    const t = setInterval(() => document.visibilityState === "visible" && refreshCount(), POLL_MS);
-    const onFocus = () => refreshCount();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(t);
-      window.removeEventListener("focus", onFocus);
-    };
   }, [refreshCount]);
 
   function openChange(next: boolean) {

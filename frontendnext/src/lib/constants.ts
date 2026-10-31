@@ -88,17 +88,39 @@ export const EXIT_REASON_LABELS: Record<ExitReason, string> = {
 };
 
 export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
-  id_proof: "ID proof",
+  pan_card: "PAN card",
+  aadhaar: "Aadhaar card",
+  passport: "Passport",
+  photo: "Passport photo",
+  id_proof: "Other ID proof",
   address_proof: "Address proof",
-  education: "Education",
-  experience: "Experience",
+  education: "Education certificate",
+  experience: "Previous company letter",
+  previous_payslip: "Previous payslip",
+  bank_proof: "Bank passbook / cheque",
   offer_letter: "Offer letter",
   contract: "Contract",
   payslip: "Payslip",
   other: "Other",
 };
 
+// Documents asked for at joining (onboarding link + profile checklist)
+export const JOINING_DOCUMENTS: DocumentCategory[] = ["pan_card", "aadhaar", "photo", "education", "experience", "previous_payslip", "bank_proof"];
+
+export const MARITAL_STATUS_LABELS = { single: "Single", married: "Married", divorced: "Divorced", widowed: "Widowed" } as const;
+export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export const WORK_MODE_LABELS = { office: "Office", remote: "Remote", hybrid: "Hybrid", field: "Field" } as const;
+export const RELATION_LABELS = { father: "Father", mother: "Mother", spouse: "Spouse", sibling: "Brother / Sister", child: "Son / Daughter", friend: "Friend", other: "Other" } as const;
+export const ACCOUNT_TYPE_LABELS = { savings: "Savings", current: "Current", salary: "Salary" } as const;
+export const GENDER_LABELS = { male: "Male", female: "Female", other: "Other" } as const;
+
 const options = <K extends string>(labels: Record<K, string>) => (Object.entries(labels) as [K, string][]).map(([value, label]) => ({ value, label }));
 export const EMPLOYMENT_TYPE_OPTIONS = options(EMPLOYMENT_TYPE_LABELS);
 export const EXIT_REASON_OPTIONS = options(EXIT_REASON_LABELS);
 export const DOCUMENT_CATEGORY_OPTIONS = options(DOCUMENT_CATEGORY_LABELS);
+export const MARITAL_STATUS_OPTIONS = options(MARITAL_STATUS_LABELS);
+export const BLOOD_GROUP_OPTIONS = BLOOD_GROUPS.map((g) => ({ value: g, label: g }));
+export const WORK_MODE_OPTIONS = options(WORK_MODE_LABELS);
+export const RELATION_OPTIONS = options(RELATION_LABELS);
+export const ACCOUNT_TYPE_OPTIONS = options(ACCOUNT_TYPE_LABELS);
+export const GENDER_OPTIONS = options(GENDER_LABELS);

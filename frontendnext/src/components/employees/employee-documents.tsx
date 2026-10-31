@@ -1,86 +1,54 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ExternalLink, FileText, Image as ImageIcon, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Circle, ExternalLink, FileText, Image as ImageIcon } from "lucide-react";
 import { ConfirmDelete } from "@/components/common/confirm-button";
+import { FileUpload } from "@/components/common/file-upload";
 import { FormField } from "@/components/common/form-field";
-import { FormActions, FormGrid, FormHeading } from "@/components/common/form-layout";
+import { FormGrid, FormHeading } from "@/components/common/form-layout";
 import { SelectField } from "@/components/common/select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { run } from "@/lib/api/run";
-import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_CATEGORY_OPTIONS } from "@/lib/constants";
+import { DOCUMENT_CATEGORY_LABELS, DOCUMENT_CATEGORY_OPTIONS, JOINING_DOCUMENTS } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
 import { employeesService } from "@/lib/services/employees";
 import type { DocumentCategory, EmployeeDocument, Id } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-const ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
-const MAX_BYTES = 10 * 1024 * 1024; // keep in sync with the backend
 const size = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
-// An employee's documents: upload (PDF / image, up to 10 MB), open, remove.
+// An employee's documents: joining checklist, upload (PDF / image / Word, up to 10 MB), open, remove
 export function EmployeeDocuments({ employeeId }: { employeeId: Id }) {
   const [docs, setDocs] = useState<EmployeeDocument[] | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<DocumentCategory>("id_proof");
-  const [fileError, setFileError] = useState<string | undefined>();
-  const [progress, setProgress] = useState<number | null>(null);
+  const [category, setCategory] = useState<DocumentCategory>("pan_card");
   const [opening, setOpening] = useState<Id | null>(null);
-  const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    run(() => employeesService.documents(employeeId)).then((r) => setDocs(r.ok ? r.data : []));
+    let cancelled = false;
+    run(() => employeesService.documents(employeeId)).then((r) => !cancelled && setDocs(r.ok ? r.data : []));
+    return () => {
+      cancelled = true;
+    };
   }, [employeeId]);
 
-  function pick(f: File | null) {
-    setFileError(undefined);
-    if (f && !ACCEPT.split(",").includes(f.type)) {
-      setFileError("Upload a PDF or an image (JPEG, PNG, WebP)");
-      f = null;
-    } else if (f && f.size > MAX_BYTES) {
-      setFileError("The file is larger than 10 MB");
-      f = null;
-    }
-    setFile(f);
-    if (f && !name) setName(f.name.replace(/\.[^/.]+$/, ""));
-  }
-
-  async function upload() {
-    if (!file) {
-      setFileError("Choose a file");
-      return;
-    }
-    setProgress(0);
-    const result = await run(() => employeesService.uploadDocument(employeeId, file, { name, category }, setProgress), { success: "Document uploaded" });
-    setProgress(null);
-    if (!result.ok) return;
-    setDocs((d) => [result.data, ...(d ?? [])]);
-    setFile(null);
-    setName("");
-    if (input.current) input.current.value = "";
-  }
+  const have = new Set((docs ?? []).map((d) => d.category));
 
   async function openDoc(doc: EmployeeDocument) {
-    // Open the tab now (inside the click) so pop-up blockers allow it, then point it at the link
+    // Open the tab inside the click so pop-up blockers allow it, then point it at the signed link
     const tab = window.open("", "_blank");
     setOpening(doc.id);
     const result = await run(() => employeesService.documentLink(employeeId, doc.id));
     setOpening(null);
-    if (!result.ok) {
-      tab?.close();
-      return;
-    }
+    if (!result.ok) return tab?.close();
     if (tab) {
       tab.opener = null;
       tab.location.href = result.data.url;
-    } else {
-      window.location.assign(result.data.url); // pop-ups blocked: open it here
-    }
+    } else window.location.assign(result.data.url);
   }
 
   async function remove(doc: EmployeeDocument) {
@@ -91,51 +59,71 @@ export function EmployeeDocuments({ employeeId }: { employeeId: Id }) {
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-xl border bg-card">
+        <FormHeading title={`Joining documents · ${JOINING_DOCUMENTS.filter((c) => have.has(c)).length} of ${JOINING_DOCUMENTS.length}`} />
+        <ul className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {JOINING_DOCUMENTS.map((c) => (
+            <li key={c}>
+              <button
+                type="button"
+                onClick={() => setCategory(c)}
+                className={cn("flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors hover:border-primary", category === c && "border-primary bg-primary/5")}
+              >
+                {have.has(c) ? <CheckCircle2 className="size-4 shrink-0 text-success" /> : <Circle className="size-4 shrink-0 text-muted-foreground" />}
+                {DOCUMENT_CATEGORY_LABELS[c]}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rounded-xl border bg-card">
         <FormHeading title="Upload a document" />
         <div className="p-4">
           <FormGrid>
-            <FormField label="File" htmlFor="doc-file" error={fileError ? { message: fileError } : undefined} float={false} span="md">
-              <Input id="doc-file" ref={input} type="file" accept={ACCEPT} onChange={(e) => pick(e.target.files?.[0] ?? null)} aria-invalid={Boolean(fileError)} />
-            </FormField>
-            <FormField label="Category" htmlFor="doc-category">
+            <FormField label="Document type" htmlFor="doc-category">
               <SelectField id="doc-category" value={category} onValueChange={(v) => setCategory(v as DocumentCategory)} options={DOCUMENT_CATEGORY_OPTIONS} />
             </FormField>
-            <FormField label="Name" htmlFor="doc-name">
-              <Input id="doc-name" value={name} maxLength={150} onChange={(e) => setName(e.target.value)} placeholder="e.g. Aadhaar card" />
+            <FormField label="Name (optional)" htmlFor="doc-name">
+              <Input id="doc-name" maxLength={150} placeholder={DOCUMENT_CATEGORY_LABELS[category]} value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
-            <FormActions>
-              <Button type="button" onClick={upload} disabled={progress !== null}>
-                {progress !== null ? <Spinner /> : <Upload />} Upload
-              </Button>
-            </FormActions>
+            <div className="col-span-12 lg:col-span-6">
+              <FileUpload
+                accept="document"
+                title={`Upload ${DOCUMENT_CATEGORY_LABELS[category]}`}
+                upload={async (file, onProgress) => {
+                  const doc = await employeesService.uploadDocument(employeeId, file, { name: name.trim() || DOCUMENT_CATEGORY_LABELS[category], category }, onProgress);
+                  setDocs((d) => [doc, ...(d ?? [])]);
+                  setName("");
+                }}
+              />
+            </div>
           </FormGrid>
-          {progress !== null && <Progress value={progress} className="mt-3 h-1.5" aria-label="Upload progress" />}
-          <p className="mt-2 text-xs text-muted-foreground">PDF or image, up to 10 MB. Files are private — only HR and admins can open them.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Files are private — only HR and admins can open them, through a link that works for a few minutes.</p>
         </div>
       </section>
 
       <section className="overflow-hidden rounded-xl border bg-card">
-        <FormHeading title={`Documents${docs ? ` · ${docs.length}` : ""}`} />
-        {docs === null ? (
-          <div className="flex justify-center p-6">
+        <FormHeading title={`All documents${docs ? ` · ${docs.length}` : ""}`} />
+        {!docs ? (
+          <div className="flex justify-center p-8">
             <Spinner />
           </div>
         ) : docs.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">No documents yet.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">No documents yet.</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Document</TableHead>
-                <TableHead className="w-36">Category</TableHead>
+                <TableHead className="w-48">Type</TableHead>
                 <TableHead className="w-24 text-right">Size</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead className="w-28 text-right">Actions</TableHead>
+                <TableHead className="w-48">Uploaded</TableHead>
+                <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {docs.map((d) => {
-                const Icon = d.mime_type === "application/pdf" ? FileText : ImageIcon;
+                const Icon = d.mime_type === "application/pdf" || !d.mime_type.startsWith("image/") ? FileText : ImageIcon;
                 return (
                   <TableRow key={d.id}>
                     <TableCell>
@@ -148,16 +136,16 @@ export function EmployeeDocuments({ employeeId }: { employeeId: Id }) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{DOCUMENT_CATEGORY_LABELS[d.category] ?? d.category}</Badge>
+                      <Badge variant="outline">{DOCUMENT_CATEGORY_LABELS[d.category] ?? d.category}</Badge>
                     </TableCell>
-                    <TableCell className="text-right text-xs tabular-nums text-muted-foreground">{size(d.size_bytes)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{size(d.size_bytes)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {fmtDate(d.created_at)}
-                      {d.uploaded_by_name && ` · ${d.uploaded_by_name}`}
+                      <span className="block">{d.uploaded_by_name ?? "By the employee"}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => openDoc(d)} disabled={opening === d.id} aria-label={`Open ${d.name}`} title="Open">
+                        <Button variant="ghost" size="icon-sm" onClick={() => openDoc(d)} disabled={opening === d.id} aria-label={`Open ${d.name}`}>
                           {opening === d.id ? <Spinner /> : <ExternalLink />}
                         </Button>
                         <ConfirmDelete title={`Remove “${d.name}”?`} description="The file is deleted for good." onConfirm={() => remove(d)} label="Remove" />

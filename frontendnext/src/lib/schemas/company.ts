@@ -55,6 +55,8 @@ export const companySchema = z
     leaveYear: z.string().min(1, "Leave year is required"),
     fiscalYearStart: z.string().transform((v) => (v ? Number(v) : undefined)),
     currency: z.string().min(1, "Currency is required"),
+    employeeCodeFormat: z.string().min(1, "Pick a code format"),
+    employeeCodeDigits: z.string().transform(Number),
     employeeIdPrefix: z
       .string()
       .trim()
@@ -93,7 +95,7 @@ export const COMPANY_STEPS = [
   { key: "basic", title: "Basic details", hint: "Who you are", fields: ["companyName", "legalName", "industry", "businessType", "employeeRange", "website", "yearEstablished"] },
   { key: "contact", title: "Contact & address", hint: "Where you are", fields: ["email", "phone", "country", "state", "city", "address", "postalCode", "officeLocations", "timezone"] },
   { key: "legal", title: "Legal & billing", hint: "Tax and invoicing", fields: ["pan", "gstin", "cinLlpin", "tan", "billingAddress"] },
-  { key: "workplace", title: "Workplace", hint: "How you work", fields: ["workDays", "officeStart", "officeEnd", "attendanceMode", "leaveYear", "fiscalYearStart", "currency", "employeeIdPrefix"] },
+  { key: "workplace", title: "Workplace", hint: "How you work", fields: ["workDays", "officeStart", "officeEnd", "attendanceMode", "leaveYear", "fiscalYearStart", "currency", "employeeIdPrefix", "employeeCodeFormat", "employeeCodeDigits"] },
 ] as const satisfies readonly { key: string; title: string; hint: string; fields: readonly (keyof CompanyForm)[] }[];
 
 export const EMPTY_COMPANY: CompanyForm = {
@@ -128,4 +130,6 @@ export const EMPTY_COMPANY: CompanyForm = {
   fiscalYearStart: "4",
   currency: "INR",
   employeeIdPrefix: "",
+  employeeCodeFormat: "prefix_seq",
+  employeeCodeDigits: "3",
 };

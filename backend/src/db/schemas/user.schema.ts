@@ -31,6 +31,10 @@ export const users = pgTable(
     must_change_password: boolean("must_change_password").notNull().default(false),
     // The user's own UI font size (10–17px, 13 = normal)
     font_size: smallint("font_size").notNull().default(13),
+    // Appearance, saved per login so it follows them to any device
+    theme: varchar("theme", { length: 10 }).notNull().default("system").$type<"light" | "dark" | "system">(),
+    accent: varchar("accent", { length: 12 }).notNull().default("blue"),
+    menu_layout: varchar("menu_layout", { length: 12 }).notNull().default("vertical").$type<"vertical" | "horizontal">(),
   },
   (t) => [
     fk("users", t.company_id, companies.id, "set null"),

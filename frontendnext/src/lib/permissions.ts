@@ -53,7 +53,7 @@ export const PUBLIC_ROUTES = ["/login", "/forgot-password"];
 
 // Open to everyone, logged in or not (an activation link may be opened in a
 // browser where someone else is logged in — accepting it switches the login)
-export const OPEN_ROUTES = ["/activate"];
+export const OPEN_ROUTES = ["/activate", "/join"];
 
 // Where a logged-in user without a company sets one up (no sidebar)
 export const ONBOARDING_ROUTE = "/onboarding";

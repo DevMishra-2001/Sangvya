@@ -394,6 +394,18 @@ export const TEMPLATES = {
       link: "/",
     },
   ),
+
+  // ---- Employee self-onboarding ----
+  onboardingLink: define(
+    (p: { name: string; companyName: string; link: string; expiresAt: Date }) => ({
+      subject: `Complete your joining details for ${p.companyName}`,
+      heading: `Welcome to ${p.companyName}, ${p.name.split(" ")[0]}!`,
+      paragraphs: ["Please fill in your personal, address, bank and ID details and upload your documents (PAN, Aadhaar, education, previous employment)."],
+      button: { label: "Fill my details", url: p.link },
+      footnote: `The link expires on ${p.expiresAt.toUTCString()}. Don't share it — anyone with it can see and edit your joining form.`,
+    }),
+    { name: "Priya Sharma", companyName: "Acme Pvt Ltd", link: appUrl("/join/sample"), expiresAt: new Date(Date.now() + 24 * 3600e3) },
+  ),
 };
 
 export type TemplateName = keyof typeof TEMPLATES;

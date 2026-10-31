@@ -61,7 +61,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // With a DialogHeader the close button lives in the header instead
+          "[&:has(>[data-slot=dialog-header])>.dialog-x]:hidden fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -71,7 +72,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
+              className="dialog-x absolute top-2 right-2"
               size="icon-sm"
             >
               <XIcon
@@ -85,13 +86,25 @@ function DialogContent({
   )
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function DialogHeader({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      // Theme band: accent strip on top, tinted background, stays put while a long form scrolls
+      className={cn(
+        "sticky -top-4 z-10 -mx-4 -mt-4 flex flex-col gap-1.5 rounded-t-xl border-t-4 border-b border-t-primary bg-popover bg-linear-to-r from-primary/12 to-primary/4 py-3 pr-12 pl-4",
+        className
+      )}
       {...props}
-    />
+    >
+      {children}
+      <DialogPrimitive.Close asChild>
+        <Button variant="ghost" size="icon-sm" className="absolute top-1/2 right-2.5 -translate-y-1/2">
+          <XIcon />
+          <span className="sr-only">Close</span>
+        </Button>
+      </DialogPrimitive.Close>
+    </div>
   )
 }
 
@@ -130,7 +143,7 @@ function DialogTitle({
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-base leading-none font-medium",
+        "font-heading text-base leading-none font-semibold",
         className
       )}
       {...props}

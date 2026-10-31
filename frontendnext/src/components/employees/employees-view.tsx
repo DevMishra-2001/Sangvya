@@ -20,8 +20,10 @@ import { EmployeeFormDialog } from "./employee-form-dialog";
 import { EmployeeStatusBadge } from "./employee-status-badge";
 import { SelectField } from "@/components/common/select-field";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function EmployeesView() {
+  const router = useRouter();
   const canManage = useCan()("employees.manage");
   const list = useEmployeesStore((s) => s.list);
   const loading = useEmployeesStore((s) => s.loading);
@@ -103,6 +105,7 @@ export function EmployeesView() {
                   <TableHead>Designation</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Branch</TableHead>
                   <TableHead>Reports to</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Salary</TableHead>
@@ -113,9 +116,9 @@ export function EmployeesView() {
               </TableHeader>
               <TableBody>
                 {visible.map((emp) => (
-                  <TableRow key={emp.id}>
+                  <TableRow key={emp.id} className="cursor-pointer" onClick={() => router.push(`/employees/${emp.id}`)}>
                     <TableCell className="font-medium">
-                      <Link href={`/employees/${emp.id}`} className="flex items-center gap-2.5 hover:text-primary hover:underline">
+                      <Link href={`/employees/${emp.id}`} onClick={(ev) => ev.stopPropagation()} className="flex items-center gap-2.5 hover:text-primary hover:underline">
                         <PersonAvatar name={emp.name} photoUrl={emp.photo_url} />
                         {emp.name}
                       </Link>
@@ -124,6 +127,7 @@ export function EmployeesView() {
                     <TableCell>{emp.designation || "—"}</TableCell>
                     <TableCell>{emp.role ? <Badge variant="outline">{emp.role}</Badge> : "—"}</TableCell>
                     <TableCell>{emp.department || "—"}</TableCell>
+                    <TableCell>{emp.branch || "—"}</TableCell>
                     <TableCell>{nameOf(emp.manager_id)}</TableCell>
                     <TableCell>{fmtDate(emp.join_date)}</TableCell>
                     <TableCell className="text-right tabular-nums">{inr(emp.salary)}</TableCell>
@@ -138,7 +142,7 @@ export function EmployeesView() {
                       )}
                     </TableCell>
                     {canManage && (
-                      <TableCell>
+                      <TableCell onClick={(ev) => ev.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon-sm" onClick={() => openForm(emp)} aria-label={`Edit ${emp.name}`}>
                             <Pencil />
@@ -156,7 +160,7 @@ export function EmployeesView() {
                 ))}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={canManage ? 11 : 10} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={canManage ? 12 : 11} className="py-8 text-center text-muted-foreground">
                       No employees match these filters.
                     </TableCell>
                   </TableRow>

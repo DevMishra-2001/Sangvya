@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore, useModule } from "@/stores/auth-store";
 import { CompanyLogo } from "@/components/companies/company-logo";
 import { CompanySwitcher } from "@/components/companies/company-switcher";
 import { ProfileButton } from "./profile-panel";
@@ -34,6 +34,7 @@ function MobileMenu() {
 // brand: show the company logo + name (top-menu layout, where there's no sidebar)
 export function Header({ brand = false }: { brand?: boolean }) {
   const company = useAuthStore((s) => s.company);
+  const attendanceOn = useModule("attendance");
 
   return (
     <header className="sticky top-0 z-30 grid h-16 grid-cols-[auto_1fr_auto] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:px-8">
@@ -50,8 +51,12 @@ export function Header({ brand = false }: { brand?: boolean }) {
       </div>
 
       <div className="flex items-center gap-2 justify-self-center">
-        <WorkTimer />
-        <CheckInButton />
+        {attendanceOn && (
+          <>
+            <WorkTimer />
+            <CheckInButton />
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-2 justify-self-end">

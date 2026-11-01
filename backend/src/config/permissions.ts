@@ -14,6 +14,7 @@ export const PERMISSION_KEYS = [
   "users.manage",
   "employees.view",
   "employees.manage",
+  "org.view",
   "dashboard.company",
   "designations.manage",
   "departments.manage",
@@ -65,6 +66,7 @@ export const BASE_PERMISSIONS: Permission[] = ["attendance.self", "leave.apply",
 // not listed (dashboard, tickets, my-attendance…) only need the base permissions.
 export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   employees: ["employees.view", "employees.manage"],
+  "org-chart": ["org.view"],
   designations: ["designations.manage"],
   departments: ["departments.manage"],
   roles: ["roles.manage"],

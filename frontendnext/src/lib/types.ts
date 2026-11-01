@@ -32,6 +32,7 @@ export interface User {
   is_superadmin: boolean; // the platform developer: sees every page
   permissions: Permission[];
   team_size: number; // people who report to me (0 = not a manager)
+  modules?: string[]; // modules on for this company (attendance, leave, payroll, recruitment, performance)
   must_change_password: boolean; // logging in with a temporary password set by their admin
 }
 
@@ -320,6 +321,7 @@ export interface Employee {
   country: string | null;
   branch_id: Id | null;
   branch: string | null;
+  manager_name?: string | null;
   business_unit: string | null;
   work_mode: "office" | "remote" | "hybrid" | "field" | null;
   probation_end_date: ISODate | null;

@@ -1,7 +1,7 @@
 // Every query takes companyId and includes it in the WHERE clause. This is what
 // enforces multi-tenancy at the data layer — even if a stray id got through,
 // these queries never touch another company's rows.
-import { and, asc, count, desc, eq, getTableColumns, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, ilike, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
 import { branches, departments, designations, employees, roles, shifts, users } from "../../db/schema.js";
@@ -13,7 +13,8 @@ import { assertBranchUsable } from "../branches/branches.service.js";
 import { assertDesignationUsable, findOrCreateDesignation } from "../designations/designations.service.js";
 import { roleByKey } from "../pages/access.service.js";
 import { assertRoleAssignable } from "../roles/roles.service.js";
-import type { EmployeeInput } from "./employees.schema.js";
+import type { EmployeeInput, ListQuery } from "./employees.schema.js";
+import { offsetOf, pageMeta } from "../../utils/pagination.js";
 import { audit } from "../../utils/audit.js";
 
 // Employee rows as the API returns them: every column + their job title and role names
@@ -24,6 +25,7 @@ const employeeColumns = {
   shift: shifts.name,
   role: roles.name,
   branch: branches.name,
+  manager_name: sql<string | null>`(select m.name from employees m where m.id = ${employees.manager_id})`,
   // Their login (if any): exists / blocked
   has_login: sql<boolean>`exists(select 1 from company_members m where m.employee_id = ${employees.id})`,
   login_blocked: sql<boolean>`coalesce((select u.is_blocked from company_members m join users u on u.id = m.user_id where m.employee_id = ${employees.id} limit 1), false)`,
@@ -46,6 +48,7 @@ export type Employee = typeof employees.$inferSelect & {
   shift: string | null;
   role: string | null;
   branch: string | null;
+  manager_name: string | null;
   has_login: boolean;
   login_blocked: boolean;
 };
@@ -199,6 +202,25 @@ export async function setEmployeePhoto(companyId: number, id: number, photoUrl: 
 
 export async function listEmployees(companyId: number) {
   return { employees: await findAllEmployees(companyId) };
+}
+
+// One page of the Employees table: search (name / code / email / designation), status, department
+export async function listEmployeesPage(companyId: number, q: ListQuery & { page: number }) {
+  const filters = [eq(employees.company_id, companyId)];
+  if (q.status === "current") filters.push(ne(employees.status, "exited"));
+  else if (q.status !== "all") filters.push(eq(employees.status, q.status));
+  if (q.department === "none") filters.push(isNull(employees.department_id));
+  else if (q.department) filters.push(eq(employees.department_id, q.department));
+  if (q.search) {
+    const like = `%${q.search.replace(/[%_\\]/g, "\\$&")}%`;
+    filters.push(or(ilike(employees.name, like), ilike(employees.employee_code, like), ilike(employees.email, like), ilike(designations.name, like))!);
+  }
+  const where = and(...filters);
+  const [rows, [{ n }]] = await Promise.all([
+    selectEmployees().where(where).orderBy(asc(employees.name), asc(employees.id)).limit(q.limit).offset(offsetOf(q.page, q.limit)),
+    db.select({ n: count() }).from(employees).leftJoin(designations, eq(designations.id, employees.designation_id)).where(where),
+  ]);
+  return { employees: rows, ...pageMeta(q.page, q.limit, n) };
 }
 
 function assertDates(input: EmployeeInput) {

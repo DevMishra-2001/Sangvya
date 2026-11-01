@@ -1,7 +1,7 @@
 "use client";
 
 import { PunchCard } from "@/components/attendance/punch-card";
-import { useCan, useUser } from "@/stores/auth-store";
+import { useCan, useModule, useUser } from "@/stores/auth-store";
 import { AnnouncementsPanel } from "./announcements-panel";
 import { BirthdayPanel } from "./birthday-panel";
 import { CompanyOverview } from "./company-overview";
@@ -12,7 +12,8 @@ export function DashboardView() {
   const can = useCan();
   const user = useUser();
   const showCompany = can("dashboard.company");
-  const showPunch = can("attendance.self") && Boolean(user.employee_id);
+  const attendanceOn = useModule("attendance");
+  const showPunch = attendanceOn && can("attendance.self") && Boolean(user.employee_id);
 
   return (
     <div className="flex flex-col gap-6">

@@ -4,6 +4,7 @@ import { BLOOD_GROUPS, EMPLOYMENT_TYPES, EXIT_REASONS, MARITAL_STATUSES, WORK_MO
 import { BANK_ACCOUNT_TYPES } from "../../db/schemas/employeePrivate.schema.js";
 import { optionalImageUrl } from "../../utils/imageUrl.js";
 import { strongPassword } from "../../utils/passwordPolicy.js";
+import { pageQuery } from "../../utils/pagination.js";
 import { optionalPhone } from "../../utils/phone.js";
 import { idField, optionalId, optionalIsoDate, optionalNumber, optionalText, requiredText } from "../../utils/zod.js";
 
@@ -117,3 +118,13 @@ export const documentSchema = z.object({
 export type DocumentInput = z.infer<typeof documentSchema>;
 
 export const documentParams = z.object({ id: idField(), docId: idField("Invalid document") });
+
+// GET /api/employees?page=&limit=&search=&status=&department= (no page = the full list, for dropdowns)
+export const listQuery = z.object({
+  page: pageQuery.page.optional(),
+  limit: pageQuery.limit,
+  search: z.string().trim().max(100).optional().catch(undefined),
+  status: z.enum(["current", "active", "notice", "exited", "all"]).catch("current").default("current"),
+  department: z.union([z.literal("none"), z.coerce.number().int().positive()]).optional().catch(undefined),
+});
+export type ListQuery = z.infer<typeof listQuery>;

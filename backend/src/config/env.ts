@@ -59,6 +59,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().optional(), // e.g. "Workkind <no-reply@workkind.in>" (defaults to SMTP_USER)
+  // Staging safety: send every email to this inbox instead of the real recipient
+  MAIL_REDIRECT_TO: z.preprocess((v) => v || undefined, z.string().email("MAIL_REDIRECT_TO must be an email").optional()),
 });
 
 const parsed = envSchema.safeParse(process.env);

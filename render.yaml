@@ -1,0 +1,61 @@
+# Render Blueprint — staging backend (stagingapi.workkind.in)
+# Secrets are marked sync: false: Render asks for them when you create the Blueprint.
+services:
+  - type: web
+    name: workkind-staging-api
+    runtime: node
+    region: singapore
+    plan: starter # free plan sleeps after 15 min idle and stops the daily jobs
+    rootDir: backend
+    branch: dev_ashish
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run db:migrate && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    domains:
+      - stagingapi.workkind.in
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: FRONTEND_URL
+        value: https://staging.workkind.in
+      - key: TRUST_PROXY
+        value: "2" # Vercel → Render; confirm the real IP shows in the logs
+      - key: COOKIE_SAMESITE
+        value: lax
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: IMAGEKIT_FOLDER
+        value: /sangvya-staging
+      - key: DATABASE_URL # Neon "staging" branch, pooled connection string
+        sync: false
+      - key: JWT_SECRET # new random value, same one goes to Vercel
+        sync: false
+      - key: MAIL_REDIRECT_TO # your inbox — staging never emails real employees
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: IMAGEKIT_PUBLIC_KEY
+        sync: false
+      - key: IMAGEKIT_PRIVATE_KEY
+        sync: false
+      - key: IMAGEKIT_URL_ENDPOINT
+        sync: false
+      - key: RAZORPAY_KEY_ID # test-mode keys only
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_PLAN_ID
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false

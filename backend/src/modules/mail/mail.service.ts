@@ -33,7 +33,9 @@ function getTransport() {
 }
 
 // Never throws — a failed email must not fail the request that triggered it.
-export async function sendMail(mail: Mail) {
+export async function sendMail(original: Mail) {
+  // Staging: real people never get mail; the intended recipient shows in the subject
+  const mail = env.MAIL_REDIRECT_TO ? { ...original, to: env.MAIL_REDIRECT_TO, subject: `[to ${original.to}] ${original.subject}` } : original;
   const t = getTransport();
   if (!t) {
     console.log(

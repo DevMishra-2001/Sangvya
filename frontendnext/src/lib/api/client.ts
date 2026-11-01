@@ -3,7 +3,7 @@
 // cookies are same-origin and sent automatically.
 //   sangvya_token    access token (short-lived)
 //   sangvya_refresh  refresh token, swapped for a new access token via /auth/refresh
-import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import axios, { AxiosError, type AxiosAdapter, type AxiosRequestConfig } from "axios";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -19,6 +19,19 @@ export interface ApiErrorBody {
 }
 
 export const api = axios.create({ baseURL: "/api", withCredentials: true });
+
+// Same GET already on its way (two components, or React running an effect twice) → share that one request
+const inFlight = new Map<string, ReturnType<AxiosAdapter>>();
+const sendRequest = axios.getAdapter(api.defaults.adapter);
+api.defaults.adapter = (config) => {
+  if ((config.method ?? "get").toLowerCase() !== "get" || config.responseType === "blob") return sendRequest(config);
+  const key = `${config.url}?${JSON.stringify(config.params ?? {})}`;
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const request = sendRequest(config).finally(() => inFlight.delete(key));
+  inFlight.set(key, request);
+  return request;
+};
 
 // The user this tab is showing. Cookies are shared by all tabs, so if another
 // tab logs in as someone else the API answers 409 and we reload instead of

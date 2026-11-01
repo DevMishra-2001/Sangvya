@@ -4,7 +4,22 @@ import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
 import { users } from "./user.schema.js";
 
-export const DOCUMENT_CATEGORIES = ["id_proof", "address_proof", "education", "experience", "offer_letter", "contract", "payslip", "other"] as const;
+export const DOCUMENT_CATEGORIES = [
+  "pan_card",
+  "aadhaar",
+  "passport",
+  "photo",
+  "id_proof",
+  "address_proof",
+  "education",
+  "experience", // previous company: offer / relieving / experience letter
+  "previous_payslip",
+  "bank_proof", // passbook / cancelled cheque
+  "offer_letter",
+  "contract",
+  "payslip",
+  "other",
+] as const;
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
 
 // Files kept on an employee's record (ID proof, offer letter, contract…).

@@ -143,6 +143,8 @@ export async function accessFor(user: { role: string; employee_id: number | null
     const offSlugs = new Set(offModuleDefs.flatMap((m) => m.pages));
     for (const m of offModuleDefs) for (const perm of m.permissions) permissions.delete(perm);
     visiblePages = userPages.filter((p) => !offSlugs.has(p.slug));
+    // Menu groups left with nothing in them go too
+    visiblePages = visiblePages.filter((p) => p.url || visiblePages.some((c) => c.parent_id === p.id));
   }
 
   return {

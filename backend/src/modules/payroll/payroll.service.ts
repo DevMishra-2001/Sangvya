@@ -21,6 +21,7 @@ import { localDate } from "../../utils/workday.js";
 import { workCalendar, type WorkCalendar } from "../companies/workCalendar.js";
 import { getEmployeeById } from "../employees/employees.service.js";
 import { notify } from "../notifications/notify.js";
+import { disabledModules } from "../pages/access.service.js";
 import type { PayrollSettingsInput, RunPayrollInput, SalaryStructureInput } from "./payroll.schema.js";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -91,6 +92,7 @@ interface MonthFacts {
   totalDays: number;
   today: string;
   dayOffHolidays: Set<string>;
+  tracksAttendance: boolean; // Attendance module off = no check-ins to judge LOP by
 }
 
 interface Person {
@@ -100,12 +102,16 @@ interface Person {
   status: string;
 }
 
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+
 // Paid days = employed days − LOP (working days with no check-in and no approved leave)
 async function paidDaysFor(companyId: number, person: Person, m: MonthFacts) {
   const first = person.join_date && person.join_date > m.start ? person.join_date : m.start;
   const leaving = person.status !== "active" && person.exit_date;
   const last = leaving && person.exit_date! < m.end ? person.exit_date! : m.end;
   if (first > last) return { paidDays: 0, lopDays: 0 };
+  // No attendance tracking: every employed day is paid
+  if (!m.tracksAttendance) return { paidDays: daysBetween(first, last), lopDays: 0 };
 
   const [days, leaves] = await Promise.all([
     db
@@ -192,7 +198,15 @@ async function computeRun(companyId: number, runId: number, month: number, year:
     .from(employees)
     .where(and(eq(employees.company_id, companyId), inArray(employees.id, structures.map((s) => s.employee_id))));
   const byId = new Map(people.map((p) => [p.id, p]));
-  const m: MonthFacts = { cal, start, end, totalDays, today: localDate(), dayOffHolidays: new Set(holidayRows.map((h) => h.date)) };
+  const m: MonthFacts = {
+    cal,
+    start,
+    end,
+    totalDays,
+    today: localDate(),
+    dayOffHolidays: new Set(holidayRows.map((h) => h.date)),
+    tracksAttendance: !(await disabledModules(companyId)).has("attendance"),
+  };
   const deductions: Deductions = { pf: settings.pfEnabled, esi: settings.esiEnabled, pt: settings.ptEnabled, tds: settings.tdsEnabled };
 
   const rows: (typeof payslips.$inferInsert)[] = [];

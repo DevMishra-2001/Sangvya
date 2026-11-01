@@ -1,10 +1,13 @@
 import { api } from "@/lib/api/client";
 import { downloadFile } from "@/lib/download";
-import type { DocumentCategory, Employee, EmployeeDocument, EmployeeImportCheck, EmployeeImportResult, ExitReason, Id } from "@/lib/types";
+import type { DocumentCategory, Employee, EmployeeDocument, EmployeeImportCheck, EmployeeImportResult, EmployeePrivate, ExitReason, Id, OnboardingLinkStatus } from "@/lib/types";
 import type { EmployeePayload } from "@/lib/schemas/employee";
 
 export const employeesService = {
   list: async () => (await api.get<{ employees: Employee[] }>("/employees")).data.employees,
+  // One page of the Employees table (server-side search / filters)
+  page: async (params: { page: number; limit: number; search?: string; status?: string; department?: string }) =>
+    (await api.get<{ employees: Employee[]; page: number; limit: number; total: number; pages: number }>("/employees", { params })).data,
   create: async (payload: EmployeePayload) => (await api.post<{ employee: Employee }>("/employees", payload)).data.employee,
   update: async (id: Id, payload: EmployeePayload) => (await api.put<{ employee: Employee }>(`/employees/${id}`, payload)).data.employee,
   remove: async (id: Id) => {
@@ -32,6 +35,19 @@ export const employeesService = {
   documentLink: async (id: Id, docId: Id) => (await api.get<{ url: string; fileName: string }>(`/employees/${id}/documents/${docId}/link`)).data,
   removeDocument: async (id: Id, docId: Id) => {
     await api.delete(`/employees/${id}/documents/${docId}`);
+  },
+  // Next free employee code in the company's format
+  nextCode: async () => (await api.get<{ code: string; prefix: string; format: string }>("/employees/next-code")).data.code,
+  timeline: async (id: Id) => (await api.get<{ events: { id: Id; action: string; summary: string; actor: string | null; created_at: string }[] }>(`/employees/${id}/timeline`)).data.events,
+  // Statutory IDs + bank (HR / Admin)
+  private: async (id: Id) => (await api.get<{ private: EmployeePrivate | null }>(`/employees/${id}/private`)).data.private,
+  ifsc: async (code: string) => (await api.get<{ bank: string | null; branch: string | null; city: string | null; state: string | null }>(`/employees/ifsc/${code}`)).data,
+  // Self-onboarding link
+  onboardingLink: async (id: Id) => (await api.get<{ link: OnboardingLinkStatus | null }>(`/employees/${id}/onboarding-link`)).data.link,
+  createOnboardingLink: async (id: Id, body: { hours: number; sendEmail: boolean }) =>
+    (await api.post<{ url: string; expiresAt: string; emailedTo: string | null }>(`/employees/${id}/onboarding-link`, body)).data,
+  revokeOnboardingLink: async (id: Id) => {
+    await api.delete(`/employees/${id}/onboarding-link`);
   },
   // Import from CSV / Excel: template → check (preview) → import
   importTemplate: (format: "xlsx" | "csv") => downloadFile("/employees/import/template", { format }, `employee-import-template.${format}`),

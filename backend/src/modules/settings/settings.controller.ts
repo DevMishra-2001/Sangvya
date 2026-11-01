@@ -1,6 +1,6 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { currentUser } from "../../utils/requestContext.js";
-import { getFontSize, updateFontSize, updatePassword } from "./settings.service.js";
+import { getFontSize, updateFontSize, updatePassword, updatePreferences } from "./settings.service.js";
 
 // GET /api/settings/font-size
 export const getFontSizeHandler = asyncHandler(async (req, res) => {
@@ -16,4 +16,9 @@ export const updateFontSizeHandler = asyncHandler(async (req, res) => {
 export const updatePasswordHandler = asyncHandler(async (req, res) => {
   const user = currentUser(req);
   res.json(await updatePassword(user.id, user.sessionId, req.body.newPassword));
+});
+
+// PUT /api/settings/preferences  { theme?, accent?, menuLayout? }
+export const updatePreferencesHandler = asyncHandler(async (req, res) => {
+  res.json(await updatePreferences(currentUser(req).id, req.body));
 });

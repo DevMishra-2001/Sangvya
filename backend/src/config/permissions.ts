@@ -10,9 +10,11 @@ import type { RoleKey } from "../db/schemas/role.schema.js";
 
 export const PERMISSION_KEYS = [
   "companies.manage",
+  "company.manage",
   "users.manage",
   "employees.view",
   "employees.manage",
+  "org.view",
   "dashboard.company",
   "designations.manage",
   "departments.manage",
@@ -64,6 +66,7 @@ export const BASE_PERMISSIONS: Permission[] = ["attendance.self", "leave.apply",
 // not listed (dashboard, tickets, my-attendance…) only need the base permissions.
 export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   employees: ["employees.view", "employees.manage"],
+  "org-chart": ["org.view"],
   designations: ["designations.manage"],
   departments: ["departments.manage"],
   roles: ["roles.manage"],
@@ -83,6 +86,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   billing: ["billing.view", "billing.manage"],
   users: ["users.manage", "employees.view"],
   "new-company": ["companies.manage"],
+  "company-settings": ["company.manage"],
   // Reports menu: one page per report, each opens its report API
   "reports-attendance-register": ["reports.attendance"],
   "reports-late-arrivals": ["reports.attendance"],

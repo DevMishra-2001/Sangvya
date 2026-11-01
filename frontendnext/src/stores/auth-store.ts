@@ -28,6 +28,8 @@ interface AuthState {
   sessionEnded: () => void;
   previewFontSize: (size: number) => void;
   saveFontSize: (size: number) => Promise<boolean>;
+  // Saved to the account (shown at once; put back if saving fails)
+  savePreferences: (prefs: Partial<Pick<User, "theme" | "accent" | "menu_layout">>) => Promise<boolean>;
   changePassword: (newPassword: string) => Promise<boolean>;
   createCompany: (input: CompanyInput) => Promise<boolean>;
   switchCompany: (id: Id) => Promise<boolean>;
@@ -94,6 +96,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
       return result.ok;
     },
 
+    async savePreferences(prefs) {
+      const before = get().user;
+      if (!before) return false;
+      set({ user: { ...before, ...prefs } });
+      const result = await run(() => settingsService.savePreferences({ theme: prefs.theme, accent: prefs.accent, menuLayout: prefs.menu_layout }), { error: "Couldn't save your preference" });
+      if (!result.ok) {
+        const now = get().user;
+        if (now) set({ user: { ...now, theme: before.theme, accent: before.accent, menu_layout: before.menu_layout } });
+      }
+      return result.ok;
+    },
+
     // Creates a company and makes it the current one
     async createCompany(input) {
       const result = await run(() => companiesService.create(input), { success: `${input.companyName} is ready` });
@@ -127,3 +141,7 @@ export function useUser(): User {
   if (!user) throw new Error("useUser() used outside the logged-in app shell");
   return user;
 }
+
+// Is this module on for my company? (switched-off modules leave no trace: menu, header, dashboard)
+export const useModule = (key: "attendance" | "leave" | "payroll" | "recruitment" | "performance") =>
+  useAuthStore((s) => s.user?.modules?.includes(key) ?? true);

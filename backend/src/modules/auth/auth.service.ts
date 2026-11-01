@@ -1,10 +1,11 @@
+import { MODULE_KEYS } from "../../config/modules.js";
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 import { teamSize } from "../self/team.service.js";
 import { clearAuthCookies } from "../../utils/authCookie.js";
 import { ForbiddenError, UnauthorizedError } from "../../utils/httpErrors.js";
 import { findCompany } from "../companies/companies.service.js";
-import { accessFor } from "../pages/access.service.js";
+import { accessFor, disabledModules } from "../pages/access.service.js";
 import { findUserByEmail, findUserById } from "../users/users.service.js";
 import type { LoginInput } from "./auth.schema.js";
 import { endSession, refreshSession, reissueAccessToken, SESSION_INFO, startSession } from "./session.service.js";
@@ -22,6 +23,7 @@ interface AuthUserRow {
 export async function authPayload<T extends AuthUserRow>(user: T) {
   const { password_hash: _hash, ...rest } = user;
   const access = await accessFor(user);
+  const off = await disabledModules(user.company_id);
   return {
     user: {
       ...rest,
@@ -30,6 +32,8 @@ export async function authPayload<T extends AuthUserRow>(user: T) {
       permissions: access.permissions,
       // People who report to me — the "My team" page shows only for managers
       team_size: await teamSize(user.company_id, user.employee_id),
+      // Modules on for this company — the app hides every trace of the others (menu, header, dashboard)
+      modules: user.company_id ? MODULE_KEYS.filter((k) => !off.has(k)) : [...MODULE_KEYS],
     },
     company: await currentCompany(user.company_id),
     pages: access.pages,

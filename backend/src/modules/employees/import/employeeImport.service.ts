@@ -6,6 +6,7 @@ import { audit } from "../../../utils/audit.js";
 import { can } from "../../../utils/can.js";
 import { BadRequestError } from "../../../utils/httpErrors.js";
 import { passwordError } from "../../../utils/passwordPolicy.js";
+import { normalizePhone } from "../../../utils/phone.js";
 import { readSheet, sheetFormat } from "../../../utils/sheetReader.js";
 import { syncSubscriptionQuantity } from "../../billing/billing.service.js";
 import { findOrCreateDepartment } from "../../departments/departments.service.js";
@@ -142,10 +143,13 @@ async function analyse(companyId: number, actor: Express.AuthUser, file: Express
     tooLong("Email", email, 150);
     if (email && ctx.byEmail.has(email)) errors.push(`${ctx.byEmail.get(email)!.name} already has this email — imported before?`);
 
-    const phone = get("phone");
-    tooLong("Phone", phone, 30);
-    const emergencyPhone = get("emergencyPhone");
-    tooLong("Emergency contact phone", emergencyPhone, 30);
+    // Excel may drop a leading 0 or show 9.87E+09-style numbers as text; both still need 10 digits
+    const phoneRaw = get("phone");
+    const phone = phoneRaw ? normalizePhone(phoneRaw) : "";
+    if (phoneRaw && !phone) errors.push(`Phone "${phoneRaw}" isn't a valid mobile number`);
+    const emergencyRaw = get("emergencyPhone");
+    const emergencyPhone = emergencyRaw ? normalizePhone(emergencyRaw) : "";
+    if (emergencyRaw && !emergencyPhone) errors.push(`Emergency contact phone "${emergencyRaw}" isn't a valid mobile number`);
     const emergencyName = get("emergencyName");
     tooLong("Emergency contact name", emergencyName, 150);
 

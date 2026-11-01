@@ -63,7 +63,13 @@ export type Permission = (typeof PERMISSION_KEYS)[number];
 
 // Everyone: own attendance and leave; approve leave / assign tickets only for
 // people who report to them (the services enforce the "own team" part)
-export const BASE_PERMISSIONS: Permission[] = ["attendance.self", "leave.apply", "leave.approve", "tasks.assign", "payroll.self"];
+export const BASE_PERMISSIONS: Permission[] = [
+  "attendance.self",
+  "leave.apply",
+  "leave.approve",
+  "tasks.assign",
+  "payroll.self",
+];
 
 // What opening a page lets you do in the API. Keys are Page Master slugs; pages
 // not listed (dashboard, tickets, my-attendance…) only need the base permissions.
@@ -84,8 +90,17 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   "platform-dashboard": ["platform.overview"],
   attendance: ["attendance.view", "attendance.mark", "employees.view"],
   payroll: ["payroll.view", "payroll.manage", "employees.view"],
-  recruitment: ["recruitment.view", "recruitment.candidates", "recruitment.manage"],
-  performance: ["performance.view", "performance.review", "performance.manageCycles", "employees.view"],
+  recruitment: [
+    "recruitment.view",
+    "recruitment.candidates",
+    "recruitment.manage",
+  ],
+  performance: [
+    "performance.view",
+    "performance.review",
+    "performance.manageCycles",
+    "employees.view",
+  ],
   holidays: ["holidays.manage"],
   shifts: ["shifts.manage", "employees.view"],
   "leave-policy": ["leavePolicy.manage"],
@@ -105,7 +120,15 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
 
 // Company-wide powers that come with the role itself
 // (dashboard.company = the company overview on the dashboard)
-const COMPANY_WIDE: Permission[] = ["leave.viewAll", "leave.applyForOthers", "leave.approveUnassigned", "tasks.assignAnyone", "announcements.manage", "employees.view", "dashboard.company"];
+const COMPANY_WIDE: Permission[] = [
+  "leave.viewAll",
+  "leave.applyForOthers",
+  "leave.approveUnassigned",
+  "tasks.assignAnyone",
+  "announcements.manage",
+  "employees.view",
+  "dashboard.company",
+];
 export const ROLE_PERMISSIONS: Partial<Record<RoleKey, Permission[]>> = {
   admin: [...COMPANY_WIDE, "companies.manage"],
   hr: COMPANY_WIDE,

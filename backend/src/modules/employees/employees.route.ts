@@ -24,7 +24,7 @@ import {
   updateEmployeeHandler,
   uploadDocumentHandler,
 } from "./employees.controller.js";
-import { documentParams, documentSchema, employeeSchema, exitSchema } from "./employees.schema.js";
+import { documentParams, documentSchema, employeeSchema, exitSchema, listQuery } from "./employees.schema.js";
 import { checkImportHandler, runImportHandler, templateHandler, templateQuery } from "./import/employeeImport.controller.js";
 
 // Import files (CSV / Excel), read from memory
@@ -42,7 +42,7 @@ const router = Router();
 // Every route below runs: authenticate -> scopeToCompany -> permission -> validate -> controller
 router.use(authenticate, scopeToCompany);
 
-router.get("/", requirePermission("employees.view"), listEmployeesHandler);
+router.get("/", requirePermission("employees.view"), validate({ query: listQuery }), listEmployeesHandler);
 
 // ---- Import from CSV / Excel (before /:id) ----
 router.get("/import/template", requirePermission("employees.manage"), validate({ query: templateQuery }), templateHandler);

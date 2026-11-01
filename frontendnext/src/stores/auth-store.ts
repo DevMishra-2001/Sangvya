@@ -141,3 +141,7 @@ export function useUser(): User {
   if (!user) throw new Error("useUser() used outside the logged-in app shell");
   return user;
 }
+
+// Is this module on for my company? (switched-off modules leave no trace: menu, header, dashboard)
+export const useModule = (key: "attendance" | "leave" | "payroll" | "recruitment" | "performance") =>
+  useAuthStore((s) => s.user?.modules?.includes(key) ?? true);

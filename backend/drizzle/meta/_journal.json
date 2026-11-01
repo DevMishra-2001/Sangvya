@@ -197,6 +197,13 @@
       "when": 1793437531332,
       "tag": "0027_employee_code_format",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793498242601,
+      "tag": "0028_menu_by_module",
+      "breakpoints": true
     }
   ]
 }

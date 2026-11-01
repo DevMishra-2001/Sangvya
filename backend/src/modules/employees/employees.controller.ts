@@ -25,15 +25,19 @@ import {
 } from "./employeeDocuments.service.js";
 import { cancelExit, rehire, startExit } from "./employeeExit.service.js";
 import { getPrivate } from "./employeePrivate.service.js";
+import type { ListQuery } from "./employees.schema.js";
 import {
   deleteEmployee,
   getEmployeeById,
   listEmployees,
+  listEmployeesPage,
 } from "./employees.service.js";
 
 // GET /api/employees
 export const listEmployeesHandler = asyncHandler(async (req, res) => {
-  res.json(await listEmployees(tenant(req).companyId));
+  const q = req.query as unknown as ListQuery;
+  const { companyId } = tenant(req);
+  res.json(q.page ? await listEmployeesPage(companyId, { ...q, page: q.page }) : await listEmployees(companyId));
 });
 
 // POST /api/employees

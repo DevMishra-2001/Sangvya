@@ -5,6 +5,9 @@ import type { EmployeePayload } from "@/lib/schemas/employee";
 
 export const employeesService = {
   list: async () => (await api.get<{ employees: Employee[] }>("/employees")).data.employees,
+  // One page of the Employees table (server-side search / filters)
+  page: async (params: { page: number; limit: number; search?: string; status?: string; department?: string }) =>
+    (await api.get<{ employees: Employee[]; page: number; limit: number; total: number; pages: number }>("/employees", { params })).data,
   create: async (payload: EmployeePayload) => (await api.post<{ employee: Employee }>("/employees", payload)).data.employee,
   update: async (id: Id, payload: EmployeePayload) => (await api.put<{ employee: Employee }>(`/employees/${id}`, payload)).data.employee,
   remove: async (id: Id) => {

@@ -106,6 +106,7 @@ interface QueuedDoc {
 
 export function EmployeeFormDialog({ open, onOpenChange: setOpen, employee }: { open: boolean; onOpenChange: (open: boolean) => void; employee: Employee | null }) {
   const employees = useEmployeesStore((s) => s.list);
+  const loadEmployees = useEmployeesStore((s) => s.load);
   const add = useEmployeesStore((s) => s.add);
   const update = useEmployeesStore((s) => s.update);
   const designations = useDesignationsStore((s) => s.list);
@@ -164,8 +165,9 @@ export function EmployeeFormDialog({ open, onOpenChange: setOpen, employee }: { 
     loadDepartments();
     loadShifts();
     loadRoles();
+    if (!useEmployeesStore.getState().list.length) loadEmployees(); // "Reports to" choices
     run(branchesService.list, { silent: true }).then((r) => r.ok && setBranches(r.data));
-  }, [open, loadDesignations, loadDepartments, loadShifts, loadRoles]);
+  }, [open, loadDesignations, loadDepartments, loadShifts, loadRoles, loadEmployees]);
 
   const loadingPrivate = Boolean(employee) && privateFor !== employee?.id;
   const [password, privateLoaded] = useWatch({ control, name: ["password", "privateLoaded"] });

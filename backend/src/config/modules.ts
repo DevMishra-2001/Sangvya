@@ -24,7 +24,7 @@ export const MODULES: ModuleDef[] = [
     key: "leave",
     name: "Leave",
     description: "Leave requests, approvals and leave policy",
-    pages: ["leave", "leave-policy", "my-attendance-leaves", "reports-leave-requests", "reports-leave-balances"],
+    pages: ["leave", "leave-policy", "my-attendance-leaves", "my-attendance-holidays", "reports-leave-requests", "reports-leave-balances"],
     permissions: ["leave.apply", "leave.applyForOthers", "leave.viewAll", "leave.approve", "leave.approveUnassigned", "leavePolicy.manage", "reports.leave"],
   },
   {

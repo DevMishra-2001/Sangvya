@@ -7,6 +7,7 @@ import { BadRequestError, ForbiddenError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { revokeAllSessionsForUser } from "../auth/session.service.js";
 import { syncSubscriptionQuantity } from "../billing/billing.service.js";
+import { dropExitRecord, ensureExitRecord } from "../exits/exitRecord.js";
 import type { ExitInput } from "./employees.schema.js";
 import { getEmployeeById, type Employee } from "./employees.service.js";
 
@@ -65,6 +66,7 @@ export async function startExit(companyId: number, actor: Express.AuthUser, id: 
     .update(employees)
     .set({ status: "notice", exit_date: input.lastWorkingDay, exit_reason: input.reason, exit_notes: input.notes ?? null })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
+  await ensureExitRecord(companyId, id);
   const updated = await getEmployeeById(companyId, id);
   audit(actor, {
     companyId,
@@ -86,6 +88,7 @@ export async function cancelExit(companyId: number, actor: Express.AuthUser, id:
     .update(employees)
     .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
+  await dropExitRecord(companyId, id);
   audit(actor, { companyId, action: "employee.exit_cancelled", target: ["employee", id], summary: `Cancelled the exit of ${employee.name}` });
   return { employee: await getEmployeeById(companyId, id) };
 }
@@ -99,6 +102,7 @@ export async function rehire(companyId: number, actor: Express.AuthUser, id: num
     .update(employees)
     .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null, exited_at: null })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
+  await dropExitRecord(companyId, id);
   await syncSubscriptionQuantity(companyId);
   audit(actor, { companyId, action: "employee.rehired", target: ["employee", id], summary: `Rehired ${employee.name}` });
   return { employee: await getEmployeeById(companyId, id) };

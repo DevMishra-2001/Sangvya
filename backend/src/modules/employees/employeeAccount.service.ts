@@ -5,6 +5,7 @@
 import { BadRequestError } from "../../utils/httpErrors.js";
 import { assertLoginChangeAllowed, saveEmployeeLogin } from "../users/users.service.js";
 import type { EmployeeInput } from "./employees.schema.js";
+import { syncProbationFromForm } from "../probation/probation.service.js";
 import { savePrivate } from "./employeePrivate.service.js";
 import { createEmployee, getEmployeeById, updateEmployee } from "./employees.service.js";
 
@@ -14,6 +15,7 @@ export async function createEmployeeWithLogin(companyId: number, actor: Express.
   await assertLoginChangeAllowed(companyId, actor, null, input.email, loginChanges(input));
   const { employee } = await createEmployee(companyId, actor, input);
   if (input.private) await savePrivate(companyId, employee.id, input.private);
+  await syncProbationFromForm(companyId, actor, employee.id);
   await saveEmployeeLogin(companyId, actor, employee, loginChanges(input));
   return { employee: await getEmployeeById(companyId, employee.id) };
 }
@@ -27,6 +29,7 @@ export async function updateEmployeeWithLogin(companyId: number, actor: Express.
   await assertLoginChangeAllowed(companyId, actor, id, input.email, loginChanges(input));
   const { employee } = await updateEmployee(companyId, actor, id, input);
   if (input.private) await savePrivate(companyId, id, input.private);
+  await syncProbationFromForm(companyId, actor, id);
   await saveEmployeeLogin(companyId, actor, employee, loginChanges(input));
   return { employee: await getEmployeeById(companyId, id) };
 }

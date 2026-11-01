@@ -75,6 +75,9 @@ export const employees = pgTable(
     business_unit: varchar("business_unit", { length: 100 }),
     work_mode: varchar("work_mode", { length: 10 }).$type<(typeof WORK_MODES)[number]>(),
     probation_end_date: date("probation_end_date"),
+    // on_probation | extended | confirmed | not_confirmed (NULL = no probation)
+    probation_status: varchar("probation_status", { length: 15 }).$type<"on_probation" | "extended" | "confirmed" | "not_confirmed">(),
+    confirmed_on: date("confirmed_on"),
   },
   (t) => [
     fk("employees", t.company_id, companies.id, "cascade"),

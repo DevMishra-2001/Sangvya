@@ -17,6 +17,7 @@ import { employeesService } from "@/lib/services/employees";
 import type { Employee, EmployeePrivate } from "@/lib/types";
 import { useAuthStore, useCan } from "@/stores/auth-store";
 import { useEmployeesStore } from "@/stores/employees-store";
+import { EmployeeAssets } from "@/components/assets/employee-assets";
 import { EmployeeDocuments } from "./employee-documents";
 import { EmployeeExitPanel } from "./employee-exit-panel";
 import { EmployeeFormDialog } from "./employee-form-dialog";
@@ -164,6 +165,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
   const can = useCan();
   const canManage = can("employees.manage");
   const canSeePay = canManage || can("payroll.view");
+  const canAssets = can("assets.manage");
   const me = useAuthStore((s) => s.user);
   const list = useEmployeesStore((s) => s.list);
   const loadList = useEmployeesStore((s) => s.load);
@@ -288,6 +290,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
           <TabsTrigger value="work">Work</TabsTrigger>
           {canManage && <TabsTrigger value="documents">Documents</TabsTrigger>}
           {canManage && <TabsTrigger value="bank">Bank & IDs</TabsTrigger>}
+          {canAssets && <TabsTrigger value="assets">Assets</TabsTrigger>}
           <TabsTrigger value="emergency">Emergency</TabsTrigger>
           {canManage && <TabsTrigger value="timeline">Timeline</TabsTrigger>}
           {canManage && <TabsTrigger value="exit">{e.status === "active" ? "Exit" : e.status === "notice" ? "Exit · notice" : "Exit · left"}</TabsTrigger>}
@@ -365,6 +368,12 @@ export function EmployeeProfileView({ id }: { id: number }) {
         {canManage && (
           <TabsContent value="bank" className="mt-4">
             <BankTab employeeId={e.id} />
+          </TabsContent>
+        )}
+
+        {canAssets && (
+          <TabsContent value="assets" className="mt-4">
+            <EmployeeAssets employeeId={e.id} canAssign={e.status !== "exited"} />
           </TabsContent>
         )}
 

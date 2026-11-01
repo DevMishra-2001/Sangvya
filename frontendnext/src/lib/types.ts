@@ -325,6 +325,8 @@ export interface Employee {
   business_unit: string | null;
   work_mode: "office" | "remote" | "hybrid" | "field" | null;
   probation_end_date: ISODate | null;
+  probation_status: "on_probation" | "extended" | "confirmed" | "not_confirmed" | null;
+  confirmed_on: ISODate | null;
   created_at: ISODateTime;
 }
 

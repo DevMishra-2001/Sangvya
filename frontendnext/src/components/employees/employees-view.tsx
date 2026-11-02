@@ -15,7 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useUrlParams } from "@/hooks/use-url-params";
 import { run } from "@/lib/api/run";
 import { fmtDate, inr } from "@/lib/format";
@@ -47,14 +54,28 @@ export function EmployeesView() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await run(() => employeesService.page({ page, limit, status, search: search || undefined }));
+    const r = await run(() =>
+      employeesService.page({
+        page,
+        limit,
+        status,
+        search: search || undefined,
+      }),
+    );
     setLoading(false);
     if (r.ok) setData(r.data);
   }, [page, limit, status, search]);
 
   useEffect(() => {
     let cancelled = false;
-    run(() => employeesService.page({ page, limit, status, search: search || undefined })).then((r) => {
+    run(() =>
+      employeesService.page({
+        page,
+        limit,
+        status,
+        search: search || undefined,
+      }),
+    ).then((r) => {
       if (cancelled) return;
       setLoading(false);
       if (r.ok) setData(r.data);
@@ -66,7 +87,12 @@ export function EmployeesView() {
 
   // Search goes to the URL (and the server) once typing pauses
   useEffect(() => {
-    const t = setTimeout(() => typed.trim() !== search && url.set({ search: typed.trim(), page: null }), 350);
+    const t = setTimeout(
+      () =>
+        typed.trim() !== search &&
+        url.set({ search: typed.trim(), page: null }),
+      350,
+    );
     return () => clearTimeout(t);
   }, [typed, search, url]);
 
@@ -92,7 +118,11 @@ export function EmployeesView() {
     <div>
       <PageHeader
         title="Employees"
-        description={data ? `${data.total} ${data.total === 1 ? "person" : "people"}${status === "current" ? " in your company" : ""}` : "Loading…"}
+        description={
+          data
+            ? `${data.total} ${data.total === 1 ? "person" : "people"}${status === "current" ? " in your company" : ""}`
+            : "Loading…"
+        }
         actions={
           canManage && (
             <>
@@ -112,18 +142,32 @@ export function EmployeesView() {
       {!data ? (
         <Skeleton className="h-64 w-full rounded-xl" />
       ) : empty ? (
-        <EmptyState icon={Users} title="No employees yet" description={canManage ? 'Click "Add employee" to get started.' : undefined} />
+        <EmptyState
+          icon={Users}
+          title="No employees yet"
+          description={
+            canManage ? 'Click "Add employee" to get started.' : undefined
+          }
+        />
       ) : (
         <>
           <div className="mb-3 flex flex-wrap gap-2">
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search name, code, email, designation…" value={typed} onChange={(e) => setTyped(e.target.value)} className="pl-8" aria-label="Search employees" />
+              <Input
+                placeholder="Search name, code, email, designation…"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                className="pl-8"
+                aria-label="Search employees"
+              />
             </div>
             <SelectField
               className="w-40"
               value={status}
-              onValueChange={(v) => url.set({ status: v === "current" ? null : v, page: null })}
+              onValueChange={(v) =>
+                url.set({ status: v === "current" ? null : v, page: null })
+              }
               options={[
                 { value: "current", label: "Current staff" },
                 { value: "active", label: "Active" },
@@ -135,7 +179,12 @@ export function EmployeesView() {
             />
           </div>
           <Card className="gap-0 overflow-hidden py-0">
-            <div className={cn("overflow-x-auto transition-opacity", loading && "opacity-60")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity",
+                loading && "opacity-60",
+              )}
+            >
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -155,35 +204,69 @@ export function EmployeesView() {
                 </TableHeader>
                 <TableBody>
                   {data.employees.map((emp) => (
-                    <TableRow key={emp.id} className="cursor-pointer" onClick={() => router.push(`/employees/${emp.id}`)}>
+                    <TableRow
+                      key={emp.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/employees/${emp.id}`)}
+                    >
                       <TableCell className="font-medium">
-                        <Link href={`/employees/${emp.id}`} onClick={(ev) => ev.stopPropagation()} className="flex items-center gap-2.5 hover:text-primary hover:underline">
-                          <PersonAvatar name={emp.name} photoUrl={emp.photo_url} />
+                        <Link
+                          href={`/employees/${emp.id}`}
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="flex items-center gap-2.5 hover:text-primary hover:underline"
+                        >
+                          <PersonAvatar
+                            name={emp.name}
+                            photoUrl={emp.photo_url}
+                          />
                           {emp.name}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{emp.employee_code || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {emp.employee_code || "—"}
+                      </TableCell>
                       <TableCell>{emp.designation || "—"}</TableCell>
-                      <TableCell>{emp.role ? <Badge variant="outline">{emp.role}</Badge> : "—"}</TableCell>
+                      <TableCell>
+                        {emp.role ? (
+                          <Badge variant="outline">{emp.role}</Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
                       <TableCell>{emp.department || "—"}</TableCell>
                       <TableCell>{emp.branch || "—"}</TableCell>
                       <TableCell>{emp.manager_name || "—"}</TableCell>
                       <TableCell>{fmtDate(emp.join_date)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{inr(emp.salary)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {inr(emp.salary)}
+                      </TableCell>
                       <TableCell>
                         <EmployeeStatusBadge employee={emp} />
                       </TableCell>
                       <TableCell>
                         {emp.has_login ? (
-                          <Badge variant={emp.login_blocked ? "destructive" : "secondary"}>{emp.login_blocked ? "Blocked" : "Active"}</Badge>
+                          <Badge
+                            variant={
+                              emp.login_blocked ? "destructive" : "secondary"
+                            }
+                          >
+                            {emp.login_blocked ? "Blocked" : "Active"}
+                          </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">None</span>
+                          <span className="text-xs text-muted-foreground">
+                            None
+                          </span>
                         )}
                       </TableCell>
                       {canManage && (
                         <TableCell onClick={(ev) => ev.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon-sm" onClick={() => openForm(emp)} aria-label={`Edit ${emp.name}`}>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => openForm(emp)}
+                              aria-label={`Edit ${emp.name}`}
+                            >
                               <Pencil />
                             </Button>
                             <ConfirmDelete
@@ -199,7 +282,10 @@ export function EmployeesView() {
                   ))}
                   {data.employees.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={canManage ? 12 : 11} className="py-8 text-center text-muted-foreground">
+                      <TableCell
+                        colSpan={canManage ? 12 : 11}
+                        className="py-8 text-center text-muted-foreground"
+                      >
                         No employees match these filters.
                       </TableCell>
                     </TableRow>
@@ -213,13 +299,19 @@ export function EmployeesView() {
               limit={data.limit}
               total={data.total}
               onPageChange={(p) => url.set({ page: p === 1 ? null : p })}
-              onLimitChange={(l) => url.set({ limit: l === 20 ? null : l, page: null })}
+              onLimitChange={(l) =>
+                url.set({ limit: l === 20 ? null : l, page: null })
+              }
             />
           </Card>
         </>
       )}
 
-      <EmployeeFormDialog open={formOpen} onOpenChange={onFormOpenChange} employee={editing} />
+      <EmployeeFormDialog
+        open={formOpen}
+        onOpenChange={onFormOpenChange}
+        employee={editing}
+      />
     </div>
   );
 }

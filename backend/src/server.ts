@@ -3,6 +3,7 @@ import { connectDB, pool } from "./config/db.js";
 import { env } from "./config/env.js";
 import { startDayCloseJob } from "./jobs/dayClose.job.js";
 import { startEmployeeExitJob } from "./jobs/employeeExit.job.js";
+import { startProbationReminderJob } from "./jobs/probation.job.js";
 import { startNotificationCleanupJob } from "./jobs/notificationCleanup.job.js";
 
 async function startServer() {
@@ -21,12 +22,14 @@ async function startServer() {
   const stopDayCloseJob = env.NODE_ENV !== "test" ? startDayCloseJob() : () => {};
   // Notices whose last working day has passed become exits
   const stopEmployeeExitJob = env.NODE_ENV !== "test" ? startEmployeeExitJob() : () => {};
+  const stopProbationJob = env.NODE_ENV !== "test" ? startProbationReminderJob() : () => {};
   const stopNotificationCleanupJob = env.NODE_ENV !== "test" ? startNotificationCleanupJob() : () => {};
 
   const shutdown = (signal: string) => {
     console.log(`Received ${signal}. Shutting down gracefully...`);
     stopDayCloseJob();
     stopEmployeeExitJob();
+    stopProbationJob();
     stopNotificationCleanupJob();
     server.close(() => {
       pool.end().finally(() => process.exit(0));

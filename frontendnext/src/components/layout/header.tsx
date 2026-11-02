@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useAuthStore, useModule } from "@/stores/auth-store";
 import { CompanyLogo } from "@/components/companies/company-logo";
 import { CompanySwitcher } from "@/components/companies/company-switcher";
@@ -18,7 +23,12 @@ function MobileMenu() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon-lg" className="lg:hidden" aria-label="Open menu">
+        <Button
+          variant="outline"
+          size="icon-lg"
+          className="lg:hidden"
+          aria-label="Open menu"
+        >
           <Menu />
         </Button>
       </SheetTrigger>
@@ -42,8 +52,14 @@ export function Header({ brand = false }: { brand?: boolean }) {
         <MobileMenu />
         {brand && (
           <div className="hidden shrink-0 items-center gap-2.5 border-r pr-4 lg:flex">
-            <CompanyLogo name={company?.name ?? "Workkind"} logoUrl={company?.logo_url} />
-            <span className="max-w-40 truncate text-base font-semibold tracking-tight" title={company?.name ?? "Workkind"}>
+            <CompanyLogo
+              name={company?.name ?? "Workkind"}
+              logoUrl={company?.logo_url}
+            />
+            <span
+              className="max-w-40 truncate text-base font-semibold tracking-tight"
+              title={company?.name ?? "Workkind"}
+            >
               {company?.name ?? "Workkind"}
             </span>
           </div>

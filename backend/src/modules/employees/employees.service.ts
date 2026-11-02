@@ -1,16 +1,46 @@
 // Every query takes companyId and includes it in the WHERE clause. This is what
 // enforces multi-tenancy at the data layer — even if a stray id got through,
 // these queries never touch another company's rows.
-import { and, asc, count, desc, eq, getTableColumns, ilike, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  ilike,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
-import { branches, departments, designations, employees, roles, shifts, users } from "../../db/schema.js";
-import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
+import {
+  branches,
+  departments,
+  designations,
+  employees,
+  roles,
+  shifts,
+  users,
+} from "../../db/schema.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../utils/httpErrors.js";
 import { syncSubscriptionQuantity } from "../billing/billing.service.js";
-import { assertDepartmentUsable, findOrCreateDepartment } from "../departments/departments.service.js";
+import {
+  assertDepartmentUsable,
+  findOrCreateDepartment,
+} from "../departments/departments.service.js";
 import { assertShiftUsable } from "../shifts/shifts.service.js";
 import { assertBranchUsable } from "../branches/branches.service.js";
-import { assertDesignationUsable, findOrCreateDesignation } from "../designations/designations.service.js";
+import {
+  assertDesignationUsable,
+  findOrCreateDesignation,
+} from "../designations/designations.service.js";
 import { roleByKey } from "../pages/access.service.js";
 import { assertRoleAssignable } from "../roles/roles.service.js";
 import type { EmployeeInput, ListQuery } from "./employees.schema.js";
@@ -25,7 +55,9 @@ const employeeColumns = {
   shift: shifts.name,
   role: roles.name,
   branch: branches.name,
-  manager_name: sql<string | null>`(select m.name from employees m where m.id = ${employees.manager_id})`,
+  manager_name: sql<
+    string | null
+  >`(select m.name from employees m where m.id = ${employees.manager_id})`,
   // Their login (if any): exists / blocked
   has_login: sql<boolean>`exists(select 1 from company_members m where m.employee_id = ${employees.id})`,
   login_blocked: sql<boolean>`coalesce((select u.is_blocked from company_members m join users u on u.id = m.user_id where m.employee_id = ${employees.id} limit 1), false)`,
@@ -55,19 +87,29 @@ export type Employee = typeof employees.$inferSelect & {
 
 // ---- Lookups shared with other modules ----
 
-export async function findEmployeeById(companyId: number, id: number): Promise<Employee | undefined> {
-  const [employee] = await selectEmployees().where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
+export async function findEmployeeById(
+  companyId: number,
+  id: number,
+): Promise<Employee | undefined> {
+  const [employee] = await selectEmployees().where(
+    and(eq(employees.company_id, companyId), eq(employees.id, id)),
+  );
   return employee;
 }
 
-export async function getEmployeeById(companyId: number, id: number): Promise<Employee> {
+export async function getEmployeeById(
+  companyId: number,
+  id: number,
+): Promise<Employee> {
   const employee = await findEmployeeById(companyId, id);
   if (!employee) throw new NotFoundError("Employee not found");
   return employee;
 }
 
 export function findAllEmployees(companyId: number) {
-  return selectEmployees().where(eq(employees.company_id, companyId)).orderBy(desc(employees.created_at));
+  return selectEmployees()
+    .where(eq(employees.company_id, companyId))
+    .orderBy(desc(employees.created_at));
 }
 
 export async function countEmployees(companyId: number) {
@@ -75,14 +117,21 @@ export async function countEmployees(companyId: number) {
   const [row] = await db
     .select({ n: count() })
     .from(employees)
-    .where(and(eq(employees.company_id, companyId), ne(employees.status, "exited")));
+    .where(
+      and(eq(employees.company_id, companyId), ne(employees.status, "exited")),
+    );
   return row.n;
 }
 
 // Employees whose "Reports to" is the given employee (a manager's team)
 export function findReports(companyId: number, managerId: number) {
   return selectEmployees()
-    .where(and(eq(employees.company_id, companyId), eq(employees.manager_id, managerId)))
+    .where(
+      and(
+        eq(employees.company_id, companyId),
+        eq(employees.manager_id, managerId),
+      ),
+    )
     .orderBy(asc(employees.name));
 }
 
@@ -94,7 +143,9 @@ export async function findEmployeeWithManager(companyId: number, id: number) {
     .select({
       name: employees.name,
       manager_name: manager.name,
-      manager_email: sql<string | null>`coalesce(${manager.email}, ${users.email})`,
+      manager_email: sql<
+        string | null
+      >`coalesce(${manager.email}, ${users.email})`,
     })
     .from(employees)
     .leftJoin(manager, eq(manager.id, employees.manager_id))
@@ -104,8 +155,14 @@ export async function findEmployeeWithManager(companyId: number, id: number) {
 }
 
 // Inserts the employee and keeps billing in step with the new headcount
-export async function insertEmployee(companyId: number, values: Omit<typeof employees.$inferInsert, "company_id">) {
-  const [created] = await db.insert(employees).values({ ...values, company_id: companyId }).returning({ id: employees.id });
+export async function insertEmployee(
+  companyId: number,
+  values: Omit<typeof employees.$inferInsert, "company_id">,
+) {
+  const [created] = await db
+    .insert(employees)
+    .values({ ...values, company_id: companyId })
+    .returning({ id: employees.id });
   // Billing is per-employee, so headcount changes must reach the subscription
   await syncSubscriptionQuantity(companyId);
   return getEmployeeById(companyId, created.id);
@@ -114,36 +171,59 @@ export async function insertEmployee(companyId: number, values: Omit<typeof empl
 // ---- Employees page ----
 
 // The "reports to" manager must be another employee of this same company.
-async function assertValidManager(companyId: number, managerId: number | null | undefined, employeeId: number | null = null) {
+async function assertValidManager(
+  companyId: number,
+  managerId: number | null | undefined,
+  employeeId: number | null = null,
+) {
   if (!managerId) return;
-  if (managerId === employeeId) throw new BadRequestError("An employee can't report to themselves");
-  if (!(await findEmployeeById(companyId, managerId))) throw new BadRequestError("Manager not found");
+  if (managerId === employeeId)
+    throw new BadRequestError("An employee can't report to themselves");
+  if (!(await findEmployeeById(companyId, managerId)))
+    throw new BadRequestError("Manager not found");
 }
 
 // Job title: an id from this company's list, or (older clients) a name, added if new
-async function resolveDesignation(companyId: number, input: EmployeeInput, currentId: number | null): Promise<number | null> {
+async function resolveDesignation(
+  companyId: number,
+  input: EmployeeInput,
+  currentId: number | null,
+): Promise<number | null> {
   if (input.designationId) {
     await assertDesignationUsable(companyId, input.designationId, currentId);
     return input.designationId;
   }
-  if (input.designation) return (await findOrCreateDesignation(companyId, input.designation)).id;
+  if (input.designation)
+    return (await findOrCreateDesignation(companyId, input.designation)).id;
   return null;
 }
 
 // Department: an id from this company's list, or (older clients) a name, added if new
-async function resolveDepartment(companyId: number, input: EmployeeInput, currentId: number | null): Promise<number | null> {
+async function resolveDepartment(
+  companyId: number,
+  input: EmployeeInput,
+  currentId: number | null,
+): Promise<number | null> {
   if (input.departmentId) {
     await assertDepartmentUsable(companyId, input.departmentId, currentId);
     return input.departmentId;
   }
-  if (input.department) return (await findOrCreateDepartment(companyId, input.department)).id;
+  if (input.department)
+    return (await findOrCreateDepartment(companyId, input.department)).id;
   return null;
 }
 
 // Role: nobody gives a role above their own (assertRoleAssignable).
 // Not sent → keep the current one (a new employee starts as Employee).
-async function resolveRole(companyId: number, actor: Express.AuthUser, input: EmployeeInput, currentId: number | null, isNew: boolean): Promise<number | null> {
-  if (input.roleId === undefined) return isNew ? ((await roleByKey("employee"))?.id ?? null) : currentId;
+async function resolveRole(
+  companyId: number,
+  actor: Express.AuthUser,
+  input: EmployeeInput,
+  currentId: number | null,
+  isNew: boolean,
+): Promise<number | null> {
+  if (input.roleId === undefined)
+    return isNew ? ((await roleByKey("employee"))?.id ?? null) : currentId;
   const id = input.roleId;
   if (id) await assertRoleAssignable(actor, companyId, id, currentId);
   return id;
@@ -158,13 +238,39 @@ interface Current {
 }
 
 // Form values → columns. Missing optional fields are stored as NULL.
-async function toColumns(companyId: number, actor: Express.AuthUser, input: EmployeeInput, current: Current | null = null) {
+async function toColumns(
+  companyId: number,
+  actor: Express.AuthUser,
+  input: EmployeeInput,
+  current: Current | null = null,
+) {
   return {
     name: input.name,
-    designation_id: await resolveDesignation(companyId, input, current?.designationId ?? null),
-    role_id: await resolveRole(companyId, actor, input, current?.roleId ?? null, current === null),
-    department_id: await resolveDepartment(companyId, input, current?.departmentId ?? null),
-    shift_id: input.shiftId ? (await assertShiftUsable(companyId, input.shiftId, current?.shiftId ?? null), input.shiftId) : null,
+    designation_id: await resolveDesignation(
+      companyId,
+      input,
+      current?.designationId ?? null,
+    ),
+    role_id: await resolveRole(
+      companyId,
+      actor,
+      input,
+      current?.roleId ?? null,
+      current === null,
+    ),
+    department_id: await resolveDepartment(
+      companyId,
+      input,
+      current?.departmentId ?? null,
+    ),
+    shift_id: input.shiftId
+      ? (await assertShiftUsable(
+          companyId,
+          input.shiftId,
+          current?.shiftId ?? null,
+        ),
+        input.shiftId)
+      : null,
     email: input.email ?? null,
     join_date: input.joinDate ?? null,
     salary: input.salary == null ? null : String(input.salary),
@@ -189,15 +295,29 @@ async function toColumns(companyId: number, actor: Express.AuthUser, input: Empl
     state: input.state ?? null,
     postal_code: input.postalCode ?? null,
     country: input.country ?? null,
-    branch_id: input.branchId ? (await assertBranchUsable(companyId, input.branchId, current?.branchId ?? null), input.branchId) : null,
+    branch_id: input.branchId
+      ? (await assertBranchUsable(
+          companyId,
+          input.branchId,
+          current?.branchId ?? null,
+        ),
+        input.branchId)
+      : null,
     business_unit: input.businessUnit ?? null,
     work_mode: input.workMode ?? null,
     probation_end_date: input.probationEndDate ?? null,
   };
 }
 
-export async function setEmployeePhoto(companyId: number, id: number, photoUrl: string | null) {
-  await db.update(employees).set({ photo_url: photoUrl }).where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
+export async function setEmployeePhoto(
+  companyId: number,
+  id: number,
+  photoUrl: string | null,
+) {
+  await db
+    .update(employees)
+    .set({ photo_url: photoUrl })
+    .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
 }
 
 export async function listEmployees(companyId: number) {
@@ -205,59 +325,125 @@ export async function listEmployees(companyId: number) {
 }
 
 // One page of the Employees table: search (name / code / email / designation), status, department
-export async function listEmployeesPage(companyId: number, q: ListQuery & { page: number }) {
+export async function listEmployeesPage(
+  companyId: number,
+  q: ListQuery & { page: number },
+) {
   const filters = [eq(employees.company_id, companyId)];
   if (q.status === "current") filters.push(ne(employees.status, "exited"));
   else if (q.status !== "all") filters.push(eq(employees.status, q.status));
   if (q.department === "none") filters.push(isNull(employees.department_id));
-  else if (q.department) filters.push(eq(employees.department_id, q.department));
+  else if (q.department)
+    filters.push(eq(employees.department_id, q.department));
   if (q.search) {
     const like = `%${q.search.replace(/[%_\\]/g, "\\$&")}%`;
-    filters.push(or(ilike(employees.name, like), ilike(employees.employee_code, like), ilike(employees.email, like), ilike(designations.name, like))!);
+    filters.push(
+      or(
+        ilike(employees.name, like),
+        ilike(employees.employee_code, like),
+        ilike(employees.email, like),
+        ilike(designations.name, like),
+      )!,
+    );
   }
   const where = and(...filters);
   const [rows, [{ n }]] = await Promise.all([
-    selectEmployees().where(where).orderBy(asc(employees.name), asc(employees.id)).limit(q.limit).offset(offsetOf(q.page, q.limit)),
-    db.select({ n: count() }).from(employees).leftJoin(designations, eq(designations.id, employees.designation_id)).where(where),
+    selectEmployees()
+      .where(where)
+      .orderBy(asc(employees.name), asc(employees.id))
+      .limit(q.limit)
+      .offset(offsetOf(q.page, q.limit)),
+    db
+      .select({ n: count() })
+      .from(employees)
+      .leftJoin(designations, eq(designations.id, employees.designation_id))
+      .where(where),
   ]);
   return { employees: rows, ...pageMeta(q.page, q.limit, n) };
 }
 
 function assertDates(input: EmployeeInput) {
-  if (input.probationEndDate && input.joinDate && input.probationEndDate <= input.joinDate) throw new BadRequestError("Probation end must be after the joining date");
+  if (
+    input.probationEndDate &&
+    input.joinDate &&
+    input.probationEndDate <= input.joinDate
+  )
+    throw new BadRequestError("Probation end must be after the joining date");
 }
 
-export async function createEmployee(companyId: number, actor: Express.AuthUser, input: EmployeeInput) {
+export async function createEmployee(
+  companyId: number,
+  actor: Express.AuthUser,
+  input: EmployeeInput,
+) {
   assertDates(input);
   await assertValidManager(companyId, input.managerId);
-  const employee = await insertEmployee(companyId, await toColumns(companyId, actor, input));
-  audit(actor, { companyId, action: "employee.created", target: ["employee", employee.id], summary: `Added the employee ${employee.name}` });
+  const employee = await insertEmployee(
+    companyId,
+    await toColumns(companyId, actor, input),
+  );
+  audit(actor, {
+    companyId,
+    action: "employee.created",
+    target: ["employee", employee.id],
+    summary: `Added the employee ${employee.name}`,
+  });
   return { employee };
 }
 
-export async function updateEmployee(companyId: number, actor: Express.AuthUser, id: number, input: EmployeeInput) {
+export async function updateEmployee(
+  companyId: number,
+  actor: Express.AuthUser,
+  id: number,
+  input: EmployeeInput,
+) {
   const existing = await getEmployeeById(companyId, id);
   assertDates(input);
   await assertValidManager(companyId, input.managerId, id);
   // Changing your own role could lock you out — someone above you does it
-  if (id === actor.employeeId && !actor.isSuperadmin && input.roleId !== undefined && input.roleId !== existing.role_id) {
+  if (
+    id === actor.employeeId &&
+    !actor.isSuperadmin &&
+    input.roleId !== undefined &&
+    input.roleId !== existing.role_id
+  ) {
     throw new BadRequestError("You can't change your own role");
   }
   // Nobody edits someone ranked above them (their role could be changed)
   if (!actor.isSuperadmin && existing.role_id) {
-    const [current] = await db.select({ level: roles.level }).from(roles).where(eq(roles.id, existing.role_id));
-    if (current && current.level > actor.level) throw new ForbiddenError("You can't edit someone with a higher role");
+    const [current] = await db
+      .select({ level: roles.level })
+      .from(roles)
+      .where(eq(roles.id, existing.role_id));
+    if (current && current.level > actor.level)
+      throw new ForbiddenError("You can't edit someone with a higher role");
   }
 
   await db
     .update(employees)
-    .set(await toColumns(companyId, actor, input, { branchId: existing.branch_id, designationId: existing.designation_id, departmentId: existing.department_id, shiftId: existing.shift_id, roleId: existing.role_id }))
+    .set(
+      await toColumns(companyId, actor, input, {
+        branchId: existing.branch_id,
+        designationId: existing.designation_id,
+        departmentId: existing.department_id,
+        shiftId: existing.shift_id,
+        roleId: existing.role_id,
+      }),
+    )
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   const employee = await getEmployeeById(companyId, id);
-  audit(actor, { companyId, action: "employee.updated", target: ["employee", id], summary: `Updated ${employee.name}'s details` });
+  audit(actor, {
+    companyId,
+    action: "employee.updated",
+    target: ["employee", id],
+    summary: `Updated ${employee.name}'s details`,
+  });
   if (employee.role_id !== existing.role_id) {
-    const names = await db.select({ id: roles.id, name: roles.name }).from(roles);
-    const roleName = (rid: number | null) => names.find((r) => r.id === rid)?.name ?? "none";
+    const names = await db
+      .select({ id: roles.id, name: roles.name })
+      .from(roles);
+    const roleName = (rid: number | null) =>
+      names.find((r) => r.id === rid)?.name ?? "none";
     audit(actor, {
       companyId,
       action: "employee.role_changed",
@@ -269,12 +455,21 @@ export async function updateEmployee(companyId: number, actor: Express.AuthUser,
   return { employee };
 }
 
-export async function deleteEmployee(companyId: number, actor: Express.AuthUser, id: number) {
+export async function deleteEmployee(
+  companyId: number,
+  actor: Express.AuthUser,
+  id: number,
+) {
   const [deleted] = await db
     .delete(employees)
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)))
     .returning({ id: employees.id, name: employees.name });
   if (!deleted) throw new NotFoundError("Employee not found");
-  audit(actor, { companyId, action: "employee.removed", target: ["employee", id], summary: `Removed the employee ${deleted.name}` });
+  audit(actor, {
+    companyId,
+    action: "employee.removed",
+    target: ["employee", id],
+    summary: `Removed the employee ${deleted.name}`,
+  });
   await syncSubscriptionQuantity(companyId);
 }

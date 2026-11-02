@@ -134,7 +134,11 @@ export interface Branch {
 }
 
 // ---- Platform companies (Super Admin) ----
-export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+export type VerificationStatus =
+  | "unverified"
+  | "pending"
+  | "verified"
+  | "rejected";
 export type CompanyStatus = "active" | "suspended";
 
 export interface PlatformCompany {
@@ -187,7 +191,10 @@ export interface PlatformCompanyDetail extends PlatformCompany {
   employee_id_prefix: string | null;
 }
 
-export interface CompanyListItem extends Pick<Company, "id" | "name" | "industry" | "logo_url"> {
+export interface CompanyListItem extends Pick<
+  Company,
+  "id" | "name" | "industry" | "logo_url"
+> {
   current: boolean;
 }
 
@@ -325,6 +332,13 @@ export interface Employee {
   business_unit: string | null;
   work_mode: "office" | "remote" | "hybrid" | "field" | null;
   probation_end_date: ISODate | null;
+  probation_status:
+    | "on_probation"
+    | "extended"
+    | "confirmed"
+    | "not_confirmed"
+    | null;
+  confirmed_on: ISODate | null;
   created_at: ISODateTime;
 }
 
@@ -356,15 +370,34 @@ export interface OnboardingLinkStatus {
 export interface OnboardingForm {
   company: { name: string; logo_url: string | null } | null;
   expiresAt: ISODateTime;
-  employee: { name: string; email: string | null; designation: string | null; department: string | null; join_date: ISODate | null; employee_code: string | null };
+  employee: {
+    name: string;
+    email: string | null;
+    designation: string | null;
+    department: string | null;
+    join_date: ISODate | null;
+    employee_code: string | null;
+  };
   details: Record<string, string | null>;
   privateOnFile: Record<string, boolean>;
-  documents: { id: Id; name: string; category: DocumentCategory; file_name: string; created_at: ISODateTime }[];
+  documents: {
+    id: Id;
+    name: string;
+    category: DocumentCategory;
+    file_name: string;
+    created_at: ISODateTime;
+  }[];
 }
 
 export type EmploymentType = "full_time" | "part_time" | "contract" | "intern";
 export type EmployeeStatus = "active" | "notice" | "exited";
-export type ExitReason = "resigned" | "terminated" | "retired" | "contract_end" | "absconded" | "other";
+export type ExitReason =
+  | "resigned"
+  | "terminated"
+  | "retired"
+  | "contract_end"
+  | "absconded"
+  | "other";
 export type DocumentCategory =
   | "pan_card"
   | "aadhaar"
@@ -594,7 +627,10 @@ export interface Task {
 
 export interface TaskStats {
   total: number;
-  counts: Record<"approved" | "done" | "in_progress" | "todo" | "overdue", number>;
+  counts: Record<
+    "approved" | "done" | "in_progress" | "todo" | "overdue",
+    number
+  >;
   weekly: { week: ISODate; completed: number }[];
   completionRate: number;
   onTimeRate: number;
@@ -692,7 +728,13 @@ export interface Payslip {
 }
 
 // ---- Recruitment ----
-export type CandidateStage = "applied" | "screening" | "interview" | "offer" | "hired" | "rejected";
+export type CandidateStage =
+  | "applied"
+  | "screening"
+  | "interview"
+  | "offer"
+  | "hired"
+  | "rejected";
 
 export interface JobPosting {
   id: Id;
@@ -795,13 +837,30 @@ export interface AuditEntry {
 }
 
 export interface PlatformOverview {
-  companies: { total: number; active: number; suspended: number; verified: number; toReview: number };
+  companies: {
+    total: number;
+    active: number;
+    suspended: number;
+    verified: number;
+    toReview: number;
+  };
   employees: number;
   logins: number;
   activeUsers30d: number;
-  subscriptions: { trial: number; active: number; pastDue: number; cancelled: number; mrr: number };
+  subscriptions: {
+    trial: number;
+    active: number;
+    pastDue: number;
+    cancelled: number;
+    mrr: number;
+  };
   growth: { month: string; companies: number }[];
-  toReview: { id: Id; name: string; verification_status: VerificationStatus; created_at: string }[];
+  toReview: {
+    id: Id;
+    name: string;
+    verification_status: VerificationStatus;
+    created_at: string;
+  }[];
   recent: AuditEntry[];
 }
 
@@ -811,16 +870,44 @@ export interface CompanyOverview {
   date: ISODate;
   workingDay: { isWorkingDay: boolean; holiday: string | null };
   headcount: { total: number; newThisMonth: number; onNotice: number };
-  attendance: { present: number; late: number; onLeave: number; notIn: number; rate: number } | null;
+  attendance: {
+    present: number;
+    late: number;
+    onLeave: number;
+    notIn: number;
+    rate: number;
+  } | null;
   leave: {
     pendingCount: number;
-    pending: { id: Id; employee_name: string; leave_type: LeaveType; from_date: ISODate; to_date: ISODate; days: number; approver_name: string | null }[];
+    pending: {
+      id: Id;
+      employee_name: string;
+      leave_type: LeaveType;
+      from_date: ISODate;
+      to_date: ISODate;
+      days: number;
+      approver_name: string | null;
+    }[];
   } | null;
-  alerts: { missingPunchOutCount: number; missingPunchOuts: { employee_name: string; date: ISODate }[] } | null;
+  alerts: {
+    missingPunchOutCount: number;
+    missingPunchOuts: { employee_name: string; date: ISODate }[];
+  } | null;
   corrections: { pendingCount: number } | null;
   upcoming: {
-    birthdays: { id: Id; name: string; photo_url: string | null; date: ISODate }[];
-    anniversaries: { id: Id; name: string; photo_url: string | null; date: ISODate; years: number }[];
+    birthdays: {
+      id: Id;
+      name: string;
+      photo_url: string | null;
+      date: ISODate;
+    }[];
+    anniversaries: {
+      id: Id;
+      name: string;
+      photo_url: string | null;
+      date: ISODate;
+      years: number;
+    }[];
     holidays: { date: ISODate; name: string; is_optional?: boolean }[];
   };
   departments: { name: string; count: number }[];
@@ -837,7 +924,11 @@ export interface TeamMember {
   department: string | null;
   status: EmployeeStatus;
   exit_date: ISODate | null;
-  today: { state: TeamDayState; punch_in: ISODateTime | null; punch_out: ISODateTime | null } | null; // null = attendance off
+  today: {
+    state: TeamDayState;
+    punch_in: ISODateTime | null;
+    punch_out: ISODateTime | null;
+  } | null; // null = attendance off
   on_leave: { leave_type: LeaveType; until: ISODate } | null;
   pending_leaves: number | null; // null = leave off
 }
@@ -887,7 +978,13 @@ export interface AttendanceCorrection {
 
 // GET /leaves/balances — everyone's balances (HR)
 export interface EmployeeBalances {
-  employee: { id: Id; name: string; photo_url: string | null; department: string | null; join_date: ISODate | null };
+  employee: {
+    id: Id;
+    name: string;
+    photo_url: string | null;
+    department: string | null;
+    join_date: ISODate | null;
+  };
   balances: Balances;
 }
 

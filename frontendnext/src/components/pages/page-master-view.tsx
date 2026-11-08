@@ -110,10 +110,10 @@ export function PageMasterView() {
   const groups = pages.filter((p) => !p.url && p.id !== editing?.id);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Page Master" description="Every page of the app and which roles can open it. The menu is built from this list." className="mb-0" />
 
-      <FormCard title={editing ? `Edit “${editing.name}”` : "New page"} crumbs={["Master", "Page Master"]} icon={LayoutList}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "New page"} icon={LayoutList}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Page name" htmlFor="pg-name" error={errors.name} required>

@@ -92,7 +92,7 @@ export function ReportView() {
   const balances = calendar?.balances;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title={`Report — ${monthLabel(month)}`} className="mb-0" actions={<MonthPicker value={month} onChange={setMonth} />} />
       <Tabs defaultValue="attendance">
         <TabsList className="mb-4">

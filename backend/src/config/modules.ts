@@ -38,15 +38,22 @@ export const MODULES: ModuleDef[] = [
     key: "recruitment",
     name: "Recruitment",
     description: "Job postings and candidates",
-    pages: ["recruitment"],
+    pages: ["recruitment", "my-interviews"],
     permissions: ["recruitment.view", "recruitment.candidates", "recruitment.manage"],
   },
   {
     key: "performance",
     name: "Performance",
     description: "Review cycles and performance reviews",
-    pages: ["performance"],
+    pages: ["performance", "my-performance"],
     permissions: ["performance.view", "performance.review", "performance.manageCycles"],
+  },
+  {
+    key: "expense",
+    name: "Expenses",
+    description: "Advance requests, expense claims, approvals and reimbursement",
+    pages: ["expense-advance", "expense-submit", "expense-view"],
+    permissions: ["expense.self", "expense.manage"],
   },
 ];
 

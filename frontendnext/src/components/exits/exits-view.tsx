@@ -142,7 +142,7 @@ export function ExitsView() {
   const goStage = (v: string) => url.set({ stage: v === "open" ? null : v, page: null });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Exits"
         description="Notice periods, clearance, full & final settlement and exit interviews."

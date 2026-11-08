@@ -16,7 +16,7 @@ export const DOCUMENT_TYPES = [
 ];
 const MB = 1024 * 1024;
 
-export type FileKind = "company-logo" | "employee-photo" | "attendance-photo" | "employee-document";
+export type FileKind = "company-logo" | "employee-photo" | "attendance-photo" | "employee-document" | "candidate-resume" | "expense-bill";
 
 export interface StoreContext {
   companyId: number | null;
@@ -47,6 +47,9 @@ const RULES: Record<FileKind, Rule> = {
     private: true,
     folder: (c) => (c.companyId && c.employeeId ? `companies/${c.companyId}/employees/${c.employeeId}/documents` : null),
   },
+  "candidate-resume": { types: DOCUMENT_TYPES, maxBytes: 10 * MB, private: true, folder: (c) => (c.companyId ? `companies/${c.companyId}/recruitment/resumes` : null) },
+  // Bills attached to expense claims / advance requests
+  "expense-bill": { types: DOCUMENT_TYPES, maxBytes: 10 * MB, private: true, folder: (c) => (c.companyId && c.employeeId ? `companies/${c.companyId}/expenses/${c.employeeId}` : null) },
 };
 
 export const MAX_FILE_BYTES = Math.max(...Object.values(RULES).map((r) => r.maxBytes));

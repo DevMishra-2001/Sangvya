@@ -104,7 +104,7 @@ export function ReportView({ reportKey }: { reportKey: string }) {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader title={meta.report.title} description={meta.report.description} className="mb-0" />
 
-      <FormCard title={meta.report.title} crumbs={["Reports"]} icon={FileBarChart}>
+      <FormCard title={meta.report.title} icon={FileBarChart}>
         <form
           noValidate
           onSubmit={(e) => {

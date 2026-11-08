@@ -123,7 +123,7 @@ export function CorrectionsView() {
   const mineToDecide = waiting.filter((c) => c.can_decide).length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Attendance corrections"
         description="Forgot to check out, or your check-in didn't go through? Ask to fix a past day — your reporting manager approves it (HR if you have none)."

@@ -21,12 +21,15 @@ const MONEY: { key: keyof MyPayslip; label: string }[] = [
   { key: "basic", label: "Basic" },
   { key: "hra", label: "HRA" },
   { key: "allowances", label: "Allowances" },
+  { key: "additions", label: "Bonus / other" },
   { key: "gross", label: "Gross" },
   { key: "pf_employee", label: "PF" },
   { key: "esi_employee", label: "ESI" },
   { key: "professional_tax", label: "PT" },
   { key: "tds", label: "TDS" },
+  { key: "other_deductions", label: "EMI / other" },
   { key: "total_deductions", label: "Deductions" },
+  { key: "reimbursements", label: "Reimbursed" },
 ];
 
 // Employees: their finalized payslips, one row a month, with the PDF
@@ -49,7 +52,7 @@ export function MyPayslipsView() {
   if (!user.employee_id) return <NotLinkedState />;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title="My Payslips" description="Your payslips appear here once payroll for the month is finalized." className="mb-0" />
       {!list ? (
         <Skeleton className="h-48 w-full rounded-xl" />

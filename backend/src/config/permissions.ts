@@ -62,6 +62,8 @@ export const PERMISSION_KEYS = [
   "reports.settings",
   "billing.view",
   "billing.manage",
+  "expense.self",
+  "expense.manage",
 ] as const;
 export type Permission = (typeof PERMISSION_KEYS)[number];
 
@@ -73,6 +75,8 @@ export const BASE_PERMISSIONS: Permission[] = [
   "leave.approve",
   "tasks.assign",
   "payroll.self",
+  // Own expenses and advances; deciding a team member's (the service checks the manager link)
+  "expense.self",
 ];
 
 // What opening a page lets you do in the API. Keys are Page Master slugs; pages
@@ -138,8 +142,10 @@ const COMPANY_WIDE: Permission[] = [
   "dashboard.company",
 ];
 export const ROLE_PERMISSIONS: Partial<Record<RoleKey, Permission[]>> = {
-  admin: [...COMPANY_WIDE, "companies.manage"],
-  hr: COMPANY_WIDE,
+  admin: [...COMPANY_WIDE, "companies.manage", "expense.manage"],
+  hr: [...COMPANY_WIDE, "expense.manage"],
+  // Accounts: every expense and advance, and paying them
+  accountant: ["expense.manage"],
 };
 
 // The login role that marks the platform Super Admin (users.role)

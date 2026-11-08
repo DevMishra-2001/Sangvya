@@ -17,7 +17,7 @@ export function DashboardView() {
     attendanceOn && can("attendance.self") && Boolean(user.employee_id);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Admin / HR: greeting + the whole company at a glance; others just the greeting */}
       {showCompany ? (
         <CompanyOverview welcome={<WelcomeCard />} />

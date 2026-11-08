@@ -51,7 +51,7 @@ export function BillingView() {
   const isPastDue = subscription.status === "past_due";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Razorpay Checkout opens from here when subscribing */}
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <PageHeader title="Billing" className="mb-0" />

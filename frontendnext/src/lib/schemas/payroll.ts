@@ -14,5 +14,13 @@ export const runPayrollSchema = z.object({
 });
 
 export type SalaryStructureForm = z.input<typeof salaryStructureSchema>;
-export type SalaryStructurePayload = z.output<typeof salaryStructureSchema> & { employeeId: number };
+export interface SalaryStructurePayload {
+  employeeId: number;
+  basic: number;
+  hra: number;
+  components: { label: string; amount: number }[];
+  ctcAnnual: number | null;
+  effectiveFrom?: string;
+  note?: string;
+}
 export type RunPayrollForm = z.input<typeof runPayrollSchema>;

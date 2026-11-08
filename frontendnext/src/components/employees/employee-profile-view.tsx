@@ -313,7 +313,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
   const addressLines = [e.address, e.address_line2].filter(Boolean).join(", ");
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Link
         href="/employees"
         className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

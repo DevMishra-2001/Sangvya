@@ -43,7 +43,7 @@ export function LeaveApprovalsView() {
   const approvedDays = leaves.filter((l) => l.status === "approved").reduce((s, l) => s + l.days, 0);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title={`Leave approvals — ${monthLabel(month)}`}
         description={`${approvedDays} day${approvedDays === 1 ? "" : "s"} approved · ${pendingDays} pending. Your reporting manager approves or rejects requests.`}

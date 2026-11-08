@@ -1,0 +1,32 @@
+# Workkind backend on a server (e.g. AWS EC2) with Docker Compose.
+# The database is Neon (DATABASE_URL in .env), so only the API runs here.
+#
+#   cp .env.example .env      # fill in production values (never commit .env)
+#   docker compose up -d --build
+#   docker compose logs -f backend
+#
+# Using a prebuilt image (e.g. from Amazon ECR) instead of building here:
+#   BACKEND_IMAGE=<account>.dkr.ecr.ap-south-1.amazonaws.com/workkind-backend:latest docker compose pull
+#   BACKEND_IMAGE=... docker compose up -d
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-workkind-backend:latest}
+    build:
+      context: .
+    container_name: workkind-backend
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+    ports:
+      # Only this server can reach it; put Nginx / a load balancer with HTTPS in front.
+      # To expose it directly instead, use "5000:5000".
+      - "127.0.0.1:5000:5000"
+    restart: unless-stopped
+    init: true # clean shutdown on docker stop (SIGTERM reaches Node)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m" # keeps logs from filling the disk
+        max-file: "5"

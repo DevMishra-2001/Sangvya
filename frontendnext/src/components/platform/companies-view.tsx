@@ -86,7 +86,7 @@ export function CompaniesView() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Companies" description="Every company on Workkind — health, plan, and quick actions. Click a tile to filter." className="mb-0" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

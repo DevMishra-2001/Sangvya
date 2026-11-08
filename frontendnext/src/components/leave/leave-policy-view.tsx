@@ -50,7 +50,7 @@ export function LeavePolicyView() {
       {!loaded ? (
         <Skeleton className="h-40 rounded-xl" />
       ) : (
-        <FormCard title="Leave quotas" crumbs={["Master", "Leave Policy"]} icon={Scale}>
+        <FormCard title="Leave quotas" icon={Scale}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <FormGrid>
               {FIELDS.map((f) => (

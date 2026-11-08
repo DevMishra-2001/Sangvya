@@ -50,6 +50,7 @@ import {
 } from "./modules/onboarding/onboarding.route.js";
 import { customRoleRoutes } from "./modules/roles/customRoles.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
+import { expenseRoutes } from "./modules/expenses/expenses.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
 import { settingsRoutes } from "./modules/settings/settings.route.js";
 import { taskRoutes } from "./modules/tasks/tasks.route.js";
@@ -106,6 +107,7 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/leave-policy", leavePolicyRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/recruitment", recruitmentRoutes);
+app.use("/api/expenses", expenseRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/users", userRoutes);

@@ -314,7 +314,7 @@ export function ProbationView() {
   const today = data?.today ?? isoDate(new Date());
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Probation"
         description="Everyone on probation, how long is left, and the decision when it ends."

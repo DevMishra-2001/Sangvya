@@ -72,7 +72,7 @@ export function CalendarView() {
     : null;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Attendance calendar" className="mb-0" actions={<MonthPicker value={month} onChange={setMonth} allowFuture />} />
 
       <div className="flex flex-wrap items-center gap-2" aria-label="Leave available">

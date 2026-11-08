@@ -56,10 +56,10 @@ export function AdminsView() {
 
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Admins" description="Invite company owners. They set their own password from the emailed link, then register their company." className="mb-0" />
 
-      <FormCard title="Invite admin" crumbs={["Master", "Admins"]} icon={UserCog}>
+      <FormCard title="Invite admin" icon={UserCog}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Full name" htmlFor="ad-name" error={errors.name} required>

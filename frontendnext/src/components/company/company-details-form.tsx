@@ -107,7 +107,7 @@ export function CompanyDetailsForm({ company, onSaved }: { company: Company; onS
   }
 
   return (
-    <FormCard title="Company details" crumbs={["Company"]} icon={Building2}>
+    <FormCard title="Company details" icon={Building2}>
       <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
         <FormGrid>
           <FormField label="Logo" htmlFor="cs-logo" span="full" float={false}>

@@ -48,7 +48,7 @@ export function TodayView() {
   const sessions = day?.sessions ?? [];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Attendance"
         description={data ? `${data.employee.name}${data.employee.code ? ` · ${data.employee.code}` : ""}` : undefined}

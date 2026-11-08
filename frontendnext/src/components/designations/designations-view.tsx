@@ -72,11 +72,11 @@ export function DesignationsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Designations" description="Your company's job titles. They show on profiles and payslips; access comes from each person's role." className="mb-0" />
 
       {canManage && (
-        <FormCard title={editing ? `Edit “${editing.name}”` : "New designation"} crumbs={["Master", "Designations"]} icon={BadgeCheck}>
+        <FormCard title={editing ? `Edit “${editing.name}”` : "New designation"} icon={BadgeCheck}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
             <FormGrid>
               <FormField label="Designation" htmlFor="des-name" error={errors.name} required span="md">

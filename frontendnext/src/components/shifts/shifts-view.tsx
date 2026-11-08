@@ -73,14 +73,14 @@ export function ShiftsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Shifts"
         description="Working hours for your people. Checking in after the start plus the grace time is marked late; a day shorter than the shift is a short day."
         className="mb-0"
       />
 
-      <FormCard title={editing ? `Edit “${editing.name}”` : "New shift"} crumbs={["Master", "Shifts"]} icon={Timer}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "New shift"} icon={Timer}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Shift name" htmlFor="sh-name" error={errors.name} required>

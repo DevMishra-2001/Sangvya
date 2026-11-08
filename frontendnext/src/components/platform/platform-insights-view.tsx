@@ -82,7 +82,7 @@ export function PlatformInsightsView() {
   const lastActive = (c: InsightsCompany) => (c.last_active_at ? timeAgo(c.last_active_at) : "Never");
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Revenue & usage"
         description="What Workkind earns and how much companies actually use it."

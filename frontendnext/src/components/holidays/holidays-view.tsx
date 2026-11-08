@@ -80,13 +80,13 @@ export function HolidaysView() {
 
   const fixed = holidays.filter((h) => !h.is_optional).length;
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Holidays"
         description={`Holidays show on everyone's attendance calendar. Optional holidays are working days people can take with their OL.${weeklyOffs.length ? ` Weekly offs: ${weeklyOffs.join(", ")}.` : ""}`}
         className="mb-0"
       />
-      <FormCard title={editing ? `Edit “${editing.name}”` : "Add holiday"} crumbs={["Master", "Holidays"]} icon={PartyPopper}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "Add holiday"} icon={PartyPopper}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Date" htmlFor="hol-date" error={errors.date} required>

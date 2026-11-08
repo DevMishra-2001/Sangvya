@@ -160,7 +160,7 @@ export function JoinForm({ token }: { token: string }) {
       </p>
 
       <form noValidate autoComplete="off" onSubmit={handleSubmit(submit)}>
-        <FormCard title="Your details" crumbs={["Joining form"]} className="bg-white">
+        <FormCard title="Your details" className="bg-white">
           <FormGrid>
             <FieldSeparator label="Personal" />
             <FormField label="Phone" htmlFor="j-phone" error={errors.phone}>

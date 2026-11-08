@@ -42,7 +42,7 @@ export function MyTeamView() {
   const count = (s: TeamDayState) => team?.members.filter((m) => m.today?.state === s).length ?? 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="My Team"
         description="People who report to you. You approve their leave, and you get an email when their day is short or they forget to check out."

@@ -70,7 +70,7 @@ export function PlatformSettingsView() {
   }
 
   return (
-    <div className="flex flex-col gap-5 pb-20">
+    <div className="flex flex-col gap-4 pb-20">
       <PageHeader
         title="Platform settings"
         description={`Values for the whole platform. Secrets (keys, passwords) stay in the server's .env.${data.updatedAt ? ` Last saved ${fmtDateTime(data.updatedAt)}.` : ""}`}

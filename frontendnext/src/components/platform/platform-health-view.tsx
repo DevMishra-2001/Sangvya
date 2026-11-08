@@ -51,7 +51,7 @@ export function PlatformHealthView() {
   const mailMax = Math.max(1, ...data.mail.daily.map((d) => d.sent + d.failed + d.logged));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="System health"
         description="Background jobs, email delivery, database and server — at a glance."
@@ -159,7 +159,7 @@ export function PlatformHealthView() {
           </div>
         </section>
 
-        <div className="flex flex-col gap-6 lg:col-span-2">
+        <div className="flex flex-col gap-4 lg:col-span-2">
           <section className="overflow-hidden rounded-xl border bg-card">
             <FormHeading title="Database" icon={Database} />
             <div className="p-4 text-sm">

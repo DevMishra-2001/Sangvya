@@ -64,7 +64,7 @@ export function BroadcastView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Broadcast" description="Send a message to companies. It appears in their bell; tick email to also send it to their inbox." className="mb-0" />
 
       <FormCard title="New message" icon={Megaphone}>

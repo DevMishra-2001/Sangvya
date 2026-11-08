@@ -276,7 +276,7 @@ export function OrgChartView() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Org Chart" description="Who leads whom, where you sit, and the people in each department." className="mb-0" />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

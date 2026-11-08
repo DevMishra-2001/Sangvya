@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Header brand={horizontal} />
         {horizontal && <TopNav />}
         <PlatformBanner />
-        <main className="mx-auto w-full max-w-[1920px] flex-1 px-4 py-6 sm:px-6 sm:py-6">{children}</main>
+        <main className="mx-auto w-full max-w-[1920px] flex-1 px-3 py-3 sm:px-4 sm:py-4">{children}</main>
       </div>
     </div>
   );

@@ -54,7 +54,9 @@ export type Permission =
   | "reports.people"
   | "reports.settings"
   | "billing.view"
-  | "billing.manage";
+  | "billing.manage"
+  | "expense.self"
+  | "expense.manage";
 
 // Logged-out pages. A logged-in user visiting one is sent to the dashboard.
 export const PUBLIC_ROUTES = ["/login", "/forgot-password"];

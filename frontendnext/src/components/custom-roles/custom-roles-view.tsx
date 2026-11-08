@@ -183,7 +183,7 @@ export function CustomRolesView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Custom Roles"
         description="Make your own roles, like Team Lead or Payroll Clerk. Pick a built-in role it's based on (its rank), then the pages it can open."
@@ -192,7 +192,7 @@ export function CustomRolesView() {
 
       <FormCard
         title={editing ? `Edit “${editing.name}”` : "New role"}
-        crumbs={["Master", "Custom Roles"]}
+       
         icon={UserCog}
       >
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">

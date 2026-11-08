@@ -114,7 +114,7 @@ export function CompanyWizard({ userId, defaultName = "", submitLabel, onCreated
   const Icon = STEP_ICONS[step];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Steps */}
       <ol className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {COMPANY_STEPS.map((s, i) => {

@@ -82,11 +82,11 @@ export function DepartmentsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Departments" description="How your company is organised. Each employee belongs to one department; access still comes from their role." className="mb-0" />
 
       {canManage && (
-        <FormCard title={editing ? `Edit “${editing.name}”` : "New department"} crumbs={["Master", "Departments"]} icon={Network}>
+        <FormCard title={editing ? `Edit “${editing.name}”` : "New department"} icon={Network}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
             <FormGrid>
               <FormField label="Department" htmlFor="dep-name" error={errors.name} required>

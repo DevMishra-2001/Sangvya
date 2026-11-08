@@ -63,10 +63,10 @@ export function RolesView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Roles" description="What each person can open and do. Which pages each role sees is set in the Page Master." className="mb-0" />
 
-      <FormCard title={editing ? `Edit “${editing.name}”` : "Edit role"} crumbs={["Master", "Roles"]} icon={ShieldCheck}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "Edit role"} icon={ShieldCheck}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Role" htmlFor="des-name" error={errors.name} required span="md">

@@ -32,9 +32,9 @@ export function ChangePasswordView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Change Password" description="Other devices you're logged in on will be signed out." className="mb-0" />
-      <FormCard title="Change Password" crumbs={["Master"]} icon={KeyRound}>
+      <FormCard title="Change Password" icon={KeyRound}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <FormGrid>
             <FormField label="Employee" htmlFor="cp-account">

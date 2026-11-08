@@ -32,7 +32,7 @@ export function MyHolidaysView() {
   const next = current?.holidays.find((h) => h.date >= today && !h.is_optional);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Holidays"
         description={

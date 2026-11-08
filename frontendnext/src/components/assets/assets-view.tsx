@@ -97,7 +97,7 @@ export function AssetsView() {
   const filterStatus = (v: string) => url.set({ status: status === v ? null : v, page: null });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Assets"
         description="Laptops, phones, ID cards and more — who has what, and everything that came back."

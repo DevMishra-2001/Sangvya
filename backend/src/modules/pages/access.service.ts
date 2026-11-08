@@ -106,8 +106,14 @@ async function employeeRoleId(employeeId: number | null) {
   return row?.id ?? null;
 }
 
-// Platform pages a Super Admin can use without being in any company
+// Platform pages a Super Admin can use without being in any company: everything in the Platform group
+// (so pages added there later show up too), plus these by slug in case they were moved
+const PLATFORM_GROUP = "grp-platform";
 const PLATFORM_SLUGS = new Set(["platform-dashboard", "companies", "admins", "roles", "audit-log", "page-master"]);
+const platformOnly = (pages: UserPage[]) => {
+  const group = pages.find((p) => p.slug === PLATFORM_GROUP);
+  return pages.filter((p) => PLATFORM_SLUGS.has(p.slug) || (group && p.parent_id === group.id));
+};
 
 export async function accessFor(user: { role: string; employee_id: number | null; company_id?: number | null }): Promise<Access> {
   const { pages, grants, roles: list, offModules } = await loadCache();
@@ -121,7 +127,7 @@ export async function accessFor(user: { role: string; employee_id: number | null
       isSuperadmin: true,
       permissions: [...PERMISSION_KEYS],
       // No company yet → only the platform pages (company pages need a company)
-      pages: user.company_id ? all : all.filter((p) => PLATFORM_SLUGS.has(p.slug)),
+      pages: user.company_id ? all : platformOnly(all),
     };
   }
 

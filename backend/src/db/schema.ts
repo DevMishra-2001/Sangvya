@@ -28,3 +28,4 @@ export * from "./schemas/performance.schema.js";
 export * from "./schemas/billing.schema.js";
 export * from "./schemas/task.schema.js";
 export * from "./schemas/announcement.schema.js";
+export * from "./schemas/platform.schema.js";

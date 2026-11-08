@@ -30,6 +30,7 @@ export const leavePolicySchema = z.object({
   slPerYear: quota("SL per year", 365),
   olPerYear: quota("OL per year", 365),
   elPerMonth: quota("EL per month", 31),
+  compOffValidDays: requiredNumber("Comp off validity must be 1 to 365 days", { min: 1, max: 365 }),
 });
 
 export type LeaveForm = z.input<typeof leaveSchema>;

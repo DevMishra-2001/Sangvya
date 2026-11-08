@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { FormDatePicker } from "@/components/common/date-picker";
 import { FileUpload } from "@/components/common/file-upload";
 import { FormField } from "@/components/common/form-field";
+import { LocationFields } from "@/components/common/location-fields";
 import {
   FieldSeparator,
   FORM_DIALOG,
@@ -29,7 +30,6 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { errorMessage } from "@/lib/api/client";
 import { run } from "@/lib/api/run";
-import { INDIAN_STATES } from "@/lib/company-rules";
 import {
   ACCOUNT_TYPE_OPTIONS,
   BLOOD_GROUP_OPTIONS,
@@ -696,17 +696,7 @@ export function EmployeeFormDialog({
                 {...register("addressLine2")}
               />
             </FormField>
-            <FormField label="City" htmlFor="emp-city" error={errors.city}>
-              <Input id="emp-city" {...register("city")} />
-            </FormField>
-            <FormField label="State" htmlFor="emp-state" error={errors.state}>
-              <Input id="emp-state" list="emp-states" {...register("state")} />
-              <datalist id="emp-states">
-                {INDIAN_STATES.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            </FormField>
+            <LocationFields control={control} errors={errors} idPrefix="emp" />
             <FormField
               label="Pincode"
               htmlFor="emp-pin"
@@ -718,13 +708,6 @@ export function EmployeeFormDialog({
                 maxLength={10}
                 {...register("postalCode")}
               />
-            </FormField>
-            <FormField
-              label="Country"
-              htmlFor="emp-country"
-              error={errors.country}
-            >
-              <Input id="emp-country" {...register("country")} />
             </FormField>
 
             <FieldSeparator label="Emergency contact" />

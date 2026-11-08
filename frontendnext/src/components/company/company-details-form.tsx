@@ -5,6 +5,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Save } from "lucide-react";
 import { FormField } from "@/components/common/form-field";
+import { LocationFields } from "@/components/common/location-fields";
 import { FieldSeparator, FormActions, FormCard, FormGrid } from "@/components/common/form-layout";
 import { ImageUpload } from "@/components/common/image-upload";
 import { FormMultiSelect } from "@/components/common/multi-select";
@@ -20,7 +21,6 @@ import {
   BUSINESS_TYPES,
   CURRENCIES,
   EMPLOYEE_RANGES,
-  INDIAN_STATES,
   INDUSTRIES,
   LEAVE_YEARS,
   MONTHS,
@@ -155,20 +155,7 @@ export function CompanyDetailsForm({ company, onSaved }: { company: Company; onS
           <FormField label="Contact phone" htmlFor="cs-phone" error={errors.phone} required>
             <Input id="cs-phone" type="tel" aria-invalid={Boolean(errors.phone)} {...register("phone")} />
           </FormField>
-          <FormField label="Country" htmlFor="cs-country" error={errors.country} required>
-            <Input id="cs-country" {...register("country")} />
-          </FormField>
-          <FormField label="State" htmlFor="cs-state" error={errors.state} required>
-            <Input id="cs-state" list={india ? "cs-states" : undefined} {...register("state")} />
-            <datalist id="cs-states">
-              {INDIAN_STATES.map((st) => (
-                <option key={st} value={st} />
-              ))}
-            </datalist>
-          </FormField>
-          <FormField label="City" htmlFor="cs-city" error={errors.city} required>
-            <Input id="cs-city" {...register("city")} />
-          </FormField>
+          <LocationFields control={control} errors={errors} idPrefix="cs" required />
           <FormField label="Postal code" htmlFor="cs-postal" error={errors.postalCode} required>
             <Input id="cs-postal" inputMode="numeric" {...register("postalCode")} />
           </FormField>

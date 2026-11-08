@@ -10,7 +10,7 @@ import { settingsService } from "@/lib/services/settings";
 import { broadcast } from "@/lib/session/activity";
 import type { CompanyInput } from "@/lib/schemas/company";
 import { companiesService } from "@/lib/services/companies";
-import type { AppPage, AuthResponse, Company, Id, SessionInfo, User } from "@/lib/types";
+import type { AppPage, AuthResponse, Company, Id, PlatformInfo, SessionInfo, User } from "@/lib/types";
 import { useNotificationsStore } from "./notifications-store";
 
 interface AuthState {
@@ -20,6 +20,7 @@ interface AuthState {
   pages: AppPage[];
   checked: boolean; // has the startup /auth/me check finished?
   session: SessionInfo;
+  platform: PlatformInfo | null;
   loadMe: () => Promise<void>;
   login: (input: LoginInput) => Promise<boolean>;
   // Activation link: set my password and log in. Returns the invited company name (to pre-fill setup).
@@ -38,7 +39,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => {
   const signedIn = (data: AuthResponse) => {
     setSessionUser(data.user.id);
-    set({ user: data.user, company: data.company, pages: data.pages ?? [], session: data.session, checked: true });
+    set({ user: data.user, company: data.company, pages: data.pages ?? [], session: data.session, platform: data.platform ?? null, checked: true });
   };
 
   return {
@@ -47,6 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
     pages: [],
     checked: false,
     session: { accessTtlMin: 5, idleMin: 20 },
+    platform: null,
 
     async loadMe() {
       const result = await run(authService.me, { silent: true });

@@ -23,6 +23,7 @@ import { fmtDate, inr, isoDate } from "@/lib/format";
 import { EXIT_STAGE_LABELS, exitsService, type ExitDetail } from "@/lib/services/exits";
 import type { Id } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SettlementCalculator } from "./settlement-calculator";
 
 const AMOUNTS = [
   { key: "lastSalary", col: "last_salary", label: "Salary for days worked", sign: 1 },
@@ -185,6 +186,13 @@ export function ExitPanel({ employeeId, onClose, onChanged }: { employeeId: Id |
 
               <TabsContent value="settlement" className="mt-4">
                 {!clearanceDone && <p className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">Clearance isn&apos;t finished — you can draft the F&amp;F, but it can be marked paid only after clearance and the last working day.</p>}
+                {settleStatus !== "paid" && e.stage !== "completed" && (
+                  <SettlementCalculator
+                    key={e.id}
+                    employeeId={e.id}
+                    onUse={(v) => setAmounts((m) => ({ ...m, lastSalary: String(v.lastSalary), leaveEncashment: String(v.leaveEncashment), noticeRecovery: String(v.noticeRecovery) }))}
+                  />
+                )}
                 <FormGrid density="dialog">
                   {AMOUNTS.map((a) => (
                     <FormField key={a.key} label={`${a.label}${a.sign < 0 ? " (−)" : ""}`} htmlFor={`ff-${a.key}`} span="full">

@@ -10,6 +10,7 @@ import type { Request, Response } from "express";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
+import { platform } from "../platform/platformSettings.service.js";
 import { userInvitations, users } from "../../db/schema.js";
 import { BadRequestError } from "../../utils/httpErrors.js";
 import { sendTemplate } from "../mail/mail.service.js";
@@ -30,7 +31,7 @@ export const devLink = (link: string) => (env.NODE_ENV === "production" ? undefi
 // it's never stored, only its hash.
 export async function createInvitation(userId: number, { companyName, invitedBy }: { companyName?: string | null; invitedBy: number | null }) {
   const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + env.INVITE_TTL_HOURS * 3600 * 1000);
+  const expiresAt = new Date(Date.now() + platform().inviteLinkHours * 3600 * 1000);
   await db.transaction(async (tx) => {
     await tx
       .update(userInvitations)

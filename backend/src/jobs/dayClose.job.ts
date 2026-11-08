@@ -4,6 +4,7 @@
 // reporting manager and the employee (bell + email) about short days, long
 // breaks or a missing check-out.
 import { notify } from "../modules/notifications/notify.js";
+import { trackJob } from "./trackJob.js";
 import { formatMinutes, localDate, localTime, summarize, type DaySummary } from "../utils/workday.js";
 import { rulesFor, type ShiftRules } from "../modules/shifts/shiftRules.js";
 import { breaksFor, findDaysToClose, markDayClosed, type AttendanceBreak, type AttendanceRecord } from "../modules/attendance/attendance.service.js";
@@ -69,7 +70,7 @@ export async function closeFinishedDays() {
 }
 
 export function startDayCloseJob() {
-  const run = () => closeFinishedDays().catch((err) => console.error("Day close job failed:", (err as Error).message));
+  const run = () => trackJob("Day close", closeFinishedDays);
   const firstRun = setTimeout(run, 10 * 1000); // shortly after startup, then on a schedule
   const interval = setInterval(run, RUN_EVERY_MS);
   return () => {

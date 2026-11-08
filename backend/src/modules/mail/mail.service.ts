@@ -1,6 +1,8 @@
 // SMTP sending (env: SMTP_HOST/PORT/USER/PASS, MAIL_FROM); logs to console when SMTP_HOST is unset
 import nodemailer, { type Transporter } from "nodemailer";
+import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
+import { mailLog } from "../../db/schema.js";
 import {
   renderTemplate,
   type TemplateName,
@@ -32,6 +34,14 @@ function getTransport() {
   return transport;
 }
 
+// Delivery record for the System health page (never throws)
+function logMail(to: string, subject: string, status: "sent" | "failed" | "logged", error?: string) {
+  void db
+    .insert(mailLog)
+    .values({ to_email: to.slice(0, 255), subject: subject.slice(0, 300), status, error: error?.slice(0, 500) ?? null })
+    .catch(() => {});
+}
+
 // Never throws — a failed email must not fail the request that triggered it.
 export async function sendMail(original: Mail) {
   // Staging: real people never get mail; the intended recipient shows in the subject
@@ -41,6 +51,7 @@ export async function sendMail(original: Mail) {
     console.log(
       `[mail:not-sent] To: ${mail.to}\nSubject: ${mail.subject}\n${mail.text}\n`,
     );
+    logMail(original.to, original.subject, "logged");
     return;
   }
   try {
@@ -52,7 +63,9 @@ export async function sendMail(original: Mail) {
       html: mail.html,
       replyTo: mail.replyTo,
     });
+    logMail(original.to, original.subject, "sent");
   } catch (err) {
+    logMail(original.to, original.subject, "failed", (err as Error).message);
     console.error(
       `Failed to send email to ${mail.to}:`,
       (err as Error).message,

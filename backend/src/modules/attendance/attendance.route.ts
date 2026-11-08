@@ -1,4 +1,7 @@
 import { Router } from "express";
+import multer from "multer";
+import { BadRequestError } from "../../utils/httpErrors.js";
+import { checkBiometricImport, runBiometricImport } from "./biometricImport.service.js";
 import { authenticate, requirePermission } from "../../middlewares/auth.middleware.js";
 import { scopeToCompany } from "../../middlewares/tenant.middleware.js";
 import { validate } from "../../middlewares/validate.js";
@@ -16,8 +19,32 @@ import {
   markAttendanceSchema,
 } from "./attendance.schema.js";
 
+// Machine exports (CSV / Excel / .txt / .dat), read from memory
+const machineUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (/\.(csv|xlsx|txt|dat)$/i.test(file.originalname)) cb(null, true);
+    else cb(new BadRequestError("Upload a .csv, .xlsx, .txt or .dat file"));
+  },
+});
+
 const router = Router();
 router.use(authenticate, scopeToCompany);
+
+// ---- Biometric machine import: check first, then save ----
+router.post(
+  "/import/check",
+  requirePermission("attendance.mark"),
+  machineUpload.single("file"),
+  asyncHandler(async (req, res) => res.json(await checkBiometricImport(tenant(req).companyId, req.file))),
+);
+router.post(
+  "/import",
+  requirePermission("attendance.mark"),
+  machineUpload.single("file"),
+  asyncHandler(async (req, res) => res.json(await runBiometricImport(tenant(req).companyId, currentUser(req), req.file))),
+);
 
 router.get("/", requirePermission("attendance.view"), validate({ query: attendanceByDateQuery }), attendanceByDateHandler);
 router.post("/", requirePermission("attendance.mark"), validate({ body: markAttendanceSchema }), markAttendanceHandler);

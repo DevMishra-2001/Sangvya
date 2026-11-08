@@ -30,7 +30,11 @@ import { pageRoutes } from "./modules/pages/pages.route.js";
 import { platformCompanyRoutes } from "./modules/platform/platformCompanies.route.js";
 import {
   platformAuditRoutes,
+  platformBroadcastRoutes,
+  platformHealthRoutes,
+  platformInsightsRoutes,
   platformOverviewRoutes,
+  platformSettingsRoutes,
 } from "./modules/platform/platform.route.js";
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
@@ -116,6 +120,10 @@ app.use("/api/admins", adminRoutes);
 app.use("/api/platform/companies", platformCompanyRoutes);
 app.use("/api/platform/audit", platformAuditRoutes);
 app.use("/api/platform/overview", platformOverviewRoutes);
+app.use("/api/platform/settings", platformSettingsRoutes);
+app.use("/api/platform/insights", platformInsightsRoutes);
+app.use("/api/platform/health", platformHealthRoutes);
+app.use("/api/platform/broadcast", platformBroadcastRoutes);
 
 // ---- 404 + centralized error handling (must be last) ----
 app.use(notFound);

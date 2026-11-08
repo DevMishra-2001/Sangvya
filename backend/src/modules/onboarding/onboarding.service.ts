@@ -78,7 +78,12 @@ async function openLink(token: string) {
 
 const PRIVATE_KEYS = ["pan", "aadhaar", "uan", "pf_number", "esi_number", "passport_number", "bank_name", "bank_branch", "ifsc", "account_number", "account_holder", "account_type"] as const;
 
-// GET /api/onboarding/:token → the form (ID / bank values aren't sent back, only whether they're on file)
+// Shown in full on the form; ID numbers below only go back masked
+const OPEN_KEYS = ["bank_name", "bank_branch", "ifsc", "account_holder", "account_type", "uan", "pf_number", "esi_number"] as const;
+const MASKED_KEYS = ["pan", "aadhaar", "passport_number", "account_number"] as const;
+const mask = (v: string) => (v.length <= 4 ? "•".repeat(v.length) : `${"•".repeat(Math.min(v.length - 4, 8))}${v.slice(-4)}`);
+
+// GET /api/onboarding/:token → the form, prefilled with what HR already entered
 export async function openForm(token: string) {
   const link = await openLink(token);
   const e = await getEmployeeById(link.company_id, link.employee_id);
@@ -112,6 +117,8 @@ export async function openForm(token: string) {
       emergencyContactRelation: e.emergency_contact_relation,
     },
     privateOnFile: Object.fromEntries(PRIVATE_KEYS.map((k) => [k, Boolean(priv?.[k])])),
+    privateValues: Object.fromEntries(OPEN_KEYS.map((k) => [k, priv?.[k] ?? null])),
+    privateMasked: Object.fromEntries(MASKED_KEYS.map((k) => [k, priv?.[k] ? mask(String(priv[k])) : null])),
     documents: docs,
   };
 }

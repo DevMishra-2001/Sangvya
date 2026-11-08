@@ -19,6 +19,7 @@ const FIELDS = [
   { key: "slPerYear", api: "sl_per_year", label: "SL per year", max: 365, hint: "Sick leave — unused days carry forward to the next year." },
   { key: "olPerYear", api: "ol_per_year", label: "OL per year (default)", max: 365, hint: "Optional leave — default for everyone; set a different number per employee on the Employees page." },
   { key: "elPerMonth", api: "el_per_month", label: "EL per month", max: 31, hint: "Earned leave — unused days at month end are paid out." },
+  { key: "compOffValidDays", api: "comp_off_valid_days", label: "Comp off valid for (days)", max: 365, hint: "A comp off earned by working a holiday or weekly off must be used within this many days." },
 ] as const;
 
 // Company leave quotas used for every employee's balance

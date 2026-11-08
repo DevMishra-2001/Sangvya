@@ -187,8 +187,8 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
           </DialogDescription>
         </DialogHeader>
 
-        {/* Camera */}
-        <div className="relative mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-2xl border bg-muted">
+        {/* Camera: square that shrinks with the window height, so zooming in keeps it on screen */}
+        <div className="relative mx-auto size-[min(18rem,32dvh)] min-h-36 min-w-36 shrink-0 overflow-hidden rounded-2xl border bg-muted">
           <video
             ref={video}
             playsInline

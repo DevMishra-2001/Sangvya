@@ -1,4 +1,4 @@
-import { date, index, numeric, pgTable, text, varchar, integer } from "drizzle-orm/pg-core";
+import { date, index, numeric, smallint, pgTable, text, varchar, integer } from "drizzle-orm/pg-core";
 import { createdAt, fk, id, timestamptz } from "../columns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
@@ -49,6 +49,8 @@ export const leavePolicies = pgTable(
     sl_per_year: numeric("sl_per_year", { precision: 5, scale: 1 }).notNull().default("6"),
     ol_per_year: numeric("ol_per_year", { precision: 5, scale: 1 }).notNull().default("2"),
     el_per_month: numeric("el_per_month", { precision: 5, scale: 1 }).notNull().default("1"),
+    // A comp off earned on a holiday / weekly off can be used within this many days
+    comp_off_valid_days: smallint("comp_off_valid_days").notNull().default(90),
     updated_at: timestamptz("updated_at").defaultNow(),
   },
   (t) => [fk("leave_policies", t.company_id, companies.id, "cascade")],

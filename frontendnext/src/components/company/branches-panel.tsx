@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ConfirmDelete } from "@/components/common/confirm-button";
 import { EmptyState } from "@/components/common/empty-state";
 import { FormField } from "@/components/common/form-field";
+import { LocationFields } from "@/components/common/location-fields";
 import { FieldSeparator, FORM_DIALOG, FormGrid, FormHeading } from "@/components/common/form-layout";
 import { FormSelect } from "@/components/common/select-field";
 import { Badge } from "@/components/ui/badge";
@@ -239,17 +240,9 @@ function BranchDialog({ open, onOpenChange, branch, onSaved }: { open: boolean; 
             <FormField label="Address" htmlFor="br-address" error={errors.address} span="lg">
               <Textarea id="br-address" rows={2} placeholder="Building, street, area" {...register("address")} />
             </FormField>
-            <FormField label="City" htmlFor="br-city" error={errors.city}>
-              <Input id="br-city" {...register("city")} />
-            </FormField>
-            <FormField label="State" htmlFor="br-state" error={errors.state}>
-              <Input id="br-state" {...register("state")} />
-            </FormField>
+            <LocationFields control={control} errors={errors} idPrefix="br" />
             <FormField label="Pincode" htmlFor="br-pin" error={errors.postalCode}>
               <Input id="br-pin" inputMode="numeric" {...register("postalCode")} />
-            </FormField>
-            <FormField label="Country" htmlFor="br-country" error={errors.country}>
-              <Input id="br-country" {...register("country")} />
             </FormField>
 
             <FieldSeparator label="Check-in location" />

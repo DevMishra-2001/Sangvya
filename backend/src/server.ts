@@ -1,6 +1,7 @@
 import { app } from "./app.js";
 import { connectDB, pool } from "./config/db.js";
 import { env } from "./config/env.js";
+import { loadPlatformSettings } from "./modules/platform/platformSettings.service.js";
 import { startDayCloseJob } from "./jobs/dayClose.job.js";
 import { startEmployeeExitJob } from "./jobs/employeeExit.job.js";
 import { startProbationReminderJob } from "./jobs/probation.job.js";
@@ -9,6 +10,7 @@ import { startNotificationCleanupJob } from "./jobs/notificationCleanup.job.js";
 async function startServer() {
   try {
     await connectDB();
+    await loadPlatformSettings().catch((err) => console.error("Platform settings not loaded, using defaults:", (err as Error).message));
   } catch (error) {
     console.error("Could not connect to PostgreSQL:", error);
     process.exit(1);

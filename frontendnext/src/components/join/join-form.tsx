@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { FormDatePicker } from "@/components/common/date-picker";
 import { FileUpload } from "@/components/common/file-upload";
 import { FormField } from "@/components/common/form-field";
+import { LocationFields } from "@/components/common/location-fields";
 import { FieldSeparator, FormCard, FormGrid } from "@/components/common/form-layout";
 import { FormSelect } from "@/components/common/select-field";
 import { ForceLight } from "@/components/layout/force-light";
@@ -20,7 +21,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { errorMessage } from "@/lib/api/client";
 import { run } from "@/lib/api/run";
-import { INDIAN_STATES } from "@/lib/company-rules";
 import {
   ACCOUNT_TYPE_OPTIONS,
   BLOOD_GROUP_OPTIONS,
@@ -49,6 +49,9 @@ const blankPrivate = Object.fromEntries(Object.keys(privateFields).map((k) => [k
 // Snake-case "on file" keys for each private field
 const ON_FILE: Record<string, string> = { pan: "pan", aadhaar: "aadhaar", uan: "uan", pfNumber: "pf_number", esiNumber: "esi_number", passportNumber: "passport_number", ifsc: "ifsc", accountNumber: "account_number" };
 
+// Private fields the form gets back in full (camelCase → snake_case)
+const PRIVATE_COL: Record<string, string> = { bankName: "bank_name", bankBranch: "bank_branch", ifsc: "ifsc", accountHolder: "account_holder", accountType: "account_type", uan: "uan", pfNumber: "pf_number", esiNumber: "esi_number" };
+
 export function JoinForm({ token }: { token: string }) {
   const [data, setData] = useState<OnboardingForm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +76,9 @@ export function JoinForm({ token }: { token: string }) {
         const details = Object.fromEntries(DETAIL_KEYS.map((k) => [k, d.details[k] ?? ""])) as Record<string, string>;
         if (!details.nationality) details.nationality = "Indian";
         if (!details.country) details.country = "India";
-        reset({ ...details, ...blankPrivate } as JoinValues);
+        // Bank / PF values HR already entered come back filled; ID numbers stay empty (shown masked under the field)
+        const prefilled = Object.fromEntries(Object.entries(PRIVATE_COL).map(([key, col]) => [key, d.privateValues?.[col] ?? ""]));
+        reset({ ...details, ...blankPrivate, ...prefilled } as JoinValues);
       })
       .catch((err) => !cancelled && setError(errorMessage(err)));
     return () => {
@@ -126,7 +131,12 @@ export function JoinForm({ token }: { token: string }) {
 
   const have = new Set(data.documents.map((d) => d.category));
   const onFile = (key: string) => data.privateOnFile[ON_FILE[key] ?? key];
-  const keepHint = (key: string) => (onFile(key) ? "Already on file — leave empty to keep" : undefined);
+  const keepHint = (key: string) => {
+    const masked = data.privateMasked?.[ON_FILE[key] ?? key];
+    if (masked) return `On file: ${masked} — leave empty to keep`;
+    // Filled-in values are visible, so no hint needed
+    return onFile(key) && !PRIVATE_COL[key] ? "Already on file — leave empty to keep" : undefined;
+  };
   const none = "— Select —";
 
   return shell(
@@ -182,22 +192,9 @@ export function JoinForm({ token }: { token: string }) {
             <FormField label="Address line 2" htmlFor="j-a2" error={errors.addressLine2} span="md">
               <Input id="j-a2" placeholder="Area, landmark" {...register("addressLine2")} />
             </FormField>
-            <FormField label="City" htmlFor="j-city" error={errors.city}>
-              <Input id="j-city" {...register("city")} />
-            </FormField>
-            <FormField label="State" htmlFor="j-state" error={errors.state}>
-              <Input id="j-state" list="j-states" {...register("state")} />
-              <datalist id="j-states">
-                {INDIAN_STATES.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            </FormField>
+            <LocationFields control={control} errors={errors} idPrefix="j" />
             <FormField label="Pincode" htmlFor="j-pin" error={errors.postalCode}>
               <Input id="j-pin" inputMode="numeric" maxLength={10} {...register("postalCode")} />
-            </FormField>
-            <FormField label="Country" htmlFor="j-country" error={errors.country}>
-              <Input id="j-country" {...register("country")} />
             </FormField>
 
             <FieldSeparator label="Emergency contact" />

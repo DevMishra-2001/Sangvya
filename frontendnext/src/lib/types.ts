@@ -160,6 +160,12 @@ export interface PlatformCompany {
   owners: { name: string; email: string }[];
   subscription_status: string | null; // trial | active | past_due | cancelled
   trial_ends_at: ISODateTime | null;
+  current_period_end: ISODateTime | null;
+  price_per_employee: string | null;
+  seats: number | null;
+  active_users_7d: number;
+  last_active_at: ISODateTime | null;
+  checkins_today: number;
 }
 
 // Everything about one company, tax IDs included
@@ -189,6 +195,7 @@ export interface PlatformCompanyDetail extends PlatformCompany {
   fiscal_year_start: number | null;
   currency: string | null;
   employee_id_prefix: string | null;
+  admin_notes: string | null;
 }
 
 export interface CompanyListItem extends Pick<
@@ -203,6 +210,14 @@ export interface AuthResponse {
   company: Company | null;
   pages: AppPage[]; // loaded once with login / me — the sidebar and page guard use it
   session: SessionInfo;
+  platform?: PlatformInfo;
+}
+
+// Super Admin's banner + support contact, sent with login / me
+export interface PlatformInfo {
+  banner: { text: string; tone: "info" | "warning" | "danger" } | null;
+  supportEmail: string | null;
+  supportPhone: string | null;
 }
 
 // ---- Designations ----
@@ -380,6 +395,8 @@ export interface OnboardingForm {
   };
   details: Record<string, string | null>;
   privateOnFile: Record<string, boolean>;
+  privateValues?: Record<string, string | null>;
+  privateMasked?: Record<string, string | null>;
   documents: {
     id: Id;
     name: string;
@@ -598,6 +615,7 @@ export interface LeavePolicy {
   sl_per_year: number;
   ol_per_year: number;
   el_per_month: number;
+  comp_off_valid_days: number;
 }
 
 // ---- Tasks ----

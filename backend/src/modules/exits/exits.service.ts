@@ -1,13 +1,15 @@
 // Exit management: everyone leaving, their clearance, full & final settlement and exit interview
-import { and, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../config/db.js";
-import { departments, designations, employeeExits, employees, exitClearances } from "../../db/schema.js";
+import { departments, designations, employeeExits, employees, exitClearances, payrollRuns, payslips, salaryStructures } from "../../db/schema.js";
 import { audit } from "../../utils/audit.js";
 import { BadRequestError, NotFoundError } from "../../utils/httpErrors.js";
 import { offsetOf, pageMeta } from "../../utils/pagination.js";
 import { localDate } from "../../utils/workday.js";
 import { openAssetsOf } from "../assets/assets.service.js";
+import { getEmployeeById } from "../employees/employees.service.js";
+import { BALANCE_TYPES, getBalances } from "../leaves/leaveBalance.service.js";
 import { ensureExitRecord } from "./exitRecord.js";
 import type { clearanceSchema, interviewSchema, listQuery, settlementSchema } from "./exits.schema.js";
 
@@ -142,6 +144,73 @@ export async function saveSettlement(companyId: number, actor: Express.AuthUser,
     .where(eq(employeeExits.employee_id, id));
   audit(actor, { companyId, action: "exit.settlement", target: ["employee", id], summary: `Full & final for ${e.name}: ${input.status}` });
   return exitDetail(companyId, id);
+}
+
+const LEAVE_LABELS: Record<(typeof BALANCE_TYPES)[number], string> = { cl: "Casual leave", sl: "Sick leave", ol: "Optional leave", el: "Earned leave", comp_off: "Comp off" };
+const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const round = (n: number) => Math.round(n * 100) / 100;
+
+// F&F suggestion: salary still owed (unpaid months + days of the last month), leave balance to encash, notice served.
+// HR picks what to encash / how much notice was due on screen; nothing is saved here.
+export async function settlementEstimate(companyId: number, id: number) {
+  const e = await findExit(companyId, id);
+  if (!e.exit_date) throw new BadRequestError("Set the last working day first");
+  const exitDate = e.exit_date;
+  const [structure] = await db
+    .select({ basic: salaryStructures.basic, hra: salaryStructures.hra, allowances: salaryStructures.allowances })
+    .from(salaryStructures)
+    .where(and(eq(salaryStructures.company_id, companyId), eq(salaryStructures.employee_id, id), lte(salaryStructures.effective_from, exitDate)))
+    .orderBy(desc(salaryStructures.effective_from))
+    .limit(1);
+  const monthly = structure ? Number(structure.basic) + Number(structure.hra) + Number(structure.allowances) : Number(e.salary ?? 0);
+  const source = structure ? "structure" : e.salary ? "employee" : null;
+
+  // Last month someone was paid for, from finalized or draft payroll runs
+  const [lastPaid] = await db
+    .select({ year: payrollRuns.year, month: payrollRuns.month })
+    .from(payslips)
+    .innerJoin(payrollRuns, eq(payrollRuns.id, payslips.payroll_run_id))
+    .where(and(eq(payslips.company_id, companyId), eq(payslips.employee_id, id)))
+    .orderBy(desc(payrollRuns.year), desc(payrollRuns.month))
+    .limit(1);
+
+  const [ey, em, ed] = exitDate.split("-").map(Number);
+  const joined = e.join_date ?? exitDate;
+  const lines: { label: string; days: number; ofDays: number; amount: number }[] = [];
+  // Unpaid full months before the exit month (only after a payroll run exists, at most 3)
+  if (lastPaid && monthly) {
+    let y = lastPaid.year;
+    let m = lastPaid.month + 1;
+    if (m > 12) [y, m] = [y + 1, 1];
+    while ((y < ey || (y === ey && m < em)) && lines.length < 3) {
+      const total = daysIn(y, m);
+      lines.push({ label: `${MONTHS[m - 1]} ${y}`, days: total, ofDays: total, amount: round(monthly) });
+      m++;
+      if (m > 12) [y, m] = [y + 1, 1];
+    }
+  }
+  const exitMonthPaid = lastPaid && (lastPaid.year > ey || (lastPaid.year === ey && lastPaid.month >= em));
+  if (!exitMonthPaid && monthly) {
+    const total = daysIn(ey, em);
+    const fromDay = joined.slice(0, 7) === exitDate.slice(0, 7) ? Number(joined.slice(8, 10)) : 1;
+    const days = Math.max(0, ed - fromDay + 1);
+    lines.push({ label: `${MONTHS[em - 1]} ${ey} (till ${ed} ${MONTHS[em - 1]})`, days, ofDays: total, amount: round((monthly / total) * days) });
+  }
+
+  const employee = await getEmployeeById(companyId, id);
+  const balances = await getBalances(companyId, employee, exitDate);
+  const leave = BALANCE_TYPES.map((t) => ({ type: t, label: LEAVE_LABELS[t], available: Number(balances[t].available) })).filter((l) => l.available > 0);
+
+  const servedDays = e.started_on ? Math.max(0, Math.round((Date.parse(exitDate) - Date.parse(e.started_on)) / 86400000)) : null;
+  return {
+    monthlyGross: round(monthly),
+    salarySource: source,
+    perDay: round(monthly / 30),
+    salary: { lines, total: round(lines.reduce((t, l) => t + l.amount, 0)), exitMonthPaid: Boolean(exitMonthPaid) },
+    leave,
+    notice: { startedOn: e.started_on, exitDate, servedDays, waived: e.exit_reason === "terminated" },
+  };
 }
 
 export async function saveInterview(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof interviewSchema>) {

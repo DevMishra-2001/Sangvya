@@ -8,6 +8,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Building2, Check, FileText, MapPin, Settings2 } from "lucide-react";
 import { FormField } from "@/components/common/form-field";
+import { LocationFields } from "@/components/common/location-fields";
 import { FormGrid } from "@/components/common/form-layout";
 import { ImageUpload } from "@/components/common/image-upload";
 import { FormSelect } from "@/components/common/select-field";
@@ -22,7 +23,6 @@ import {
   BUSINESS_TYPES,
   CURRENCIES,
   EMPLOYEE_RANGES,
-  INDIAN_STATES,
   INDUSTRIES,
   LEAVE_YEARS,
   MONTHS,
@@ -241,20 +241,7 @@ export function CompanyWizard({ userId, defaultName = "", submitLabel, onCreated
               <FormField label="Contact phone" htmlFor="co-phone" error={errors.phone} required>
                 <Input id="co-phone" type="tel" placeholder="+91 98765 43210" aria-invalid={Boolean(errors.phone)} {...register("phone")} />
               </FormField>
-              <FormField label="Country" htmlFor="co-country" error={errors.country} required>
-                <Input id="co-country" aria-invalid={Boolean(errors.country)} {...register("country")} />
-              </FormField>
-              <FormField label="State" htmlFor="co-state" error={errors.state} required>
-                <Input id="co-state" list={india ? "co-states" : undefined} aria-invalid={Boolean(errors.state)} {...register("state")} />
-                <datalist id="co-states">
-                  {INDIAN_STATES.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
-              </FormField>
-              <FormField label="City" htmlFor="co-city" error={errors.city} required>
-                <Input id="co-city" aria-invalid={Boolean(errors.city)} {...register("city")} />
-              </FormField>
+              <LocationFields control={control} errors={errors} idPrefix="co" required />
               <FormField label="Postal code" htmlFor="co-postal" error={errors.postalCode} required>
                 <Input id="co-postal" inputMode="numeric" aria-invalid={Boolean(errors.postalCode)} {...register("postalCode")} />
               </FormField>

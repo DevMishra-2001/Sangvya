@@ -16,14 +16,16 @@ import { env } from "../../config/env.js";
 import { userSessions } from "../../db/schema.js";
 import { setAuthCookies } from "../../utils/authCookie.js";
 import { accessFor, allowedUrls } from "../pages/access.service.js";
+import { platform } from "../platform/platformSettings.service.js";
 
 export const ACCESS_TTL_MIN = env.ACCESS_TOKEN_TTL_MIN;
-export const IDLE_MIN = env.SESSION_IDLE_MIN;
-export const MAX_HOURS = env.SESSION_MAX_HOURS;
+// Idle / absolute limits are Super Admin settings
+const idleMin = () => platform().sessionIdleMinutes;
+const maxHours = () => platform().sessionMaxHours;
 const ROTATION_GRACE_SEC = 30; // parallel tabs may send the just-replaced token
 
 // Session timings the browser needs for its keep-alive / idle-logout timers
-export const SESSION_INFO = { accessTtlMin: ACCESS_TTL_MIN, idleMin: IDLE_MIN };
+export const sessionInfo = () => ({ accessTtlMin: ACCESS_TTL_MIN, idleMin: idleMin() });
 
 type Session = typeof userSessions.$inferSelect;
 
@@ -102,7 +104,7 @@ export async function startSession(res: Response, req: Request, user: SessionUse
     .values({
       user_id: user.id,
       refresh_token_hash: hashToken(refreshToken),
-      expires_at: new Date(Date.now() + MAX_HOURS * 3600 * 1000),
+      expires_at: new Date(Date.now() + maxHours() * 3600 * 1000),
       user_agent: (req.headers["user-agent"] || "").slice(0, 300),
       ip: req.ip,
     })
@@ -151,9 +153,9 @@ export async function refreshSession(
     await revokeSession(session.id);
     return { ok: false, code: "SESSION_EXPIRED", error: "Your session has expired. Please log in again." };
   }
-  if (Date.now() - session.last_activity_at.getTime() > IDLE_MIN * 60000) {
+  if (Date.now() - session.last_activity_at.getTime() > idleMin() * 60000) {
     await revokeSession(session.id);
-    return { ok: false, code: "SESSION_IDLE", error: `You were logged out after ${IDLE_MIN} minutes of inactivity.` };
+    return { ok: false, code: "SESSION_IDLE", error: `You were logged out after ${idleMin()} minutes of inactivity.` };
   }
 
   const user = await loadUser(session.user_id);

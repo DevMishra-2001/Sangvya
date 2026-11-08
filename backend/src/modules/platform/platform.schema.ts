@@ -8,6 +8,8 @@ export const auditQuery = z.object({
   companyId: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
   q: z.preprocess(blankToUndefined, z.string().trim().max(100).optional()),
   before: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
+  from: z.preprocess(blankToUndefined, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").optional()),
+  to: z.preprocess(blankToUndefined, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").optional()),
   limit: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(100).default(50)),
 });
 export type AuditQuery = z.infer<typeof auditQuery>;

@@ -46,7 +46,17 @@ export interface ExitDetail {
   openAssets: { id: Id; asset_code: string; name: string; assigned_on: string }[];
 }
 
+export interface SettlementEstimate {
+  monthlyGross: number;
+  salarySource: "structure" | "employee" | null;
+  perDay: number;
+  salary: { lines: { label: string; days: number; ofDays: number; amount: number }[]; total: number; exitMonthPaid: boolean };
+  leave: { type: string; label: string; available: number }[];
+  notice: { startedOn: string | null; exitDate: string; servedDays: number | null; waived: boolean };
+}
+
 export const exitsService = {
+  estimate: async (id: Id) => (await api.get<SettlementEstimate>(`/exits/${id}/settlement-estimate`)).data,
   list: async (params: { page: number; limit: number; stage: string; search?: string }) =>
     (await api.get<{ exits: ExitRow[]; stats: { notice: number; clearance: number; settlement: number; completedThisMonth: number; avgNoticeDays: number }; page: number; limit: number; total: number }>("/exits", { params })).data,
   detail: async (id: Id) => (await api.get<ExitDetail>(`/exits/${id}`)).data,

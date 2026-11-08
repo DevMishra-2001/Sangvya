@@ -4,12 +4,14 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
-import { companies, companyMembers, employees, users } from "../../db/schema.js";
+import { companies, companyMembers, companyModules, employees, users } from "../../db/schema.js";
+import { MODULE_KEYS } from "../../config/modules.js";
+import { platform } from "../platform/platformSettings.service.js";
 import { NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { createTrialSubscription, syncSubscriptionQuantity } from "../billing/billing.service.js";
 import { SUPERADMIN_ROLE } from "../../config/permissions.js";
-import { roleByKey } from "../pages/access.service.js";
+import { clearAccessCache, roleByKey } from "../pages/access.service.js";
 import type { CreateCompanyInput } from "./companies.schema.js";
 import { audit } from "../../utils/audit.js";
 
@@ -70,7 +72,11 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
     const [company] = await tx.insert(companies).values(companyColumns(input)).returning();
 
     // Free trial — billing starts once they subscribe from the Billing page
-    await createTrialSubscription(company.id, env.TRIAL_DAYS, tx);
+    const settings = platform();
+    await createTrialSubscription(company.id, settings.trialDays, tx, settings.pricePerEmployee);
+    // Modules the Super Admin keeps off for new companies
+    const off = MODULE_KEYS.filter((k) => !settings.newCompanyModules.includes(k));
+    if (off.length) await tx.insert(companyModules).values(off.map((k) => ({ company_id: company.id, module_key: k, is_enabled: false })));
 
     // The owner is the company's Admin (the platform Super Admin keeps Super Admin)
     const role = await roleByKey(owner.role === SUPERADMIN_ROLE ? "superadmin" : "admin");
@@ -88,6 +94,7 @@ export async function createCompanyForUser(owner: Owner, input: CreateCompanyInp
   });
 
   await syncSubscriptionQuantity(companyId); // headcount is now 1
+  clearAccessCache(); // modules kept off for new companies take effect at once
   audit(owner, { action: "company.created", companyId, target: ["company", companyId], summary: `${owner.name} created the company ${input.companyName}` });
   return companyId;
 }

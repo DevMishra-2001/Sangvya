@@ -8,7 +8,8 @@ import { findCompany } from "../companies/companies.service.js";
 import { accessFor, disabledModules } from "../pages/access.service.js";
 import { findUserByEmail, findUserById } from "../users/users.service.js";
 import type { LoginInput } from "./auth.schema.js";
-import { endSession, refreshSession, reissueAccessToken, SESSION_INFO, startSession } from "./session.service.js";
+import { publicPlatformInfo } from "../platform/platformSettings.service.js";
+import { endSession, refreshSession, reissueAccessToken, sessionInfo, startSession } from "./session.service.js";
 
 interface AuthUserRow {
   id: number;
@@ -37,7 +38,9 @@ export async function authPayload<T extends AuthUserRow>(user: T) {
     },
     company: await currentCompany(user.company_id),
     pages: access.pages,
-    session: SESSION_INFO,
+    session: sessionInfo(),
+    // Super Admin's banner and support contact
+    platform: publicPlatformInfo(),
   };
 }
 
@@ -101,7 +104,7 @@ export async function refresh(res: Response, refreshToken: string | undefined) {
     clearAuthCookies(res);
     throw new UnauthorizedError(result.error, result.code);
   }
-  return { success: true, session: SESSION_INFO };
+  return { success: true, session: sessionInfo() };
 }
 
 // Ends this session on the server and drops the cookies

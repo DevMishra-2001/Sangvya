@@ -11,6 +11,7 @@ import { Header } from "./header";
 import { pageUrls } from "./nav-items";
 import { Sidebar } from "./sidebar";
 import { TopNav } from "./top-nav";
+import { PlatformBanner } from "./platform-banner";
 import { CompanySuspended } from "./company-suspended";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
 import { onCompanySuspended } from "@/lib/api/client";
@@ -73,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header brand={horizontal} />
         {horizontal && <TopNav />}
+        <PlatformBanner />
         <main className="mx-auto w-full max-w-[1920px] flex-1 px-4 py-6 sm:px-6 sm:py-6">{children}</main>
       </div>
     </div>

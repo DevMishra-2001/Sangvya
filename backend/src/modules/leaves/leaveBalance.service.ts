@@ -5,7 +5,7 @@
 //   OL  quota per year — employees.ol_quota, else the company default
 //   EL  quota per month, unused days are paid out at month end (encashment)
 //   Comp Off  earned automatically: 1 for every weekly off / holiday the
-//             employee checked in on; valid COMP_OFF_VALID_DAYS from that day
+//             employee checked in on; valid for the company's comp_off_valid_days from that day
 // Leave days exclude the company's weekly offs and holidays; a half day counts
 // 0.5. Pending requests count as used, so the same balance can't be requested
 // twice; rejected and cancelled ones don't count.
@@ -21,7 +21,6 @@ export const BALANCE_TYPES = ["cl", "sl", "ol", "el", "comp_off"] as const;
 export type BalanceType = (typeof BALANCE_TYPES)[number];
 
 const LABELS: Record<BalanceType, string> = { cl: "CL", sl: "SL", ol: "OL", el: "EL", comp_off: "Comp Off" };
-const COMP_OFF_VALID_DAYS = env.COMP_OFF_VALID_DAYS;
 const MAX_CARRY_YEARS = 10; // how far back SL carry-forward is computed
 
 export interface LeavePolicy {
@@ -29,6 +28,7 @@ export interface LeavePolicy {
   sl_per_year: number;
   ol_per_year: number;
   el_per_month: number;
+  comp_off_valid_days: number;
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -54,12 +54,13 @@ export async function getPolicy(companyId: number): Promise<LeavePolicy> {
     sl_per_year: Number(p.sl_per_year),
     ol_per_year: Number(p.ol_per_year),
     el_per_month: Number(p.el_per_month),
+    comp_off_valid_days: Number(p.comp_off_valid_days),
   };
 }
 
 export async function updatePolicy(
   companyId: number,
-  { clPerYear, slPerYear, olPerYear, elPerMonth }: { clPerYear: number; slPerYear: number; olPerYear: number; elPerMonth: number },
+  { clPerYear, slPerYear, olPerYear, elPerMonth, compOffValidDays }: { clPerYear: number; slPerYear: number; olPerYear: number; elPerMonth: number; compOffValidDays?: number },
 ) {
   await getPolicy(companyId); // make sure the row exists
   await db
@@ -69,6 +70,7 @@ export async function updatePolicy(
       sl_per_year: String(slPerYear),
       ol_per_year: String(olPerYear),
       el_per_month: String(elPerMonth),
+      ...(compOffValidDays != null ? { comp_off_valid_days: compOffValidDays } : {}),
       updated_at: sql`now()`,
     })
     .where(eq(leavePolicies.company_id, companyId));
@@ -142,8 +144,9 @@ async function slCarryForward(cal: WorkCalendar, companyId: number, employee: Em
 
 // Comp off: weekly offs / holidays worked in the validity window, minus comp
 // off leave days (pending + approved) taken in that window.
-async function compOffBalance(cal: WorkCalendar, companyId: number, employeeId: number, today: string) {
-  const from = iso(new Date(new Date(`${today}T00:00:00Z`).getTime() - COMP_OFF_VALID_DAYS * 86400000));
+async function compOffBalance(cal: WorkCalendar, companyId: number, employeeId: number, today: string, validDays?: number) {
+  const days = validDays ?? (await getPolicy(companyId)).comp_off_valid_days;
+  const from = iso(new Date(new Date(`${today}T00:00:00Z`).getTime() - days * 86400000));
   const worked = await db
     .select({ date: attendance.date })
     .from(attendance)
@@ -165,7 +168,7 @@ async function compOffBalance(cal: WorkCalendar, companyId: number, employeeId: 
   // Comp off leaves can be taken on future working days, so count from the window start onwards
   const used = await usedDays(cal, companyId, employeeId, "comp_off", from, "9999-12-31");
   const earned = earnedDates.length;
-  return { quota: earned, used, available: Math.max(0, earned - used), earnedDates, validDays: COMP_OFF_VALID_DAYS };
+  return { quota: earned, used, available: Math.max(0, earned - used), earnedDates, validDays: days };
 }
 
 // { cl: { quota, used, available }, sl: {…, carriedForward}, ol: {…}, el: {…, month}, comp_off: {…} }
@@ -189,7 +192,7 @@ export async function getBalances(companyId: number, employee: Employee, asOf: s
     sl: { ...(await make("sl", policy.sl_per_year + carried, fy)), carriedForward: carried },
     ol: await make("ol", olQuota, fy),
     el: { ...(await make("el", policy.el_per_month, month)), month: asOf.slice(0, 7) },
-    comp_off: await compOffBalance(cal, companyId, employee.id, today),
+    comp_off: await compOffBalance(cal, companyId, employee.id, today, policy.comp_off_valid_days),
   };
 }
 

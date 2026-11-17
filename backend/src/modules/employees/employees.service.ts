@@ -1,6 +1,7 @@
 // Every query takes companyId and includes it in the WHERE clause. This is what
 // enforces multi-tenancy at the data layer — even if a stray id got through,
 // these queries never touch another company's rows.
+import { stamp } from "../../utils/stamp.js";
 import {
   and,
   asc,
@@ -378,10 +379,10 @@ export async function createEmployee(
 ) {
   assertDates(input);
   await assertValidManager(companyId, input.managerId);
-  const employee = await insertEmployee(
-    companyId,
-    await toColumns(companyId, actor, input),
-  );
+  const employee = await insertEmployee(companyId, {
+    ...(await toColumns(companyId, actor, input)),
+    ...stamp.created(actor),
+  });
   audit(actor, {
     companyId,
     action: "employee.created",
@@ -422,13 +423,16 @@ export async function updateEmployee(
   await db
     .update(employees)
     .set(
-      await toColumns(companyId, actor, input, {
-        branchId: existing.branch_id,
-        designationId: existing.designation_id,
-        departmentId: existing.department_id,
-        shiftId: existing.shift_id,
-        roleId: existing.role_id,
-      }),
+      {
+        ...(await toColumns(companyId, actor, input, {
+          branchId: existing.branch_id,
+          designationId: existing.designation_id,
+          departmentId: existing.department_id,
+          shiftId: existing.shift_id,
+          roleId: existing.role_id,
+        })),
+        ...stamp.updated(actor),
+      },
     )
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   const employee = await getEmployeeById(companyId, id);

@@ -2,7 +2,10 @@ import { and, asc, desc, eq, getTableColumns, gte, inArray, lte, ne, or } from "
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
 import { can } from "../../utils/can.js";
-import { employees, leaveRequests, users } from "../../db/schema.js";
+import { employees, leaveRequests, leaveTypes, users } from "../../db/schema.js";
+import { env } from "../../config/env.js";
+import { getImageKit } from "../../config/imagekit.js";
+import { storeFile, type UploadedFile } from "../upload/upload.service.js";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../utils/httpErrors.js";
 import { localDate } from "../../utils/workday.js";
 import { audit } from "../../utils/audit.js";
@@ -11,7 +14,7 @@ import { notifyLeaveCancelled, notifyLeaveDecided, notifyLeaveRequested } from "
 import { approverOf, canDecideFor } from "../employees/approver.js";
 import { findEmployeeById, getEmployeeById } from "../employees/employees.service.js";
 import { findDayOffHoliday } from "../holidays/holidays.service.js";
-import { balanceError, getBalances } from "./leaveBalance.service.js";
+import { checkLeave, getBalances } from "./leaveBalance.service.js";
 import type { ApplyLeaveInput, LeaveStatusInput } from "./leaves.schema.js";
 
 // Leave rows with the employee's name and who decides them (their reporting
@@ -25,6 +28,10 @@ const withEmployeeName = {
   manager_id: employees.manager_id,
   manager_name: manager.name,
   manager_status: manager.status,
+  // The company's own name / short name / colour for the type
+  leave_type_name: leaveTypes.name,
+  leave_type_short: leaveTypes.short_name,
+  leave_type_color: leaveTypes.color,
 };
 
 type LeaveRow = Awaited<ReturnType<typeof leavesWhere>>[number];
@@ -39,6 +46,9 @@ function present(user: Express.AuthUser, { manager_status: _status, ...row }: Le
   return { ...row, approver: approverOf({ ...row, manager_status: _status }), can_decide: canDecide(user, { ...row, manager_status: _status }) };
 }
 
+// The request's type in the company's leave types (for its name and colour)
+const typeJoin = and(eq(leaveTypes.company_id, leaveRequests.company_id), eq(leaveTypes.code, leaveRequests.leave_type));
+
 function leavesWhere(...conditions: Parameters<typeof and>) {
   return db
     .select(withEmployeeName)
@@ -46,6 +56,7 @@ function leavesWhere(...conditions: Parameters<typeof and>) {
     .innerJoin(employees, eq(employees.id, leaveRequests.employee_id))
     .leftJoin(manager, eq(manager.id, employees.manager_id))
     .leftJoin(reviewer, eq(reviewer.id, leaveRequests.reviewed_by))
+    .leftJoin(leaveTypes, typeJoin)
     .where(and(...conditions))
     .orderBy(desc(leaveRequests.created_at));
 }
@@ -60,8 +71,9 @@ export function findOverlappingLeaves(
   { includeRejected = false } = {},
 ) {
   return db
-    .select()
+    .select({ ...getTableColumns(leaveRequests), leave_type_name: leaveTypes.name, leave_type_short: leaveTypes.short_name, leave_type_color: leaveTypes.color })
     .from(leaveRequests)
+    .leftJoin(leaveTypes, typeJoin)
     .where(
       and(
         eq(leaveRequests.company_id, companyId),
@@ -83,6 +95,7 @@ export function findLeavesForEmployeeInRange(companyId: number, employeeId: numb
     .innerJoin(employees, eq(employees.id, leaveRequests.employee_id))
     .leftJoin(manager, eq(manager.id, employees.manager_id))
     .leftJoin(reviewer, eq(reviewer.id, leaveRequests.reviewed_by))
+    .leftJoin(leaveTypes, typeJoin)
     .where(
       and(
         eq(leaveRequests.company_id, companyId),
@@ -140,16 +153,20 @@ export async function applyLeave(companyId: number, user: Express.AuthUser, inpu
 
   const from = fromDate.slice(0, 10);
   const to = toDate.slice(0, 10);
-  const error = (await leaveRuleError(companyId, employeeId, from, to, halfDay)) || (await balanceError(companyId, employee, leaveType, from, to, halfDay));
-  if (error) throw new BadRequestError(error);
+  const ruleError = await leaveRuleError(companyId, employeeId, from, to, halfDay);
+  if (ruleError) throw new BadRequestError(ruleError);
+  const attachments = input.attachments ?? [];
+  for (const f of attachments) if (!f.path.startsWith(`${env.IMAGEKIT_FOLDER}/companies/${companyId}/leave/`)) throw new BadRequestError("Unknown file");
+  const check = await checkLeave(companyId, { employee, type: leaveType, from, to, halfDay, attachments: attachments.length, forSomeoneElse: employeeId !== user.employeeId });
+  if ("error" in check) throw new BadRequestError(check.error);
 
   const [leave] = await db
     .insert(leaveRequests)
-    .values({ company_id: companyId, employee_id: employeeId, from_date: from, to_date: to, reason: reason ?? null, leave_type: leaveType, half_day: halfDay })
+    .values({ company_id: companyId, employee_id: employeeId, from_date: from, to_date: to, reason: reason ?? null, leave_type: check.type, half_day: halfDay, attachments })
     .returning();
   const [row] = await leavesWhere(eq(leaveRequests.company_id, companyId), eq(leaveRequests.id, leave.id));
   void notifyLeaveRequested(row, user.id);
-  return { leave: present(user, row) };
+  return { leave: present(user, row), note: check.note ?? null };
 }
 
 // The employee's reporting manager decides. If they have no manager set (or
@@ -231,4 +248,21 @@ export async function allBalances(companyId: number) {
     });
   }
   return { leaveYear: rows[0]?.balances.leaveYear ?? null, employees: rows };
+}
+
+// ---- Supporting documents ----
+
+export async function uploadLeaveFile(companyId: number, user: Express.AuthUser, file: UploadedFile | undefined) {
+  const stored = await storeFile("leave-document", { companyId, employeeId: user.employeeId }, file);
+  return { file: { path: stored.filePath, name: stored.fileName } };
+}
+
+// A short-lived link to a request's document (the employee, their approvers and HR)
+export async function leaveFile(companyId: number, user: Express.AuthUser, id: number, index: number) {
+  const [row] = await leavesWhere(eq(leaveRequests.company_id, companyId), eq(leaveRequests.id, id));
+  if (!row) throw new NotFoundError("Leave request not found");
+  if (row.employee_id !== user.employeeId && !can(user, "leave.viewAll") && !canDecide(user, row)) throw new ForbiddenError("You can't see this file");
+  const f = row.attachments[index];
+  if (!f) throw new NotFoundError("File not found");
+  return { url: getImageKit().url({ path: f.path, signed: true, expireSeconds: 300 }), name: f.name };
 }

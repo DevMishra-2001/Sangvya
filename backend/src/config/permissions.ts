@@ -54,6 +54,10 @@ export const PERMISSION_KEYS = [
   "performance.manageCycles",
   "tasks.assign",
   "tasks.assignAnyone",
+  "tickets.viewAll",
+  "tickets.settings",
+  "attendance.settings",
+  "leave.settings",
   "announcements.manage",
   "reports.attendance",
   "reports.leave",
@@ -128,6 +132,9 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   "reports-payroll-register": ["reports.payroll"],
   "reports-employee-master": ["reports.people"],
   "reports-settings": ["reports.settings"],
+  "ticket-settings": ["tickets.settings"],
+  "attendance-settings": ["attendance.settings", "employees.view"],
+  "leave-settings": ["leave.settings", "leavePolicy.manage"],
 };
 
 // Company-wide powers that come with the role itself
@@ -137,6 +144,7 @@ const COMPANY_WIDE: Permission[] = [
   "leave.applyForOthers",
   "leave.approveUnassigned",
   "tasks.assignAnyone",
+  "tickets.viewAll",
   "announcements.manage",
   "employees.view",
   "dashboard.company",

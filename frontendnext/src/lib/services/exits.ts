@@ -1,3 +1,4 @@
+import type { AuditNames } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import type { ExitReason, Id } from "@/lib/types";
 
@@ -28,7 +29,7 @@ export interface ExitRow {
 
 export interface ExitDetail {
   exit: ExitRow;
-  record: {
+  record: AuditNames & {
     interview_notes: string | null;
     interview_rating: number | null;
     would_rejoin: boolean | null;

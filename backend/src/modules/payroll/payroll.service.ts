@@ -22,7 +22,10 @@ import {
 import { audit } from "../../utils/audit.js";
 import { BadRequestError, ConflictError, NotFoundError } from "../../utils/httpErrors.js";
 import { calculatePayslip, type Adjustment, type Deductions } from "../../utils/payrollCalculations.js";
-import { localDate } from "../../utils/workday.js";
+import { localDate, localTime } from "../../utils/workday.js";
+import { getAttendanceSettings, type AttendanceSettings } from "../attendance/attendanceSettings.service.js";
+import { rulesFor, toMinutes } from "../shifts/shiftRules.js";
+import { leaveTypesOf } from "../leaves/leaveBalance.service.js";
 import { workCalendar, type WorkCalendar } from "../companies/workCalendar.js";
 import { getEmployeeById } from "../employees/employees.service.js";
 import { notify } from "../notifications/notify.js";
@@ -135,6 +138,8 @@ interface MonthFacts {
   today: string;
   dayOffHolidays: Set<string>;
   tracksAttendance: boolean; // Attendance module off = no check-ins to judge LOP by
+  attendanceRules: AttendanceSettings; // late / early-leaving penalty
+  unpaidLeave: Set<string>; // leave types that are loss of pay
 }
 
 interface Person {
@@ -157,11 +162,11 @@ async function paidDaysFor(companyId: number, person: Person, m: MonthFacts) {
 
   const [days, leaves] = await Promise.all([
     db
-      .select({ date: attendance.date, status: attendance.status, punch_in: attendance.punch_in })
+      .select({ date: attendance.date, status: attendance.status, punch_in: attendance.punch_in, punch_out: attendance.punch_out, late: attendance.late_minutes })
       .from(attendance)
       .where(and(eq(attendance.company_id, companyId), eq(attendance.employee_id, person.id), between(attendance.date, first, last))),
     db
-      .select({ from: leaveRequests.from_date, to: leaveRequests.to_date, half: leaveRequests.half_day })
+      .select({ from: leaveRequests.from_date, to: leaveRequests.to_date, half: leaveRequests.half_day, type: leaveRequests.leave_type })
       .from(leaveRequests)
       .where(
         and(
@@ -174,7 +179,8 @@ async function paidDaysFor(companyId: number, person: Person, m: MonthFacts) {
       ),
   ]);
   const worked = new Map<string, number>();
-  for (const d of days) worked.set(d.date, d.punch_in || d.status === "present" ? 1 : d.status === "half" ? 0.5 : 0);
+  // The day's status wins (half day / absent from Attendance Settings or HR), else a check-in counts as present
+  for (const d of days) worked.set(d.date, d.status === "half" ? 0.5 : d.status === "absent" ? 0 : d.punch_in || d.status === "present" ? 1 : 0);
 
   let paid = 0;
   let lop = 0;
@@ -184,10 +190,24 @@ async function paidDaysFor(companyId: number, person: Person, m: MonthFacts) {
       paid += 1;
       continue;
     }
-    const onLeave = leaves.filter((l) => l.from <= day && l.to >= day).reduce((s, l) => s + (l.half ? 0.5 : 1), 0);
+    // Paid leave covers the day; unpaid leave types stay loss of pay
+    const onLeave = leaves.filter((l) => l.from <= day && l.to >= day && !m.unpaidLeave.has(l.type)).reduce((s, l) => s + (l.half ? 0.5 : 1), 0);
     const got = Math.min(1, (worked.get(day) ?? 0) + onLeave);
     paid += got;
     lop += 1 - got;
+  }
+
+  // Every N late check-ins (and early check-outs, if counted) cut a half / full day
+  const r = m.attendanceRules;
+  if (r.late_penalty_enabled && r.late_marks_per_penalty > 0) {
+    const shift = await rulesFor(companyId, person.id);
+    const overnight = toMinutes(shift.end) <= toMinutes(shift.start);
+    const leftEarly = (out: Date | null) =>
+      Boolean(out) && !overnight && toMinutes(localTime(out!)) < toMinutes(shift.end) - r.early_leaving_grace_minutes;
+    const marks = days.filter((d) => (d.late ?? 0) > 0).length + (r.count_early_leaving ? days.filter((d) => d.punch_in && leftEarly(d.punch_out)).length : 0);
+    const cut = Math.min(paid, Math.floor(marks / r.late_marks_per_penalty) * (r.late_penalty === "full" ? 1 : 0.5));
+    paid -= cut;
+    lop += cut;
   }
   return { paidDays: paid, lopDays: lop };
 }
@@ -248,6 +268,8 @@ async function computeRun(companyId: number, runId: number, month: number, year:
     today: localDate(),
     dayOffHolidays: new Set(holidayRows.map((h) => h.date)),
     tracksAttendance: !(await disabledModules(companyId)).has("attendance"),
+    attendanceRules: await getAttendanceSettings(companyId),
+    unpaidLeave: new Set((await leaveTypesOf(companyId)).filter((t) => !t.is_paid).map((t) => t.code)),
   };
   const deductions: Deductions = { pf: settings.pfEnabled, esi: settings.esiEnabled, pt: settings.ptEnabled, tds: settings.tdsEnabled, pfCeiling: settings.pfCeiling };
 

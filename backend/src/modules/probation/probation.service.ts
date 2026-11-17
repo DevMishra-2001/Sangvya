@@ -1,4 +1,5 @@
 // Probation: who's on it, when it ends, and the decision (confirm / extend / not confirmed)
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, lte, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../config/db.js";
@@ -95,7 +96,7 @@ export async function startProbation(companyId: number, actor: Express.AuthUser,
   if (p.status === "exited") throw new BadRequestError(`${p.name} has left the company`);
   if (p.probation_status && (ACTIVE as readonly string[]).includes(p.probation_status)) throw new BadRequestError(`${p.name} is already on probation`);
   if (input.endDate <= p.join_date) throw new BadRequestError("Probation must end after the joining date");
-  await db.update(employees).set({ probation_status: "on_probation", probation_end_date: input.endDate, confirmed_on: null }).where(eq(employees.id, p.id));
+  await db.update(employees).set({ ...stamp.updated(actor), probation_status: "on_probation", probation_end_date: input.endDate, confirmed_on: null }).where(eq(employees.id, p.id));
   await log(companyId, actor, p.id, "started", { newEnd: input.endDate, notes: input.notes });
   audit(actor, { companyId, action: "probation.started", target: ["employee", p.id], summary: `Put ${p.name} on probation until ${input.endDate}` });
   return { person: await findPerson(companyId, p.id) };
@@ -104,7 +105,7 @@ export async function startProbation(companyId: number, actor: Express.AuthUser,
 export async function confirmProbation(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof confirmSchema>) {
   const p = await findPerson(companyId, id);
   assertActive(p);
-  await db.update(employees).set({ probation_status: "confirmed", confirmed_on: input.confirmedOn }).where(eq(employees.id, id));
+  await db.update(employees).set({ ...stamp.updated(actor), probation_status: "confirmed", confirmed_on: input.confirmedOn }).where(eq(employees.id, id));
   await log(companyId, actor, id, "confirmed", { notes: input.notes });
   audit(actor, { companyId, action: "probation.confirmed", target: ["employee", id], summary: `Confirmed ${p.name} (from ${input.confirmedOn})` });
   await notify({
@@ -124,7 +125,7 @@ export async function extendProbation(companyId: number, actor: Express.AuthUser
   const p = await findPerson(companyId, id);
   assertActive(p);
   if (p.probation_end_date && input.newEnd <= p.probation_end_date) throw new BadRequestError(`The new end must be after ${p.probation_end_date}`);
-  await db.update(employees).set({ probation_status: "extended", probation_end_date: input.newEnd }).where(eq(employees.id, id));
+  await db.update(employees).set({ ...stamp.updated(actor), probation_status: "extended", probation_end_date: input.newEnd }).where(eq(employees.id, id));
   await log(companyId, actor, id, "extended", { oldEnd: p.probation_end_date, newEnd: input.newEnd, notes: input.notes });
   audit(actor, { companyId, action: "probation.extended", target: ["employee", id], summary: `Extended ${p.name}'s probation to ${input.newEnd}` });
   return { person: await findPerson(companyId, id) };
@@ -133,7 +134,7 @@ export async function extendProbation(companyId: number, actor: Express.AuthUser
 export async function notConfirm(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof notConfirmedSchema>) {
   const p = await findPerson(companyId, id);
   assertActive(p);
-  await db.update(employees).set({ probation_status: "not_confirmed" }).where(eq(employees.id, id));
+  await db.update(employees).set({ ...stamp.updated(actor), probation_status: "not_confirmed" }).where(eq(employees.id, id));
   await log(companyId, actor, id, "not_confirmed", { notes: input.notes });
   audit(actor, { companyId, action: "probation.not_confirmed", target: ["employee", id], summary: `Did not confirm ${p.name} after probation` });
   if (input.lastWorkingDay) await startExit(companyId, actor, id, { lastWorkingDay: input.lastWorkingDay, reason: "terminated", notes: `Not confirmed after probation: ${input.notes}` });
@@ -171,7 +172,7 @@ export async function syncProbationFromForm(companyId: number, actor: Express.Au
     .from(employees)
     .where(and(eq(employees.company_id, companyId), eq(employees.id, employeeId)));
   if (!e?.end || e.status) return;
-  await db.update(employees).set({ probation_status: "on_probation" }).where(eq(employees.id, employeeId));
+  await db.update(employees).set({ ...stamp.updated(actor), probation_status: "on_probation" }).where(eq(employees.id, employeeId));
   await log(companyId, actor, employeeId, "started", { newEnd: e.end });
 }
 

@@ -1,4 +1,6 @@
 // A company's departments ("Engineering", "Finance").
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, count, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
@@ -34,6 +36,7 @@ async function listRows(companyId: number, id?: number) {
       head_name: head.name,
       is_active: departments.is_active,
       employee_count: sql<number>`(${count(employees.id)})::int`,
+      ...auditNames(departments),
     })
     .from(departments)
     .leftJoin(employees, eq(employees.department_id, departments.id))
@@ -52,7 +55,7 @@ export async function createDepartment(companyId: number, actor: Express.AuthUse
   await assertHead(companyId, input.headId);
   const [row] = await db
     .insert(departments)
-    .values({ company_id: companyId, name: input.name, code: input.code, head_id: input.headId ?? null, is_active: input.isActive })
+    .values({ company_id: companyId, name: input.name, code: input.code, head_id: input.headId ?? null, is_active: input.isActive, ...stamp.created(actor) })
     .returning({ id: departments.id });
   audit(actor, { companyId, action: "department.created", target: ["department", row.id], summary: `Added the department ${input.name}` });
   const [department] = await listRows(companyId, row.id);
@@ -65,7 +68,7 @@ export async function updateDepartment(companyId: number, actor: Express.AuthUse
   await assertHead(companyId, input.headId);
   const [row] = await db
     .update(departments)
-    .set({ name: input.name, code: input.code, head_id: input.headId ?? null, is_active: input.isActive })
+    .set({ name: input.name, code: input.code, head_id: input.headId ?? null, is_active: input.isActive, ...stamp.updated(actor) })
     .where(and(eq(departments.company_id, companyId), eq(departments.id, id)))
     .returning({ id: departments.id });
   if (!row) throw new NotFoundError("Department not found");

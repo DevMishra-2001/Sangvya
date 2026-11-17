@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { run } from "@/lib/api/run";
-import { BALANCE_TYPES, SHORT_LEAVE_LABELS } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
 import { leavesService } from "@/lib/services/leaves";
 import type { EmployeeBalances } from "@/lib/types";
@@ -23,6 +22,9 @@ export function LeaveBalancesTable() {
   }, []);
 
   if (!data) return <Skeleton className="h-64 w-full rounded-xl" />;
+  // Columns: every balance type anyone has, in the company's order
+  const columns: { code: string; short: string }[] = [];
+  for (const r of data.employees) for (const b of r.balances.types ?? []) if (b.code && !columns.some((c) => c.code === b.code)) columns.push({ code: b.code, short: b.short ?? b.code });
   const rows: EmployeeBalances[] = data.employees.filter((r) => !q.trim() || r.employee.name.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
@@ -31,7 +33,7 @@ export function LeaveBalancesTable() {
         <Input placeholder="Search by name…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" aria-label="Search balances" />
         {data.leaveYear && (
           <span className="text-xs text-muted-foreground">
-            Leave year {fmtDate(data.leaveYear.start)} – {fmtDate(data.leaveYear.end)} ({data.leaveYear.kind}) · EL is this month&apos;s · available / quota
+            Leave year {fmtDate(data.leaveYear.start)} – {fmtDate(data.leaveYear.end)} ({data.leaveYear.kind}) · monthly types are this month&apos;s · available / quota
           </span>
         )}
       </div>
@@ -40,9 +42,9 @@ export function LeaveBalancesTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>
-              {BALANCE_TYPES.map((t) => (
-                <TableHead key={t} className="text-right">
-                  {SHORT_LEAVE_LABELS[t]}
+              {columns.map((c) => (
+                <TableHead key={c.code} className="text-right">
+                  {c.short}
                 </TableHead>
               ))}
             </TableRow>
@@ -59,13 +61,20 @@ export function LeaveBalancesTable() {
                     </span>
                   </Link>
                 </TableCell>
-                {BALANCE_TYPES.map((t) => {
-                  const b = balances[t];
+                {columns.map((c) => {
+                  const b = balances[c.code];
+                  if (!b) return <TableCell key={c.code} className="text-right text-muted-foreground">—</TableCell>;
                   return (
-                    <TableCell key={t} className="text-right tabular-nums">
-                      <span className={b.available === 0 && b.quota > 0 ? "text-destructive" : undefined}>{b.available}</span>
-                      <span className="text-muted-foreground"> / {b.quota}</span>
-                      {t === "sl" && balances.sl.carriedForward > 0 && <span className="block text-xs text-muted-foreground">+{balances.sl.carriedForward} carried</span>}
+                    <TableCell key={c.code} className="text-right tabular-nums">
+                      {b.unlimited ? (
+                        <span className="text-muted-foreground">{b.used} used</span>
+                      ) : (
+                        <>
+                          <span className={b.available === 0 && b.quota > 0 ? "text-destructive" : undefined}>{b.available}</span>
+                          <span className="text-muted-foreground"> / {b.quota}</span>
+                        </>
+                      )}
+                      {(b.carriedForward ?? 0) > 0 && <span className="block text-xs text-muted-foreground">+{b.carriedForward} carried</span>}
                     </TableCell>
                   );
                 })}
@@ -73,7 +82,7 @@ export function LeaveBalancesTable() {
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={BALANCE_TYPES.length + 1} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={columns.length + 1} className="py-8 text-center text-muted-foreground">
                   No one matches “{q}”.
                 </TableCell>
               </TableRow>

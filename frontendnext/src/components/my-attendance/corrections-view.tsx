@@ -16,11 +16,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { run } from "@/lib/api/run";
 import { fmtDate, fmtTime, isoDate } from "@/lib/format";
-import { correctionsService } from "@/lib/services/corrections";
+import { correctionsService, type CorrectionRules } from "@/lib/services/corrections";
 import type { AttendanceCorrection } from "@/lib/types";
 import { useCan, useUser } from "@/stores/auth-store";
 
-const DAYS_BACK = 30;
 const span = (inIso: string | null, outIso: string | null) => (inIso ? `${fmtTime(inIso)} – ${fmtTime(outIso)}` : "No check-in");
 const shift = (iso: string, days: number) => {
   const d = new Date(`${iso}T00:00:00`);
@@ -80,6 +79,7 @@ export function CorrectionsView() {
   const reviewer = user.team_size > 0 || can("attendance.mark");
   const today = isoDate(new Date());
   const [mine, setMine] = useState<AttendanceCorrection[] | null>(null);
+  const [rules, setRules] = useState<CorrectionRules>({ enabled: true, daysBack: 30, perMonth: null });
   const [toReview, setToReview] = useState<AttendanceCorrection[] | null>(null);
   const [date, setDate] = useState("");
   const [punchIn, setPunchIn] = useState("09:00");
@@ -90,7 +90,10 @@ export function CorrectionsView() {
 
   useEffect(() => {
     if (!user.employee_id) return;
-    run(correctionsService.mine).then((r) => setMine(r.ok ? r.data : []));
+    run(correctionsService.mine).then((r) => {
+      setMine(r.ok ? r.data.corrections : []);
+      if (r.ok && r.data.rules) setRules(r.data.rules);
+    });
   }, [user.employee_id]);
   useEffect(() => {
     if (reviewer) run(() => correctionsService.toReview("pending")).then((r) => setToReview(r.ok ? r.data : []));
@@ -159,13 +162,15 @@ export function CorrectionsView() {
         </section>
       )}
 
-      {user.employee_id && (
+      {user.employee_id && !rules.enabled && <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">Attendance corrections are turned off in your company — talk to HR if a day is wrong.</p>}
+
+      {user.employee_id && rules.enabled && (
         <section className="rounded-xl border bg-card">
           <FormHeading title="Ask for a correction" />
           <div className="p-4">
             <FormGrid>
               <FormField label="Day" htmlFor="cor-date" error={errors.date ? { message: errors.date } : undefined} required>
-                <DatePicker id="cor-date" value={date} onChange={setDate} min={shift(today, -DAYS_BACK)} max={shift(today, -1)} invalid={Boolean(errors.date)} />
+                <DatePicker id="cor-date" value={date} onChange={setDate} min={shift(today, -rules.daysBack)} max={shift(today, -1)} invalid={Boolean(errors.date)} />
               </FormField>
               <FormField label="Check-in" htmlFor="cor-in" error={errors.times ? { message: errors.times } : undefined} required>
                 <Input id="cor-in" type="time" value={punchIn} onChange={(e) => setPunchIn(e.target.value)} />
@@ -182,7 +187,7 @@ export function CorrectionsView() {
                 </Button>
               </FormActions>
             </FormGrid>
-            <p className="mt-2 text-xs text-muted-foreground">Any of the last {DAYS_BACK} days. Once approved, the day shows exactly these times and the late mark is worked out again.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Any of the last {rules.daysBack} days{rules.perMonth != null ? `, up to ${rules.perMonth} a month` : ""}. Once approved, the day shows exactly these times and the late mark is worked out again.</p>
           </div>
         </section>
       )}

@@ -17,15 +17,15 @@ export const MODULES: ModuleDef[] = [
     key: "attendance",
     name: "Attendance",
     description: "Check in/out, shifts, late marks, corrections, team attendance and reports",
-    pages: ["attendance", "my-attendance-today", "my-attendance-calendar", "my-attendance-report", "my-attendance-corrections", "shifts", "reports-attendance-register", "reports-late-arrivals"],
-    permissions: ["attendance.self", "attendance.view", "attendance.mark", "shifts.manage", "reports.attendance"],
+    pages: ["attendance", "my-attendance-today", "my-attendance-calendar", "my-attendance-report", "my-attendance-corrections", "shifts", "reports-attendance-register", "reports-late-arrivals", "attendance-settings"],
+    permissions: ["attendance.self", "attendance.view", "attendance.mark", "shifts.manage", "reports.attendance", "attendance.settings"],
   },
   {
     key: "leave",
     name: "Leave",
     description: "Leave requests, approvals and leave policy",
-    pages: ["leave", "leave-policy", "my-attendance-leaves", "my-attendance-holidays", "reports-leave-requests", "reports-leave-balances"],
-    permissions: ["leave.apply", "leave.applyForOthers", "leave.viewAll", "leave.approve", "leave.approveUnassigned", "leavePolicy.manage", "reports.leave"],
+    pages: ["leave", "leave-policy", "my-attendance-leaves", "my-attendance-holidays", "reports-leave-requests", "reports-leave-balances", "leave-settings"],
+    permissions: ["leave.apply", "leave.applyForOthers", "leave.viewAll", "leave.approve", "leave.approveUnassigned", "leavePolicy.manage", "reports.leave", "leave.settings"],
   },
   {
     key: "payroll",
@@ -54,6 +54,13 @@ export const MODULES: ModuleDef[] = [
     description: "Advance requests, expense claims, approvals and reimbursement",
     pages: ["expense-advance", "expense-submit", "expense-view"],
     permissions: ["expense.self", "expense.manage"],
+  },
+  {
+    key: "tickets",
+    name: "Tickets",
+    description: "Tickets with projects, categories, statuses, task tracker, calendar and time log",
+    pages: ["tickets", "ticket-new", "ticket-board", "ticket-calendar", "ticket-settings"],
+    permissions: ["tasks.assign", "tasks.assignAnyone", "tickets.viewAll", "tickets.settings"],
   },
 ];
 

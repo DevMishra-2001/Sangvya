@@ -31,6 +31,7 @@ const ICONS: Record<string, LucideIcon> = {
   correction: History,
   attendance: TimerOff,
   task: Ticket,
+  ticket: Ticket,
   announcement: Megaphone,
   company: ShieldCheck,
   holiday: PartyPopper,

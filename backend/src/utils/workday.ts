@@ -62,6 +62,7 @@ export interface DaySummary {
   onBreak: boolean;
   shortDay: boolean;
   longBreak: boolean;
+  overtimeMinutes: number; // beyond the required time, when overtime is counted
 }
 
 // Totals for one attendance row + its breaks. Open punches/breaks count up to `now`.
@@ -69,12 +70,13 @@ export interface DaySummary {
 export interface DayRules {
   requiredMinutes: number;
   maxBreakMinutes: number;
+  overtimeAfterMinutes?: number | null; // null = not counted
 }
 const DEFAULT_RULES: DayRules = { requiredMinutes: REQUIRED_MINUTES, maxBreakMinutes: MAX_BREAK_MINUTES };
 
 export function summarize(record: DayTimes | null | undefined, breaks: BreakTimes[], now: Date = new Date(), rules: DayRules = DEFAULT_RULES): DaySummary {
   if (!record?.punch_in) {
-    return { totalMinutes: 0, breakMinutes: 0, workMinutes: 0, onBreak: false, shortDay: false, longBreak: false };
+    return { totalMinutes: 0, breakMinutes: 0, workMinutes: 0, onBreak: false, shortDay: false, longBreak: false, overtimeMinutes: 0 };
   }
   const end = record.punch_out || now;
   const totalMinutes = minutesBetween(record.punch_in, end);
@@ -87,6 +89,9 @@ export function summarize(record: DayTimes | null | undefined, breaks: BreakTime
     // Only judged once the day is closed
     shortDay: Boolean(record.punch_out) && totalMinutes < rules.requiredMinutes,
     longBreak: breakMinutes > rules.maxBreakMinutes,
+    // Overtime starts only past the required time + the threshold, then counts from the required time
+    overtimeMinutes:
+      record.punch_out && rules.overtimeAfterMinutes != null && totalMinutes > rules.requiredMinutes + rules.overtimeAfterMinutes ? totalMinutes - rules.requiredMinutes : 0,
   };
 }
 

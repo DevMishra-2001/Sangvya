@@ -91,7 +91,7 @@ export function ExpenseDetailSheet({ target, onClose, onChanged }: { target: Tar
 
   return (
     <Sheet open={Boolean(target)} onOpenChange={(o) => !o && (setData(null), onClose())}>
-      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-xl">
+      <SheetContent className="gap-0 overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
         {!data ? (
           <div className="flex flex-col gap-3 p-6">
             <SheetTitle className="sr-only">Expense</SheetTitle>

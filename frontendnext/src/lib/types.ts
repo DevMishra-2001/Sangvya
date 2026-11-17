@@ -113,7 +113,15 @@ export interface Company {
 }
 
 // A company office / branch; office check-ins must be inside its radius
-export interface Branch {
+// Who added / last changed a record (Created By / Updated By)
+export interface AuditNames {
+  created_at?: ISODateTime | null;
+  created_by_name?: string | null;
+  updated_at?: ISODateTime | null;
+  updated_by_name?: string | null;
+}
+
+export interface Branch extends AuditNames {
   id: Id;
   name: string;
   code: string | null;
@@ -251,14 +259,14 @@ export interface CustomRolesData {
 }
 
 // A company's job title — shown on profiles, no effect on access
-export interface Designation {
+export interface Designation extends AuditNames {
   id: Id;
   name: string;
   is_active: boolean; // inactive = not offered for new employees
   employee_count: number;
 }
 
-export interface Department {
+export interface Department extends AuditNames {
   id: Id;
   name: string;
   code: string | null; // short code, e.g. ENG
@@ -298,7 +306,7 @@ export interface UserRow {
 }
 
 // ---- Employees ----
-export interface Employee {
+export interface Employee extends AuditNames {
   id: Id;
   company_id: Id;
   name: string;
@@ -494,6 +502,7 @@ export interface AttendanceDay {
   onBreak: boolean;
   shortDay: boolean;
   longBreak: boolean;
+  overtimeMinutes?: number; // beyond the required time, when the company counts overtime
   lateMinutes: number | null; // minutes late at the first check-in (0 = on time)
 }
 
@@ -507,14 +516,15 @@ export interface WorkRules {
   graceMinutes?: number;
 }
 
-export interface Holiday {
+export interface Holiday extends AuditNames {
   id: Id;
   date: ISODate;
   name: string;
   is_optional?: boolean; // optional holiday: a working day unless taken with OL
 }
 
-export type LeaveType = "leave" | "cl" | "sl" | "ol" | "el" | "comp_off";
+// A leave type code from the company's Leave Settings (cl, sl, ol, el, comp_off, lop or its own)
+export type LeaveType = string;
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Leave {
@@ -536,23 +546,35 @@ export interface Leave {
   manager_name?: string | null; // their reporting manager
   approver?: "manager" | "hr"; // who decides: the manager, or HR when there's none (or they left)
   can_decide?: boolean; // can I approve / reject it
+  leave_type_name?: string | null; // the company's own name / short name / colour for the type
+  leave_type_short?: string | null;
+  leave_type_color?: string | null;
+  attachments?: { path: string; name: string }[];
 }
 
 export interface Balance {
   quota: number;
   used: number;
   available: number;
+  code?: string;
+  name?: string;
+  short?: string;
+  color?: string;
+  kind?: "quota" | "comp_off" | "unpaid";
+  period?: "year" | "month" | "none";
+  unlimited?: boolean; // no quota: only the days used are shown
+  carriedForward?: number;
+  month?: string;
+  earnedDates?: ISODate[];
+  validDays?: number;
 }
 
-export interface Balances {
+// Keyed by leave type code (cl, sl, …) + the same list in the company's order
+export type Balances = {
   financialYear: { start: ISODate; end: ISODate };
   leaveYear?: { start: ISODate; end: ISODate; kind: "calendar" | "financial" };
-  cl: Balance;
-  sl: Balance & { carriedForward: number };
-  ol: Balance;
-  el: Balance & { month: string };
-  comp_off: Balance & { earnedDates: ISODate[]; validDays: number };
-}
+  types: Balance[];
+} & { [code: string]: Balance | undefined };
 
 export interface TodayResponse {
   date: ISODate;
@@ -561,6 +583,8 @@ export interface TodayResponse {
   holiday: Holiday | null;
   day: AttendanceDay | null;
   rules: WorkRules;
+  // What check-in / check-out must include (Attendance Settings)
+  checkIn?: { photo: "required" | "optional" | "off"; location: "required" | "optional" };
 }
 
 export interface CalendarResponse {
@@ -573,6 +597,7 @@ export interface CalendarResponse {
   balances: Balances;
   rules: WorkRules;
   weeklyOffs?: number[]; // day numbers, 0 = Sunday
+  offSaturdays?: number[]; // Saturdays off by week of the month, e.g. [2, 4]
 }
 
 export type DayFlag =
@@ -616,49 +641,6 @@ export interface LeavePolicy {
   ol_per_year: number;
   el_per_month: number;
   comp_off_valid_days: number;
-}
-
-// ---- Tasks ----
-export type TaskStatus = "todo" | "in_progress" | "done" | "approved";
-export type TaskPriority = "low" | "medium" | "high";
-
-export interface Task {
-  id: Id;
-  title: string;
-  description: string | null;
-  priority: TaskPriority;
-  status: TaskStatus;
-  progress: number;
-  assigned_to: Id;
-  assigned_by: Id | null;
-  assigned_date: ISODate;
-  due_date: ISODate | null;
-  completed_at: ISODateTime | null;
-  approved_by: Id | null;
-  approved_at: ISODateTime | null;
-  updated_at: ISODateTime;
-  assigned_to_name: string;
-  assigned_by_name: string | null;
-  approved_by_name: string | null;
-  overdue: boolean;
-}
-
-export interface TaskStats {
-  total: number;
-  counts: Record<
-    "approved" | "done" | "in_progress" | "todo" | "overdue",
-    number
-  >;
-  weekly: { week: ISODate; completed: number }[];
-  completionRate: number;
-  onTimeRate: number;
-  avgProgress: number;
-}
-
-export interface AssignableEmployee {
-  id: Id;
-  name: string;
-  designation: string | null;
 }
 
 // ---- Announcements ----
@@ -1190,7 +1172,7 @@ export interface MyTeam {
 }
 
 // A company shift (working hours)
-export interface Shift {
+export interface Shift extends AuditNames {
   id: Id;
   name: string;
   start_time: string; // "09:00"

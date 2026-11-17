@@ -4,7 +4,7 @@
 // and the frontend reads snake_case fields (employee_name, punch_in, …).
 //
 // Constraint names follow PostgreSQL's own convention (<table>_<column>_fkey, …).
-import { foreignKey, serial, timestamp, type PgColumn } from "drizzle-orm/pg-core";
+import { foreignKey, integer, serial, timestamp, type PgColumn } from "drizzle-orm/pg-core";
 
 // Auto-increment primary key
 export const id = () => serial("id").primaryKey();
@@ -20,3 +20,18 @@ export function fk(table: string, column: PgColumn, references: PgColumn, onDele
     foreignColumns: [references],
   }).onDelete(onDelete);
 }
+
+// Standard "who added / who last changed it" columns (fill with utils/stamp.ts; FKs: auditFks in auditColumns.ts)
+export const auditColumns = () => ({
+  created_at: createdAt(),
+  created_by: integer("created_by"),
+  updated_at: timestamptz("updated_at").defaultNow(),
+  updated_by: integer("updated_by"),
+});
+
+// For tables that already have created_at
+export const stampColumns = () => ({
+  created_by: integer("created_by"),
+  updated_at: timestamptz("updated_at").defaultNow(),
+  updated_by: integer("updated_by"),
+});

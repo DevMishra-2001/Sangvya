@@ -3,6 +3,7 @@ import { db } from "../../../config/db.js";
 import { attendance, holidays, leaveRequests } from "../../../db/schema.js";
 import { localDate, localTime } from "../../../utils/workday.js";
 import { workCalendar } from "../../companies/workCalendar.js";
+import { leaveTypesOf } from "../../leaves/leaveBalance.service.js";
 import type { Cell, Column, ReportDef } from "../types.js";
 import { departmentFilter, deptId, deptName, monthFilter, monthOf, peopleQuery, slug, subtitle } from "./common.js";
 
@@ -20,11 +21,15 @@ export const attendanceRegister: ReportDef = {
     const m = monthOf(filters);
     const dept = deptId(filters);
     const today = localDate();
-    const [people, cal, hols] = await Promise.all([
+    const [people, cal, hols, types] = await Promise.all([
       peopleQuery(companyId, { departmentId: dept, during: m }),
       workCalendar(companyId),
       db.select({ date: holidays.date }).from(holidays).where(and(eq(holidays.company_id, companyId), eq(holidays.is_optional, false), between(holidays.date, m.start, m.end))),
+      leaveTypesOf(companyId),
     ]);
+    // The company's short names; unpaid types count as loss of pay
+    const typeCode = new Map(types.map((t) => [t.code, t.short_name]));
+    const unpaid = new Set(types.filter((t) => !t.is_paid).map((t) => t.code));
     const ids = people.map((p) => p.id);
     const [days, leaves] = ids.length
       ? await Promise.all([
@@ -59,13 +64,13 @@ export const attendanceRegister: ReportDef = {
         }
         const a = days.find((d) => d.employee_id === p.id && d.date === day);
         const l = leaves.find((x) => x.employee_id === p.id && x.from <= day && x.to >= day);
-        const worked = a?.punch_in || a?.status === "present" ? 1 : a?.status === "half" ? 0.5 : 0;
-        const onLeave = l ? (l.half ? 0.5 : 1) : 0;
+        const worked = a?.status === "half" ? 0.5 : a?.status === "absent" ? 0 : a?.punch_in || a?.status === "present" ? 1 : 0;
+        const onLeave = l && !unpaid.has(l.type) ? (l.half ? 0.5 : 1) : 0;
         if ((a?.late ?? 0) > 0) late++;
         present += worked;
         leave += Math.min(onLeave, 1 - worked);
         lop += Math.max(0, 1 - worked - onLeave);
-        row[col] = worked === 1 ? "P" : l ? `${l.half ? "½" : ""}${LEAVE_CODE[l.type] ?? "L"}` : worked ? "HD" : "A";
+        row[col] = worked === 1 ? "P" : l ? `${l.half ? "½" : ""}${typeCode.get(l.type) ?? LEAVE_CODE[l.type] ?? "L"}` : worked ? "HD" : "A";
       }
       Object.assign(row, { present, leave, lop, late, off });
       return row;

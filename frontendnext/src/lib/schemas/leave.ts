@@ -6,7 +6,7 @@ export const leaveSchema = z
     employeeId: optionalId,
     fromDate: isoDate("Choose a start date"),
     toDate: z.string(), // checked below (not needed for a half day)
-    leaveType: z.enum(["leave", "cl", "sl", "ol", "el", "comp_off"]),
+    leaveType: z.string().min(1, "Pick a leave type"),
     // "" = full day(s); first / second = half of one day (counts 0.5)
     halfDay: z.enum(["", "first", "second"]),
     reason: z.string().trim(),
@@ -18,7 +18,7 @@ export const leaveSchema = z
 
 // Applying from the calendar: one day, reason required
 export const dayLeaveSchema = z.object({
-  leaveType: z.enum(["cl", "sl", "ol", "el", "comp_off"]),
+  leaveType: z.string().min(1, "Pick a leave type"),
   halfDay: z.enum(["", "first", "second"]).transform((v) => v || undefined),
   reason: z.string().trim().min(1, "Add a short description"),
 });
@@ -34,7 +34,7 @@ export const leavePolicySchema = z.object({
 });
 
 export type LeaveForm = z.input<typeof leaveSchema>;
-export type LeavePayload = Omit<z.output<typeof leaveSchema>, "employeeId" | "halfDay"> & { employeeId?: number | null; halfDay?: "first" | "second" };
+export type LeavePayload = Omit<z.output<typeof leaveSchema>, "employeeId" | "halfDay"> & { employeeId?: number | null; halfDay?: "first" | "second"; attachments?: { path: string; name: string }[] };
 export type LeavePolicyForm = z.input<typeof leavePolicySchema>;
 export type LeavePolicyInput = z.output<typeof leavePolicySchema>;
 

@@ -9,7 +9,8 @@ import {
   varchar,
   integer,
 } from "drizzle-orm/pg-core";
-import { createdAt, fk, id, timestamptz } from "../columns.js";
+import { createdAt, fk, id, stampColumns, timestamptz } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 import { departments } from "./department.schema.js";
 import { designations } from "./designation.schema.js";
@@ -71,6 +72,7 @@ export const employees = pgTable(
     join_date: date("join_date"),
     salary: numeric("salary", { precision: 12, scale: 2 }),
     created_at: createdAt(),
+    ...stampColumns(),
     // Who this employee reports to — their manager approves leave and gets attendance alerts
     manager_id: integer("manager_id"),
     date_of_birth: date("date_of_birth"),
@@ -133,6 +135,7 @@ export const employees = pgTable(
     confirmed_on: date("confirmed_on"),
   },
   (t) => [
+    ...auditFks("employees", t),
     fk("employees", t.company_id, companies.id, "cascade"),
     fk("employees", t.manager_id, t.id, "set null"),
     fk("employees", t.designation_id, designations.id, "set null"),

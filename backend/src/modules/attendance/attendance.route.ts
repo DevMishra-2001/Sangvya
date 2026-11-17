@@ -17,7 +17,9 @@ import {
   correctionDecisionSchema,
   correctionListQuery,
   markAttendanceSchema,
+  attendanceSettingsSchema,
 } from "./attendance.schema.js";
+import { attendanceSettingsView, saveAttendanceSettings } from "./attendanceSettings.service.js";
 
 // Machine exports (CSV / Excel / .txt / .dat), read from memory
 const machineUpload = multer({
@@ -31,6 +33,10 @@ const machineUpload = multer({
 
 const router = Router();
 router.use(authenticate, scopeToCompany);
+
+// ---- Attendance Settings (company rules) ----
+router.get("/settings", requirePermission("attendance.settings"), asyncHandler(async (req, res) => res.json(await attendanceSettingsView(tenant(req).companyId))));
+router.put("/settings", requirePermission("attendance.settings"), validate({ body: attendanceSettingsSchema }), asyncHandler(async (req, res) => res.json(await saveAttendanceSettings(tenant(req).companyId, currentUser(req), req.body))));
 
 // ---- Biometric machine import: check first, then save ----
 router.post(

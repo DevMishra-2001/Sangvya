@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -119,6 +120,8 @@ export function DesignationsView() {
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Designation</TableHead>
                 <TableHead className="w-28 text-right">Employees</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead>Updated By</TableHead>
                 <TableHead className="w-28">Status</TableHead>
                 {canManage && <TableHead className="w-24 text-right">Actions</TableHead>}
               </TableRow>
@@ -129,6 +132,12 @@ export function DesignationsView() {
                   <TableCell className="text-muted-foreground tabular-nums">{i + 1}</TableCell>
                   <TableCell className={cn("font-medium", !d.is_active && "text-muted-foreground")}>{d.name}</TableCell>
                   <TableCell className="text-right tabular-nums">{d.employee_count}</TableCell>
+                  <TableCell>
+                    <AuditCell name={d.created_by_name} at={d.created_by_name ? d.created_at : null} />
+                  </TableCell>
+                  <TableCell>
+                    <AuditCell name={d.updated_by_name} at={d.updated_by_name ? d.updated_at : null} />
+                  </TableCell>
                   <TableCell>
                     <Badge variant={d.is_active ? "default" : "secondary"} className="w-16 justify-center">
                       {d.is_active ? "Active" : "Inactive"}

@@ -2,7 +2,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { companies, employees, shifts } from "../../db/schema.js";
-import { MAX_BREAK_MINUTES, REQUIRED_MINUTES, TIMEZONE } from "../../utils/workday.js";
+import { TIMEZONE } from "../../utils/workday.js";
+import { getAttendanceSettings, type AttendanceSettings } from "../attendance/attendanceSettings.service.js";
 
 export interface ShiftRules {
   shiftId: number | null;
@@ -12,6 +13,7 @@ export interface ShiftRules {
   graceMinutes: number;
   requiredMinutes: number; // check-in → check-out, breaks included
   maxBreakMinutes: number;
+  overtimeAfterMinutes: number | null; // null = overtime not counted (Attendance Settings)
 }
 
 export const toMinutes = (hhmm: string) => {
@@ -26,7 +28,8 @@ export const shiftLength = (start: string, end: string) => {
 };
 
 type ShiftRow = typeof shifts.$inferSelect;
-const fromShift = (s: ShiftRow): ShiftRules => ({
+const overtimeOf = (a: AttendanceSettings) => (a.overtime_enabled ? a.overtime_after_minutes : null);
+const fromShift = (s: ShiftRow, a: AttendanceSettings): ShiftRules => ({
   shiftId: s.id,
   shiftName: s.name,
   start: s.start_time,
@@ -34,9 +37,11 @@ const fromShift = (s: ShiftRow): ShiftRules => ({
   graceMinutes: s.grace_minutes,
   requiredMinutes: shiftLength(s.start_time, s.end_time),
   maxBreakMinutes: s.break_minutes,
+  overtimeAfterMinutes: overtimeOf(a),
 });
 
-async function companyFallback(companyId: number): Promise<ShiftRules> {
+async function companyFallback(companyId: number, settings?: AttendanceSettings): Promise<ShiftRules> {
+  const a = settings ?? (await getAttendanceSettings(companyId));
   const [c] = await db.select({ start: companies.office_start, end: companies.office_end }).from(companies).where(eq(companies.id, companyId));
   const start = c?.start ?? "09:00";
   const end = c?.end ?? null;
@@ -46,8 +51,9 @@ async function companyFallback(companyId: number): Promise<ShiftRules> {
     start,
     end: end ?? start,
     graceMinutes: 0,
-    requiredMinutes: end ? shiftLength(start, end) : REQUIRED_MINUTES,
-    maxBreakMinutes: MAX_BREAK_MINUTES,
+    requiredMinutes: end ? shiftLength(start, end) : a.default_required_minutes,
+    maxBreakMinutes: a.default_break_minutes,
+    overtimeAfterMinutes: overtimeOf(a),
   };
 }
 
@@ -55,16 +61,17 @@ async function companyFallback(companyId: number): Promise<ShiftRules> {
 export async function rulesForEmployees(companyId: number, employeeIds: number[]): Promise<Map<number, ShiftRules>> {
   const result = new Map<number, ShiftRules>();
   if (!employeeIds.length) return result;
-  const [people, companyShifts] = await Promise.all([
+  const [people, companyShifts, settings] = await Promise.all([
     db.select({ id: employees.id, shift_id: employees.shift_id }).from(employees).where(and(eq(employees.company_id, companyId), inArray(employees.id, employeeIds))),
     db.select().from(shifts).where(eq(shifts.company_id, companyId)),
+    getAttendanceSettings(companyId),
   ]);
   const byId = new Map(companyShifts.map((s) => [s.id, s]));
   const def = companyShifts.find((s) => s.is_default);
-  const fallback = def ? fromShift(def) : await companyFallback(companyId);
+  const fallback = def ? fromShift(def, settings) : await companyFallback(companyId, settings);
   for (const p of people) {
     const own = p.shift_id ? byId.get(p.shift_id) : undefined;
-    result.set(p.id, own ? fromShift(own) : fallback);
+    result.set(p.id, own ? fromShift(own, settings) : fallback);
   }
   return result;
 }
@@ -73,12 +80,18 @@ export async function rulesFor(companyId: number, employeeId: number): Promise<S
   return (await rulesForEmployees(companyId, [employeeId])).get(employeeId) ?? (await companyFallback(companyId));
 }
 
-// Minutes late for a check-in at `at` (0 = on time, including the grace time).
-export function lateMinutes(rules: ShiftRules, at: Date) {
+// Minutes from the shift start to `at` (negative = before the start), in the company's timezone
+export function minutesFromStart(rules: ShiftRules, at: Date) {
   const local = at.toLocaleTimeString("en-GB", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit", hour12: false });
   let diff = toMinutes(local) - toMinutes(rules.start);
   if (diff > 720) diff -= 1440;
   if (diff < -720) diff += 1440;
+  return diff;
+}
+
+// Minutes late for a check-in at `at` (0 = on time, including the grace time).
+export function lateMinutes(rules: ShiftRules, at: Date) {
+  const diff = minutesFromStart(rules, at);
   return diff > rules.graceMinutes ? diff : 0;
 }
 
@@ -90,4 +103,5 @@ export const rulesPayload = (r: ShiftRules) => ({
   graceMinutes: r.graceMinutes,
   requiredMinutes: r.requiredMinutes,
   maxBreakMinutes: r.maxBreakMinutes,
+  overtimeAfterMinutes: r.overtimeAfterMinutes,
 });

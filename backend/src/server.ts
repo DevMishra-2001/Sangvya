@@ -5,6 +5,7 @@ import { loadPlatformSettings } from "./modules/platform/platformSettings.servic
 import { startDayCloseJob } from "./jobs/dayClose.job.js";
 import { startEmployeeExitJob } from "./jobs/employeeExit.job.js";
 import { startProbationReminderJob } from "./jobs/probation.job.js";
+import { startTicketAutoCloseJob } from "./jobs/ticketAutoClose.job.js";
 import { startNotificationCleanupJob } from "./jobs/notificationCleanup.job.js";
 
 async function startServer() {
@@ -26,6 +27,7 @@ async function startServer() {
   const stopEmployeeExitJob = env.NODE_ENV !== "test" ? startEmployeeExitJob() : () => {};
   const stopProbationJob = env.NODE_ENV !== "test" ? startProbationReminderJob() : () => {};
   const stopNotificationCleanupJob = env.NODE_ENV !== "test" ? startNotificationCleanupJob() : () => {};
+  const stopTicketAutoCloseJob = env.NODE_ENV !== "test" ? startTicketAutoCloseJob() : () => {};
 
   const shutdown = (signal: string) => {
     console.log(`Received ${signal}. Shutting down gracefully...`);
@@ -33,6 +35,7 @@ async function startServer() {
     stopEmployeeExitJob();
     stopProbationJob();
     stopNotificationCleanupJob();
+    stopTicketAutoCloseJob();
     server.close(() => {
       pool.end().finally(() => process.exit(0));
     });

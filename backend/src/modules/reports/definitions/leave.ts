@@ -4,7 +4,7 @@ import { db } from "../../../config/db.js";
 import { employees, leaveRequests, users } from "../../../db/schema.js";
 import { localDate } from "../../../utils/workday.js";
 import { getEmployeeById } from "../../employees/employees.service.js";
-import { countLeaveDays, getBalances } from "../../leaves/leaveBalance.service.js";
+import { countLeaveDays, getBalances, leaveTypesOf } from "../../leaves/leaveBalance.service.js";
 import type { ReportDef } from "../types.js";
 import { departmentFilter, deptId, deptName, peopleQuery, subtitle } from "./common.js";
 
@@ -105,13 +105,20 @@ export const leaveBalancesReport: ReportDef = {
     const dept = deptId(filters);
     const today = localDate();
     const people = await peopleQuery(companyId, { departmentId: dept, during: { start: today, end: today } });
-    const rows = [];
+    const rows: Record<string, string | number | null>[] = [];
     let year = "";
+    // Columns follow the company's own leave types (Leave Settings)
+    const types = (await leaveTypesOf(companyId)).filter((t) => t.is_active && t.kind !== "unpaid");
     for (const p of people) {
       const b = await getBalances(companyId, await getEmployeeById(companyId, p.id), today);
       year = `${fmt(b.financialYear.start)} – ${fmt(b.financialYear.end)}`;
-      const pair = (x: { available: number; quota: number }) => `${x.available} / ${x.quota}`;
-      rows.push({ name: p.name, department: p.department ?? "", cl: pair(b.cl), sl: pair(b.sl), sl_carried: b.sl.carriedForward, ol: pair(b.ol), el: pair(b.el), comp_off: b.comp_off.available });
+      const row: Record<string, string | number | null> = { name: p.name, department: p.department ?? "" };
+      for (const t of types) {
+        const x = b[t.code];
+        row[t.code] = !x ? "—" : x.unlimited ? `${x.used} used` : t.kind === "comp_off" ? x.available : `${x.available} / ${x.quota}`;
+        if (t.carry_forward !== "none") row[`${t.code}_carried`] = x?.carriedForward ?? 0;
+      }
+      rows.push(row);
     }
     return {
       title: "Leave balances",
@@ -119,12 +126,10 @@ export const leaveBalancesReport: ReportDef = {
       columns: [
         { key: "name", label: "Employee", width: 24 },
         { key: "department", label: "Department", width: 18 },
-        { key: "cl", label: "CL", type: "code", width: 9 },
-        { key: "sl", label: "SL", type: "code", width: 9 },
-        { key: "sl_carried", label: "SL carried", type: "number", width: 10, exportOnly: true },
-        { key: "ol", label: "OL", type: "code", width: 9 },
-        { key: "el", label: "EL (month)", type: "code", width: 10 },
-        { key: "comp_off", label: "Comp off", type: "number", width: 9 },
+        ...types.flatMap((t) => [
+          { key: t.code, label: t.quota_period === "month" ? `${t.short_name} (month)` : t.short_name, type: (t.kind === "comp_off" ? "number" : "code") as "number" | "code", width: 10 },
+          ...(t.carry_forward !== "none" ? [{ key: `${t.code}_carried`, label: `${t.short_name} carried`, type: "number" as const, width: 10, exportOnly: true }] : []),
+        ]),
       ],
       rows,
       fileName: `leave-balances-${today}`,

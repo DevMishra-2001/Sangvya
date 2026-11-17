@@ -9,8 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { run } from "@/lib/api/run";
-import { BALANCE_TYPES, LEAVE_TYPE_LABELS, SHORT_LEAVE_LABELS } from "@/lib/constants";
-import { fmtDay, fmtMinutes, fmtTime, isoDate, monthLabel, toMonth, weekday } from "@/lib/format";
+import { useLeaveTypes } from "@/stores/leave-types-store";
+import { fmtDay, fmtMinutes, fmtTime, isoDate, isWeeklyOffDay, monthLabel, toMonth, weekday } from "@/lib/format";
 import { selfService } from "@/lib/services/self";
 import type { AttendanceDay, Holiday, Leave, MyLeavesResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,17 +31,20 @@ interface Row {
 }
 
 // What a day's row says in the Status column
-function dayStatus(date: string, today: string, weeklyOffs: number[], day?: AttendanceDay, holiday?: Holiday, leave?: Leave): Row["status"] {
+function dayStatus(date: string, today: string, weeklyOffs: number[], offSaturdays: number[], day?: AttendanceDay, holiday?: Holiday, leave?: Leave): Row["status"] {
   if (day?.punchIn) {
-    if (!day.punchOut) return { label: date === today ? "In progress" : "No check-out", tone: "warning" };
+    if (!day.punchOut) return { label: date === today ? "In progress" : day.status === "half" ? "No check-out · Half day" : "No check-out", tone: "warning" };
+    // Set by the company's hours rule (or HR) when the day closed
+    if (day.status === "absent") return { label: "Absent (too few hours)", tone: "danger" };
+    if (day.status === "half") return { label: "Half day", tone: "warning" };
     if (day.shortDay) return { label: "Short day", tone: "danger" };
     if (day.longBreak) return { label: "Long break", tone: "warning" };
     if (day.lateMinutes) return { label: `Late ${day.lateMinutes}m`, tone: "warning" };
     return { label: "Present", tone: "success" };
   }
-  if (leave) return { label: `${SHORT_LEAVE_LABELS[leave.leave_type]} · ${leave.status}`, tone: leave.status === "approved" ? "success" : "warning" };
+  if (leave) return { label: `${leave.leave_type_short ?? leave.leave_type.toUpperCase()} · ${leave.status}`, tone: leave.status === "approved" ? "success" : "warning" };
   if (holiday && !holiday.is_optional) return { label: holiday.name, tone: "info" };
-  if (weeklyOffs.includes(new Date(`${date}T00:00:00`).getDay())) return { label: "Weekly off", tone: "neutral" };
+  if (isWeeklyOffDay(date, weeklyOffs, offSaturdays)) return { label: "Weekly off", tone: "neutral" };
   if (date > today) return { label: "—" };
   if (day?.status === "present") return { label: "Present", tone: "success" };
   if (day?.status === "half") return { label: "Half day", tone: "warning" };
@@ -65,6 +68,7 @@ function Summary({ items }: { items: { label: string; value: string | number; wa
 
 // Month-wise attendance report and leave report
 export function ReportView() {
+  const leaveTypes = useLeaveTypes();
   const user = useUser();
   const [month, setMonth] = useState(() => toMonth(new Date()));
   const [leaves, setLeaves] = useState<MyLeavesResponse | null>(null);
@@ -81,13 +85,14 @@ export function ReportView() {
     const holidays = Object.fromEntries(calendar.holidays.map((h) => [h.date, h]));
     return daysOf(month).map((date) => {
       const leave = calendar.leaves.find((l) => (l.status === "pending" || l.status === "approved") && l.from_date <= date && l.to_date >= date);
-      return { date, day: byDay[date], holiday: holidays[date], leave, status: dayStatus(date, calendar.today, calendar.weeklyOffs ?? [0], byDay[date], holidays[date], leave) };
+      return { date, day: byDay[date], holiday: holidays[date], leave, status: dayStatus(date, calendar.today, calendar.weeklyOffs ?? [0], calendar.offSaturdays ?? [], byDay[date], holidays[date], leave) };
     });
   }, [calendar, month]);
 
   if (!user.employee_id) return <NotLinkedState />;
 
   const worked = rows.filter((r) => r.day?.punchOut);
+  const hasOvertime = worked.some((r) => (r.day?.overtimeMinutes ?? 0) > 0);
   const monthLeaves = leaves?.month === month ? leaves.leaves : [];
   const balances = calendar?.balances;
 
@@ -109,6 +114,7 @@ export function ReportView() {
               { label: "Absent", value: rows.filter((r) => r.status.label === "Absent").length, warn: true },
               { label: "Leaves", value: rows.filter((r) => r.leave && !r.day?.punchIn).length },
               { label: "Total hours", value: fmtMinutes(worked.reduce((s, r) => s + (r.day?.totalMinutes ?? 0), 0)) },
+              ...(hasOvertime ? [{ label: "Overtime", value: fmtMinutes(worked.reduce((s, r) => s + (r.day?.overtimeMinutes ?? 0), 0)) }] : []),
             ]}
           />
           <Card className="py-0">
@@ -122,6 +128,7 @@ export function ReportView() {
                   <TableHead>Break</TableHead>
                   <TableHead>Work hours</TableHead>
                   <TableHead>Effective</TableHead>
+                  {hasOvertime && <TableHead>Overtime</TableHead>}
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -135,6 +142,7 @@ export function ReportView() {
                     <TableCell className={cn("tabular-nums", r.day?.longBreak && "text-destructive")}>{r.day?.punchIn ? fmtMinutes(r.day.breakMinutes) : "—"}</TableCell>
                     <TableCell className={cn("font-medium tabular-nums", r.day?.shortDay && "text-destructive")}>{r.day?.punchOut ? fmtMinutes(r.day.totalMinutes) : "—"}</TableCell>
                     <TableCell className="tabular-nums">{r.day?.punchOut ? fmtMinutes(Math.max(0, r.day.totalMinutes - r.day.breakMinutes)) : "—"}</TableCell>
+                    {hasOvertime && <TableCell className="tabular-nums text-success">{r.day?.overtimeMinutes ? fmtMinutes(r.day.overtimeMinutes) : "—"}</TableCell>}
                     <TableCell>{r.status.tone ? <StatusBadge tone={r.status.tone} className="normal-case">{r.status.label}</StatusBadge> : <span className="text-muted-foreground">{r.status.label}</span>}</TableCell>
                   </TableRow>
                 ))}
@@ -146,7 +154,7 @@ export function ReportView() {
         <TabsContent value="leave" className="flex flex-col gap-4">
           <Summary
             items={[
-              ...BALANCE_TYPES.map((t) => ({ label: `${SHORT_LEAVE_LABELS[t]} available`, value: balances ? `${balances[t].available} / ${balances[t].quota}` : "—" })),
+              ...(balances?.types ?? []).map((b) => ({ label: b.unlimited ? `${b.short} used` : `${b.short} available`, value: b.unlimited ? b.used : `${b.available} / ${b.quota}` })),
               { label: "Leave days this month", value: monthLeaves.filter((l) => l.status !== "rejected").reduce((s, l) => s + l.days, 0) },
             ]}
           />
@@ -173,7 +181,7 @@ export function ReportView() {
                 ) : (
                   monthLeaves.map((l) => (
                     <TableRow key={l.id}>
-                      <TableCell>{LEAVE_TYPE_LABELS[l.leave_type]}</TableCell>
+                      <TableCell>{l.leave_type_name ?? leaveTypes.name(l.leave_type)}</TableCell>
                       <TableCell className="tabular-nums">{fmtDay(l.from_date)}</TableCell>
                       <TableCell className="tabular-nums">{fmtDay(l.to_date)}</TableCell>
                       <TableCell className="tabular-nums">{l.days}</TableCell>

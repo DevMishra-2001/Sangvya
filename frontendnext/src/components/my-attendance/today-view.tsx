@@ -8,18 +8,20 @@ import { PunchProof } from "@/components/attendance/punch-proof";
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { run } from "@/lib/api/run";
-import { ATTENDANCE_FLAGS, FLAG_META, LOCATION_LABELS, SHORT_LEAVE_LABELS } from "@/lib/constants";
+import { ATTENDANCE_FLAGS, FLAG_META, LOCATION_LABELS } from "@/lib/constants";
 import { fmtMinutes, fmtTime, isoDate } from "@/lib/format";
 import { selfService } from "@/lib/services/self";
 import type { AttendanceDayResponse } from "@/lib/types";
 import { useUser } from "@/stores/auth-store";
 import { DatePicker } from "@/components/common/date-picker";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 
 const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000));
 
 // One day of my own attendance: every work session (punch in → out) with its
 // location and remarks, plus check-in / check-out (the time is always "now").
 export function TodayView() {
+  const leaveTypes = useLeaveTypes();
   const user = useUser();
   const [date, setDate] = useState(() => isoDate(new Date()));
   const [data, setData] = useState<AttendanceDayResponse | null>(null);
@@ -98,7 +100,7 @@ export function TodayView() {
             {sessions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-                  {data?.holiday ? `Holiday: ${data.holiday.name}` : leave ? `${SHORT_LEAVE_LABELS[leave.leave_type]} (${leave.status})` : "No attendance for this day."}
+                  {data?.holiday ? `Holiday: ${data.holiday.name}` : leave ? `${leaveTypes.short(leave.leave_type)} (${leave.status})` : "No attendance for this day."}
                 </TableCell>
               </TableRow>
             ) : (

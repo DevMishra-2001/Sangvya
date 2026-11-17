@@ -1,4 +1,5 @@
 // Leaving: notice until the last working day, then exited (login blocked, not billed)
+import { stamp } from "../../utils/stamp.js";
 import { and, eq, lt } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { companyMembers, employees, roles, users } from "../../db/schema.js";
@@ -44,7 +45,7 @@ async function blockLogin(companyId: number, employeeId: number) {
 async function completeExit(companyId: number, employee: Employee, actor: Express.AuthUser | null) {
   await db
     .update(employees)
-    .set({ status: "exited", exited_at: new Date() })
+    .set({ status: "exited", exited_at: new Date(), ...stamp.updated(actor) })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, employee.id)));
   await blockLogin(companyId, employee.id);
   await syncSubscriptionQuantity(companyId);
@@ -64,9 +65,9 @@ export async function startExit(companyId: number, actor: Express.AuthUser, id: 
 
   await db
     .update(employees)
-    .set({ status: "notice", exit_date: input.lastWorkingDay, exit_reason: input.reason, exit_notes: input.notes ?? null })
+    .set({ status: "notice", exit_date: input.lastWorkingDay, exit_reason: input.reason, exit_notes: input.notes ?? null, ...stamp.updated(actor) })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
-  await ensureExitRecord(companyId, id);
+  await ensureExitRecord(companyId, id, actor);
   const updated = await getEmployeeById(companyId, id);
   audit(actor, {
     companyId,
@@ -86,7 +87,7 @@ export async function cancelExit(companyId: number, actor: Express.AuthUser, id:
   await assertCanAct(actor, employee);
   await db
     .update(employees)
-    .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null })
+    .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null, ...stamp.updated(actor) })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   await dropExitRecord(companyId, id);
   audit(actor, { companyId, action: "employee.exit_cancelled", target: ["employee", id], summary: `Cancelled the exit of ${employee.name}` });
@@ -100,7 +101,7 @@ export async function rehire(companyId: number, actor: Express.AuthUser, id: num
   await assertCanAct(actor, employee);
   await db
     .update(employees)
-    .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null, exited_at: null })
+    .set({ status: "active", exit_date: null, exit_reason: null, exit_notes: null, exited_at: null, ...stamp.updated(actor) })
     .where(and(eq(employees.company_id, companyId), eq(employees.id, id)));
   await dropExitRecord(companyId, id);
   await syncSubscriptionQuantity(companyId);

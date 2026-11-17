@@ -9,12 +9,12 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canVisit } from "@/lib/permissions";
 import { errorMessage } from "@/lib/api/client";
-import { SHORT_LEAVE_LABELS } from "@/lib/constants";
 import { dashboardService } from "@/lib/services/dashboard";
 import type { CompanyOverview as Overview } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { pageUrls } from "@/components/layout/nav-items";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 const weekday = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short" });
@@ -125,6 +125,7 @@ function AttendanceBar({ a }: { a: NonNullable<Overview["attendance"]> }) {
 // Admin / HR: the company at a glance — headcount, today's attendance, approvals waiting, HR alerts, upcoming events, headcount by department and setup progress
 // welcome: the greeting card, shown in the first two columns of the headline row
 export function CompanyOverview({ welcome }: { welcome?: React.ReactNode }) {
+  const leaveTypes = useLeaveTypes();
   const pages = useAuthStore((s) => s.pages);
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +200,7 @@ export function CompanyOverview({ welcome }: { welcome?: React.ReactNode }) {
                   <li key={l.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0 truncate font-medium">{l.employee_name}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {SHORT_LEAVE_LABELS[l.leave_type] ?? l.leave_type} · {day(l.from_date)}
+                      {leaveTypes.short(l.leave_type)} · {day(l.from_date)}
                       {l.to_date !== l.from_date && ` – ${day(l.to_date)}`} · {l.days}d
                       <span className="block text-right">{l.approver_name ? `With ${l.approver_name}` : "Needs HR"}</span>
                     </span>

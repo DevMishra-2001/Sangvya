@@ -3,10 +3,14 @@
 // over. Every few minutes this looks at past days not checked yet and tells the
 // reporting manager and the employee (bell + email) about short days, long
 // breaks or a missing check-out.
+import { eq } from "drizzle-orm";
+import { db } from "../config/db.js";
+import { attendance } from "../db/schema.js";
+import { getAttendanceSettings, type AttendanceSettings } from "../modules/attendance/attendanceSettings.service.js";
 import { notify } from "../modules/notifications/notify.js";
 import { trackJob } from "./trackJob.js";
-import { formatMinutes, localDate, localTime, summarize, type DaySummary } from "../utils/workday.js";
-import { rulesFor, type ShiftRules } from "../modules/shifts/shiftRules.js";
+import { formatMinutes, localDate, localTime, summarize, zonedDateTime, type DaySummary } from "../utils/workday.js";
+import { rulesFor, toMinutes, type ShiftRules } from "../modules/shifts/shiftRules.js";
 import { breaksFor, findDaysToClose, markDayClosed, type AttendanceBreak, type AttendanceRecord } from "../modules/attendance/attendance.service.js";
 import { findEmployeeById } from "../modules/employees/employees.service.js";
 
@@ -53,18 +57,51 @@ async function notifyDay(record: AttendanceRecord, breaks: AttendanceBreak[], to
   });
 }
 
+// Missing check-out: the company decides — just flag it, check out at the shift's end, or make it a half day
+async function applyMissingCheckout(record: AttendanceRecord, rules: ShiftRules, a: AttendanceSettings): Promise<AttendanceRecord> {
+  if (record.punch_out || !record.punch_in) return record;
+  if (a.missing_checkout === "half") {
+    await db.update(attendance).set({ status: "half" }).where(eq(attendance.id, record.id));
+    return { ...record, status: "half" };
+  }
+  if (a.missing_checkout === "shift_end") {
+    const overnight = toMinutes(rules.end) <= toMinutes(rules.start);
+    const endDay = overnight ? new Date(Date.parse(`${record.date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : record.date;
+    const end = zonedDateTime(endDay, rules.end);
+    if (end > new Date(record.punch_in)) {
+      await db.update(attendance).set({ punch_out: end }).where(eq(attendance.id, record.id));
+      return { ...record, punch_out: end };
+    }
+  }
+  return record;
+}
+
+// Present / half day / absent from the time between check-in and check-out (when the company turns it on)
+async function applyStatusByHours(record: AttendanceRecord, totals: DaySummary, a: AttendanceSettings) {
+  if (!a.status_by_hours || !record.punch_out || record.status !== "present") return;
+  const status = totals.totalMinutes < a.absent_below_minutes ? "absent" : totals.totalMinutes < a.half_day_below_minutes ? "half" : "present";
+  if (status !== "present") await db.update(attendance).set({ status }).where(eq(attendance.id, record.id));
+}
+
 export async function closeFinishedDays() {
   const days = await findDaysToClose(localDate());
-  for (const record of days) {
+  const settingsCache = new Map<number, AttendanceSettings>();
+  for (const found of days) {
     try {
-      const breaks = (await breaksFor(record.company_id, [record.id]))[record.id] || [];
+      const a = settingsCache.get(found.company_id) ?? (await getAttendanceSettings(found.company_id));
+      settingsCache.set(found.company_id, a);
+      const breaks = (await breaksFor(found.company_id, [found.id]))[found.id] || [];
+      const rules = await rulesFor(found.company_id, found.employee_id);
+      // Alerts describe the day as the employee left it
+      const asLeft = summarize(found, breaks, found.punch_out || found.punch_in || new Date(), rules);
+      if (!found.punch_out || asLeft.shortDay || asLeft.longBreak) await notifyDay(found, breaks, asLeft, rules);
+      const record = await applyMissingCheckout(found, rules, a);
       // A day without a punch-out is measured up to its last activity, not "now"
-      const rules = await rulesFor(record.company_id, record.employee_id);
       const totals = summarize(record, breaks, record.punch_out || record.punch_in || new Date(), rules);
-      if (!record.punch_out || totals.shortDay || totals.longBreak) await notifyDay(record, breaks, totals, rules);
+      await applyStatusByHours(record, totals, a);
       await markDayClosed(record.id);
     } catch (err) {
-      console.error(`Day close failed for attendance ${record.id}:`, (err as Error).message);
+      console.error(`Day close failed for attendance ${found.id}:`, (err as Error).message);
     }
   }
 }

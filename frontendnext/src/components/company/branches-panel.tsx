@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -114,6 +115,8 @@ export function BranchesPanel() {
               <TableHead>City</TableHead>
               <TableHead>Check-in radius</TableHead>
               <TableHead className="w-28 text-right">Employees</TableHead>
+              <TableHead>Created By</TableHead>
+              <TableHead>Updated By</TableHead>
               <TableHead className="w-24">Status</TableHead>
               <TableHead className="w-24 text-right">Actions</TableHead>
             </TableRow>
@@ -145,6 +148,12 @@ export function BranchesPanel() {
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{b.employee_count}</TableCell>
+                <TableCell>
+                  <AuditCell name={b.created_by_name} at={b.created_by_name ? b.created_at : null} />
+                </TableCell>
+                <TableCell>
+                  <AuditCell name={b.updated_by_name} at={b.updated_by_name ? b.updated_at : null} />
+                </TableCell>
                 <TableCell>
                   <Badge variant={b.is_active ? "default" : "secondary"} className="w-16 justify-center">
                     {b.is_active ? "Active" : "Inactive"}

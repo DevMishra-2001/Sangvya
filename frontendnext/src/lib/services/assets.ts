@@ -1,3 +1,4 @@
+import type { AuditNames } from "@/lib/types";
 import { api } from "@/lib/api/client";
 import type { Id } from "@/lib/types";
 
@@ -25,7 +26,7 @@ export type AssetStatus = keyof typeof ASSET_STATUS_LABELS;
 export const ASSET_CONDITION_LABELS = { new: "New", good: "Good", fair: "Fair", damaged: "Damaged" } as const;
 export type AssetCondition = keyof typeof ASSET_CONDITION_LABELS;
 
-export interface Asset {
+export interface Asset extends AuditNames {
   id: Id;
   asset_code: string;
   name: string;

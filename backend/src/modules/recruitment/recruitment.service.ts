@@ -1,4 +1,5 @@
 // Recruitment: job openings → candidates on a stage board → interviews with feedback → offer → hire as an employee
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, desc, eq, gte, ilike, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { candidateEvents, candidates, departments, designations, employees, interviews, jobPostings, offers, users } from "../../db/schema.js";
@@ -437,6 +438,7 @@ export async function hireCandidate(companyId: number, actor: Express.AuthUser, 
   const probationEnd = offer?.probation_months ? new Date(new Date(`${joinDate}T00:00:00Z`).setUTCMonth(new Date(`${joinDate}T00:00:00Z`).getUTCMonth() + offer.probation_months)).toISOString().slice(0, 10) : null;
 
   const employee = await insertEmployee(companyId, {
+    ...stamp.created(actor),
     name: c.name,
     role_id: (await roleByKey("employee"))?.id ?? null,
     email: c.email,

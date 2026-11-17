@@ -1,4 +1,6 @@
 import { and, asc, count, desc, eq, getTableColumns, ne, sql } from "drizzle-orm";
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
 import { db } from "../../config/db.js";
 import { branches, employees } from "../../db/schema.js";
 import { audit } from "../../utils/audit.js";
@@ -28,7 +30,7 @@ const columns = (i: BranchInput) => ({
 // Head office first, then by name, with how many employees sit at each
 export async function listBranches(companyId: number) {
   const rows = await db
-    .select({ ...branchCols, employee_count: sql<number>`(${count(employees.id)})::int` })
+    .select({ ...branchCols, employee_count: sql<number>`(${count(employees.id)})::int`, ...auditNames(branches) })
     .from(branches)
     .leftJoin(employees, and(eq(employees.branch_id, branches.id), ne(employees.status, "exited")))
     .where(eq(branches.company_id, companyId))
@@ -60,7 +62,7 @@ async function clearHeadOffice(tx: Tx, companyId: number, keepId: number) {
 export async function createBranch(companyId: number, actor: Express.AuthUser, input: BranchInput) {
   await assertNameFree(companyId, input.name, null);
   const branch = await db.transaction(async (tx) => {
-    const [row] = await tx.insert(branches).values({ company_id: companyId, ...columns(input) }).returning();
+    const [row] = await tx.insert(branches).values({ company_id: companyId, ...columns(input), ...stamp.created(actor) }).returning();
     if (row.is_head_office) await clearHeadOffice(tx, companyId, row.id);
     return row;
   });
@@ -72,7 +74,7 @@ export async function updateBranch(companyId: number, actor: Express.AuthUser, i
   await findBranch(companyId, id);
   await assertNameFree(companyId, input.name, id);
   const branch = await db.transaction(async (tx) => {
-    const [row] = await tx.update(branches).set(columns(input)).where(eq(branches.id, id)).returning();
+    const [row] = await tx.update(branches).set({ ...columns(input), ...stamp.updated(actor) }).where(eq(branches.id, id)).returning();
     if (row.is_head_office) await clearHeadOffice(tx, companyId, row.id);
     return row;
   });

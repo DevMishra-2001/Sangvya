@@ -3,7 +3,8 @@
 import { BadRequestError, ConflictError } from "../../utils/httpErrors.js";
 import { localDate, monthBounds, summarize } from "../../utils/workday.js";
 import { workCalendar } from "../companies/workCalendar.js";
-import { lateMinutes, rulesFor, rulesPayload, type ShiftRules } from "../shifts/shiftRules.js";
+import { lateMinutes, minutesFromStart, rulesFor, rulesPayload, type ShiftRules } from "../shifts/shiftRules.js";
+import { getAttendanceSettings, type AttendanceSettings } from "../attendance/attendanceSettings.service.js";
 import {
   breaksFor,
   endBreak,
@@ -139,7 +140,17 @@ export async function today(self: Self) {
     holiday: holiday || null,
     day: await withBreaks(self.companyId, record, rules),
     rules: rulesPayload(rules),
+    checkIn: checkInRules(await getAttendanceSettings(self.companyId)),
   };
+}
+
+// What the check-in dialog must ask for (Attendance Settings)
+const checkInRules = (a: AttendanceSettings) => ({ photo: a.photo_rule, location: a.location_rule });
+
+// Photo / location the company requires on every check-in and check-out
+function assertPunchDetails(a: AttendanceSettings, details: PunchDetails) {
+  if (a.photo_rule === "required" && !details.photoUrl) throw new BadRequestError("Take a selfie to continue — your company needs a photo with every check-in and check-out");
+  if (a.location_rule === "required" && (details.latitude == null || details.longitude == null)) throw new BadRequestError("Allow location access to continue — your company needs your location");
 }
 
 // First punch of the day starts it. Punching in again after a punch-out the same
@@ -154,12 +165,20 @@ export async function punchIn(self: Self, input: PunchInput) {
   // The time is always the server's "now" — employees can't pick it
   const now = new Date();
   const details = punchDetails(input);
+  const settings = await getAttendanceSettings(companyId);
+  assertPunchDetails(settings, details);
   // Office check-in (or office-only staff): must be inside their branch's radius
-  if (details.location === "office" || (await findEmployeeById(companyId, employeeId))?.work_mode === "office") {
+  if (settings.geofence_enabled && (details.location === "office" || (await findEmployeeById(companyId, employeeId))?.work_mode === "office")) {
     await assertInsideBranch(companyId, employeeId, { lat: details.latitude, lng: details.longitude, accuracyM: details.accuracyM });
   }
   const existing = await findAttendance(companyId, employeeId, date);
   const rules = await rulesFor(companyId, employeeId);
+  // The day's first check-in can't be earlier than the company allows before the shift
+  if (!existing?.punch_in && settings.early_check_in_minutes != null && -minutesFromStart(rules, now) > settings.early_check_in_minutes) {
+    const [h, m] = rules.start.split(":").map(Number);
+    const opens = (h! * 60 + m! - settings.early_check_in_minutes + 1440) % 1440;
+    throw new BadRequestError(`Check-in opens at ${String(Math.floor(opens / 60)).padStart(2, "0")}:${String(opens % 60).padStart(2, "0")} (${settings.early_check_in_minutes} min before your ${rules.shiftName} shift)`);
+  }
   // The first check-in of the day decides the late mark (from their shift)
   const record = existing?.punch_in
     ? await resumeAttendance(companyId, existing.id, now)
@@ -199,6 +218,7 @@ export async function punchOut({ companyId, employeeId }: Self, input: PunchInpu
 
   const now = new Date();
   const details = punchDetails(input);
+  assertPunchDetails(await getAttendanceSettings(companyId), details);
   await endBreak(companyId, open.id, now);
   const record = await updatePunchOut(companyId, open.id, now, details);
   if (!record) throw new ConflictError("Your attendance just changed — please refresh");
@@ -221,6 +241,7 @@ export async function calendar({ companyId, employeeId }: Self, monthParam?: str
   const employee = await getEmployeeById(companyId, employeeId);
   const now = new Date();
   const rules = await rulesFor(companyId, employeeId);
+  const cal = await workCalendar(companyId);
 
   return {
     month,
@@ -231,7 +252,8 @@ export async function calendar({ companyId, employeeId }: Self, monthParam?: str
     leaves,
     balances: await getBalances(companyId, employee, localDate()),
     rules: rulesPayload(rules),
-    weeklyOffs: (await workCalendar(companyId)).offDows, // day numbers, 0 = Sunday
+    weeklyOffs: cal.offDows, // day numbers, 0 = Sunday
+    offSaturdays: cal.offSaturdays, // e.g. [2, 4] = 2nd and 4th Saturday off
   };
 }
 

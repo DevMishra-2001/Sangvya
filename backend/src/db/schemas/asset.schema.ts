@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { date, index, integer, numeric, pgTable, text, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { createdAt, fk, id } from "../columns.js";
+import { createdAt, fk, id, stampColumns } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { branches } from "./branch.schema.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
@@ -31,8 +32,10 @@ export const assets = pgTable(
     branch_id: integer("branch_id"),
     notes: text("notes"),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("assets", t),
     fk("assets", t.company_id, companies.id, "cascade"),
     fk("assets", t.branch_id, branches.id, "set null"),
     uniqueIndex("idx_assets_code").on(t.company_id, sql`lower(${t.asset_code})`),
@@ -57,8 +60,10 @@ export const assetAssignments = pgTable(
     returned_to: integer("returned_to"),
     return_notes: text("return_notes"),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("asset_assignments", t),
     fk("asset_assignments", t.company_id, companies.id, "cascade"),
     fk("asset_assignments", t.asset_id, assets.id, "cascade"),
     fk("asset_assignments", t.employee_id, employees.id, "cascade"),

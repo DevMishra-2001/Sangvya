@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditInfo } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle, Laptop, Lock } from "lucide-react";
@@ -116,6 +117,7 @@ export function ExitPanel({ employeeId, onClose, onChanged }: { employeeId: Id |
                   {EXIT_STAGE_LABELS[e.stage]}
                 </StatusBadge>
               </div>
+              {d?.record && <AuditInfo row={d.record} className="pt-1" />}
             </SheetHeader>
 
             <Tabs defaultValue={e.stage === "settlement" ? "settlement" : e.stage === "notice" ? "overview" : "clearance"} className="px-4 pb-6">

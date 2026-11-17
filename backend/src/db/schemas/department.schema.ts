@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, uniqueIndex, varchar, type PgTableExtraConfigValue } from "drizzle-orm/pg-core";
-import { createdAt, fk, id } from "../columns.js";
+import { createdAt, fk, id, stampColumns } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
 
@@ -18,9 +19,11 @@ export const departments = pgTable(
     // Inactive = not offered for new employees; people in it stay in it
     is_active: boolean("is_active").notNull().default(true),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   // Typed explicitly: departments ↔ employees reference each other
   (t): PgTableExtraConfigValue[] => [
+    ...auditFks("departments", t),
     fk("departments", t.company_id, companies.id, "cascade"),
     fk("departments", t.head_id, employees.id, "set null"),
     index("idx_departments_company").on(t.company_id),

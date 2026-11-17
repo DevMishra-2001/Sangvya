@@ -1,5 +1,7 @@
 // Exit management: everyone leaving, their clearance, full & final settlement and exit interview
-import { and, asc, count, desc, eq, ilike, inArray, lte, or, sql } from "drizzle-orm";
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
+import { and, asc, count, desc, eq, getTableColumns, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "../../config/db.js";
 import { departments, designations, employeeExits, employees, exitClearances, payrollRuns, payslips, salaryStructures } from "../../db/schema.js";
@@ -9,7 +11,7 @@ import { offsetOf, pageMeta } from "../../utils/pagination.js";
 import { localDate } from "../../utils/workday.js";
 import { openAssetsOf } from "../assets/assets.service.js";
 import { getEmployeeById } from "../employees/employees.service.js";
-import { BALANCE_TYPES, getBalances } from "../leaves/leaveBalance.service.js";
+import { getBalances } from "../leaves/leaveBalance.service.js";
 import { ensureExitRecord } from "./exitRecord.js";
 import type { clearanceSchema, interviewSchema, listQuery, settlementSchema } from "./exits.schema.js";
 
@@ -96,7 +98,7 @@ export async function exitDetail(companyId: number, id: number) {
   await ensureExitRecord(companyId, id);
   const [exit, [record], items, assets] = await Promise.all([
     findExit(companyId, id),
-    db.select().from(employeeExits).where(eq(employeeExits.employee_id, id)),
+    db.select({ ...getTableColumns(employeeExits), ...auditNames(employeeExits) }).from(employeeExits).where(eq(employeeExits.employee_id, id)),
     db
       .select({ key: exitClearances.item_key, label: exitClearances.label, done: exitClearances.done, done_at: exitClearances.done_at, notes: exitClearances.notes, by: sql<string | null>`(select u.name from users u where u.id = ${exitClearances.done_by})` })
       .from(exitClearances)
@@ -109,10 +111,10 @@ export async function exitDetail(companyId: number, id: number) {
 
 export async function setClearance(companyId: number, actor: Express.AuthUser, id: number, key: string, input: z.infer<typeof clearanceSchema>) {
   const e = await findExit(companyId, id);
-  await ensureExitRecord(companyId, id);
+  await ensureExitRecord(companyId, id, actor);
   const [item] = await db
     .update(exitClearances)
-    .set({ done: input.done, notes: input.notes ?? null, done_by: input.done ? actor.id : null, done_at: input.done ? new Date() : null })
+    .set({ done: input.done, notes: input.notes ?? null, done_by: input.done ? actor.id : null, done_at: input.done ? new Date() : null, ...stamp.updated(actor) })
     .where(and(eq(exitClearances.company_id, companyId), eq(exitClearances.employee_id, id), eq(exitClearances.item_key, key)))
     .returning({ label: exitClearances.label });
   if (!item) throw new NotFoundError("Checklist item not found");
@@ -124,7 +126,7 @@ const money = (v: number | null | undefined) => (v == null ? null : String(v));
 
 export async function saveSettlement(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof settlementSchema>) {
   const e = await findExit(companyId, id);
-  await ensureExitRecord(companyId, id);
+  await ensureExitRecord(companyId, id, actor);
   if (input.status === "paid") {
     if (e.status !== "exited") throw new BadRequestError(`${e.name} is still serving notice — settle after the last working day`);
     if (e.pending_items > 0 || e.open_assets > 0) throw new BadRequestError("Finish the clearance (and get assets back) before marking it paid");
@@ -132,6 +134,7 @@ export async function saveSettlement(companyId: number, actor: Express.AuthUser,
   await db
     .update(employeeExits)
     .set({
+      ...stamp.updated(actor),
       last_salary: money(input.lastSalary),
       leave_encashment: money(input.leaveEncashment),
       bonus: money(input.bonus),
@@ -146,7 +149,6 @@ export async function saveSettlement(companyId: number, actor: Express.AuthUser,
   return exitDetail(companyId, id);
 }
 
-const LEAVE_LABELS: Record<(typeof BALANCE_TYPES)[number], string> = { cl: "Casual leave", sl: "Sick leave", ol: "Optional leave", el: "Earned leave", comp_off: "Comp off" };
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -200,7 +202,7 @@ export async function settlementEstimate(companyId: number, id: number) {
 
   const employee = await getEmployeeById(companyId, id);
   const balances = await getBalances(companyId, employee, exitDate);
-  const leave = BALANCE_TYPES.map((t) => ({ type: t, label: LEAVE_LABELS[t], available: Number(balances[t].available) })).filter((l) => l.available > 0);
+  const leave = balances.types.filter((b) => !b.unlimited).map((b) => ({ type: b.code, label: b.name, available: Number(b.available) })).filter((l) => l.available > 0);
 
   const servedDays = e.started_on ? Math.max(0, Math.round((Date.parse(exitDate) - Date.parse(e.started_on)) / 86400000)) : null;
   return {
@@ -215,10 +217,10 @@ export async function settlementEstimate(companyId: number, id: number) {
 
 export async function saveInterview(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof interviewSchema>) {
   const e = await findExit(companyId, id);
-  await ensureExitRecord(companyId, id);
+  await ensureExitRecord(companyId, id, actor);
   await db
     .update(employeeExits)
-    .set({ interview_notes: input.notes ?? null, interview_rating: input.rating ?? null, would_rejoin: input.wouldRejoin ?? null })
+    .set({ interview_notes: input.notes ?? null, interview_rating: input.rating ?? null, would_rejoin: input.wouldRejoin ?? null, ...stamp.updated(actor) })
     .where(eq(employeeExits.employee_id, id));
   audit(actor, { companyId, action: "exit.interview", target: ["employee", id], summary: `Recorded the exit interview of ${e.name}` });
   return exitDetail(companyId, id);
@@ -227,12 +229,12 @@ export async function saveInterview(companyId: number, actor: Express.AuthUser, 
 // Close the exit: left, cleared, assets back, F&F paid
 export async function completeExitRecord(companyId: number, actor: Express.AuthUser, id: number) {
   const e = await findExit(companyId, id);
-  await ensureExitRecord(companyId, id);
+  await ensureExitRecord(companyId, id, actor);
   if (e.status !== "exited") throw new BadRequestError(`${e.name} is still serving notice`);
   if (e.pending_items > 0 || e.open_assets > 0) throw new BadRequestError("Clearance isn't finished yet");
   const [r] = await db.select({ s: employeeExits.settlement_status }).from(employeeExits).where(eq(employeeExits.employee_id, id));
   if (r?.s !== "paid") throw new BadRequestError("Mark the full & final as paid first");
-  await db.update(employeeExits).set({ completed_at: new Date() }).where(eq(employeeExits.employee_id, id));
+  await db.update(employeeExits).set({ completed_at: new Date(), ...stamp.updated(actor) }).where(eq(employeeExits.employee_id, id));
   audit(actor, { companyId, action: "exit.completed", target: ["employee", id], summary: `Closed the exit of ${e.name}` });
   return exitDetail(companyId, id);
 }

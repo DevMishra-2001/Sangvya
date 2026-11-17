@@ -1,4 +1,6 @@
 // A company's shifts.
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { employees, shifts } from "../../db/schema.js";
@@ -9,7 +11,7 @@ import type { ShiftInput } from "./shifts.schema.js";
 
 async function listRows(companyId: number, id?: number) {
   const rows = await db
-    .select({ ...shiftColumns, employee_count: sql<number>`(${count(employees.id)})::int` })
+    .select({ ...shiftColumns, employee_count: sql<number>`(${count(employees.id)})::int`, ...auditNames(shifts) })
     .from(shifts)
     .leftJoin(employees, and(eq(employees.shift_id, shifts.id), ne(employees.status, "exited")))
     .where(id ? and(eq(shifts.company_id, companyId), eq(shifts.id, id)) : eq(shifts.company_id, companyId))
@@ -57,7 +59,7 @@ export async function createShift(companyId: number, actor: Express.AuthUser, in
   const makeDefault = input.isDefault || n === 0; // the first shift is the default
   const id = await db.transaction(async (tx) => {
     if (makeDefault) await tx.update(shifts).set({ is_default: false }).where(eq(shifts.company_id, companyId));
-    const [row] = await tx.insert(shifts).values({ ...values(input), is_default: makeDefault, is_active: true, company_id: companyId }).returning({ id: shifts.id });
+    const [row] = await tx.insert(shifts).values({ ...values(input), is_default: makeDefault, is_active: true, company_id: companyId, ...stamp.created(actor) }).returning({ id: shifts.id });
     return row.id;
   });
   audit(actor, { companyId, action: "shift.created", target: ["shift", id], summary: `Added the shift ${input.name} (${input.startTime}–${input.endTime})` });
@@ -73,7 +75,7 @@ export async function updateShift(companyId: number, actor: Express.AuthUser, id
   if (current.is_default && !input.isActive) throw new BadRequestError("The default shift must stay active");
   await db.transaction(async (tx) => {
     if (input.isDefault && !current.is_default) await tx.update(shifts).set({ is_default: false }).where(eq(shifts.company_id, companyId));
-    await tx.update(shifts).set(values(input)).where(eq(shifts.id, id));
+    await tx.update(shifts).set({ ...values(input), ...stamp.updated(actor) }).where(eq(shifts.id, id));
   });
   audit(actor, {
     companyId,

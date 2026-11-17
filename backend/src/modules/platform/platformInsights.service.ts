@@ -42,7 +42,7 @@ export async function platformInsights() {
       (select count(*)::int from payslips where created_at > now() - interval '30 days') as payroll,
       (select count(*)::int from candidates where created_at > now() - interval '30 days') as recruitment,
       (select count(*)::int from performance_reviews where created_at > now() - interval '30 days') as performance,
-      (select count(*)::int from tasks where created_at > now() - interval '30 days') as tasks,
+      (select count(*)::int from tickets where created_at > now() - interval '30 days') as tasks,
       (select count(*)::int from asset_assignments where created_at > now() - interval '30 days') as assets`);
 
   const companyRows = await rows<{ id: number; name: string; status: string; employees: number; active_users_7d: number; last_active_at: string | null; subscription_status: string | null; trial_ends_at: string | null; mrr: string }>(sql`

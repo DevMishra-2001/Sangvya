@@ -1,8 +1,12 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { stamp } from "../../utils/stamp.js";
 import { HttpStatus } from "../../utils/httpStatus.js";
 import { currentUser, tenant } from "../../utils/requestContext.js";
-import { createDesignation, deleteDesignation, listDesignations, updateDesignation } from "./designations.service.js";
+import {
+  createDesignation,
+  deleteDesignation,
+  listDesignations,
+  updateDesignation,
+} from "./designations.service.js";
 
 // GET /api/designations
 export const listDesignationsHandler = asyncHandler(async (req, res) => {
@@ -11,12 +15,27 @@ export const listDesignationsHandler = asyncHandler(async (req, res) => {
 
 // POST /api/designations  { name, isActive? }
 export const createDesignationHandler = asyncHandler(async (req, res) => {
-  res.status(HttpStatus.CREATED).json(await createDesignation(tenant(req).companyId, currentUser(req), req.body));
+  res
+    .status(HttpStatus.CREATED)
+    .json(
+      await createDesignation(
+        tenant(req).companyId,
+        currentUser(req),
+        req.body,
+      ),
+    );
 });
 
 // PUT /api/designations/:id  { name, isActive }
 export const updateDesignationHandler = asyncHandler(async (req, res) => {
-  res.json(await updateDesignation(tenant(req).companyId, currentUser(req), Number(req.params.id), req.body));
+  res.json(
+    await updateDesignation(
+      tenant(req).companyId,
+      currentUser(req),
+      Number(req.params.id),
+      req.body,
+    ),
+  );
 });
 
 // DELETE /api/designations/:id

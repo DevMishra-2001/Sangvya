@@ -3,7 +3,15 @@
 // View Tickets: filters, status chips with counts, the ticket table, Excel, and the ticket panel (?id=)
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Eye, FileSpreadsheet, LayoutList, Plus, RotateCcw, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  Eye,
+  FileSpreadsheet,
+  LayoutList,
+  Plus,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import { DatePicker } from "@/components/common/date-picker";
 import { EmptyState } from "@/components/common/empty-state";
 import { FormField } from "@/components/common/form-field";
@@ -15,17 +23,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useUrlParams } from "@/hooks/use-url-params";
 import { run } from "@/lib/api/run";
 import { fmtDateTime } from "@/lib/format";
-import { ticketsService, type TicketFilters, type TicketList } from "@/lib/services/tickets";
+import {
+  ticketsService,
+  type TicketFilters,
+  type TicketList,
+} from "@/lib/services/tickets";
 import { cn } from "@/lib/utils";
 import { useTicketMeta } from "@/stores/ticket-meta-store";
 import { ColorBadge, DueChip, mins } from "./ticket-shared";
 import { TicketSheet } from "./ticket-sheet";
 
-const KEYS = ["scope", "q", "projectId", "categoryId", "priorityId", "assignedTo", "view", "createdFrom", "createdTo", "dueFrom", "dueTo"] as const;
+const KEYS = [
+  "scope",
+  "q",
+  "projectId",
+  "categoryId",
+  "priorityId",
+  "assignedTo",
+  "view",
+  "createdFrom",
+  "createdTo",
+  "dueFrom",
+  "dueTo",
+] as const;
 const list = (v: string | undefined) => (v ? v.split(",").filter(Boolean) : []);
 
 export function ViewTicketsView() {
@@ -73,11 +104,13 @@ export function ViewTicketsView() {
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => setLoading(true));
-    run(() => ticketsService.list(JSON.parse(key) as TicketFilters)).then((r) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (r.ok) setData(r.data);
-    });
+    run(() => ticketsService.list(JSON.parse(key) as TicketFilters)).then(
+      (r) => {
+        if (cancelled) return;
+        setLoading(false);
+        if (r.ok) setData(r.data);
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -98,30 +131,58 @@ export function ViewTicketsView() {
     for (const k of KEYS) next[k] = null;
     url.set(next);
   }
-  const set = (k: keyof TicketFilters) => (v: string) => setForm((f) => ({ ...f, [k]: v || undefined }));
-  const setList = (k: keyof TicketFilters) => (v: string[]) => setForm((f) => ({ ...f, [k]: v.join(",") || undefined }));
-  const sortBy = (s: NonNullable<TicketFilters["sort"]>) => url.set({ sort: s === "created" ? null : s, order: applied.sort === s && applied.order === "desc" ? "asc" : null, page: null });
+  const set = (k: keyof TicketFilters) => (v: string) =>
+    setForm((f) => ({ ...f, [k]: v || undefined }));
+  const setList = (k: keyof TicketFilters) => (v: string[]) =>
+    setForm((f) => ({ ...f, [k]: v.join(",") || undefined }));
+  const sortBy = (s: NonNullable<TicketFilters["sort"]>) =>
+    url.set({
+      sort: s === "created" ? null : s,
+      order: applied.sort === s && applied.order === "desc" ? "asc" : null,
+      page: null,
+    });
 
   if (!meta) return <Skeleton className="h-96 rounded-xl" />;
   const statusFilter = list(applied.statusId);
   const toggleStatus = (id: string) => {
-    const next = statusFilter.includes(id) ? statusFilter.filter((x) => x !== id) : [...statusFilter, id];
+    const next = statusFilter.includes(id)
+      ? statusFilter.filter((x) => x !== id)
+      : [...statusFilter, id];
     url.set({ statusId: next.join(",") || null, page: null });
   };
   const scopes = [
     { value: "mine", label: "Assigned to me" },
     { value: "created", label: "Raised by me" },
     ...(meta.can.seeTeam ? [{ value: "team", label: "My team" }] : []),
-    { value: "all", label: meta.can.seeAll ? "All tickets" : "Everything I can see" },
+    {
+      value: "all",
+      label: meta.can.seeAll ? "All tickets" : "Everything I can see",
+    },
   ];
-  const opts = <T extends { id: number; name: string }>(rows: T[]) => rows.map((r) => ({ value: String(r.id), label: r.name }));
-  const total = Object.values(data?.statusCounts ?? {}).reduce((a, b) => a + b, 0);
-  const head = (label: string, s?: NonNullable<TicketFilters["sort"]>, className?: string) => (
+  const opts = <T extends { id: number; name: string }>(rows: T[]) =>
+    rows.map((r) => ({ value: String(r.id), label: r.name }));
+  const total = Object.values(data?.statusCounts ?? {}).reduce(
+    (a, b) => a + b,
+    0,
+  );
+  const head = (
+    label: string,
+    s?: NonNullable<TicketFilters["sort"]>,
+    className?: string,
+  ) => (
     <TableHead className={className}>
       {s ? (
-        <button type="button" onClick={() => sortBy(s)} className="inline-flex items-center gap-1 hover:text-primary">
+        <button
+          type="button"
+          onClick={() => sortBy(s)}
+          className="inline-flex items-center gap-1 hover:text-primary"
+        >
           {label}
-          {applied.sort === s && <span className="text-2xs">{applied.order === "asc" ? "▲" : "▼"}</span>}
+          {applied.sort === s && (
+            <span className="text-2xs">
+              {applied.order === "asc" ? "▲" : "▼"}
+            </span>
+          )}
         </button>
       ) : (
         label
@@ -142,7 +203,13 @@ export function ViewTicketsView() {
               disabled={exporting || !data?.total}
               onClick={async () => {
                 setExporting(true);
-                await run(() => ticketsService.exportExcel({ ...applied, page: undefined, limit: undefined }));
+                await run(() =>
+                  ticketsService.exportExcel({
+                    ...applied,
+                    page: undefined,
+                    limit: undefined,
+                  }),
+                );
                 setExporting(false);
               }}
             >
@@ -160,20 +227,49 @@ export function ViewTicketsView() {
       >
         <FormGrid>
           <FormField label="Show" htmlFor="f-scope">
-            <SelectField id="f-scope" value={form.scope ?? "mine"} onValueChange={set("scope")} options={scopes} />
+            <SelectField
+              id="f-scope"
+              value={form.scope ?? "mine"}
+              onValueChange={set("scope")}
+              options={scopes}
+            />
           </FormField>
           <FormField label="Project" htmlFor="f-project">
-            <MultiSelect id="f-project" value={list(form.projectId)} onChange={setList("projectId")} options={opts(meta.projects)} placeholder="All" />
+            <MultiSelect
+              id="f-project"
+              value={list(form.projectId)}
+              onChange={setList("projectId")}
+              options={opts(meta.projects)}
+              placeholder="All"
+            />
           </FormField>
           <FormField label="Category" htmlFor="f-category">
-            <MultiSelect id="f-category" value={list(form.categoryId)} onChange={setList("categoryId")} options={opts(meta.categories)} placeholder="All" />
+            <MultiSelect
+              id="f-category"
+              value={list(form.categoryId)}
+              onChange={setList("categoryId")}
+              options={opts(meta.categories)}
+              placeholder="All"
+            />
           </FormField>
           <FormField label="Priority" htmlFor="f-priority">
-            <MultiSelect id="f-priority" value={list(form.priorityId)} onChange={setList("priorityId")} options={opts(meta.priorities)} placeholder="All" />
+            <MultiSelect
+              id="f-priority"
+              value={list(form.priorityId)}
+              onChange={setList("priorityId")}
+              options={opts(meta.priorities)}
+              placeholder="All"
+            />
           </FormField>
           {(meta.can.seeAll || meta.can.seeTeam) && (
             <FormField label="Assigned to" htmlFor="f-assignee">
-              <MultiSelect id="f-assignee" value={list(form.assignedTo)} onChange={setList("assignedTo")} options={opts(meta.people)} placeholder="Anyone" />
+              <MultiSelect
+                id="f-assignee"
+                value={list(form.assignedTo)}
+                onChange={setList("assignedTo")}
+                options={opts(meta.people)}
+                placeholder="Anyone"
+              />
             </FormField>
           )}
           <FormField label="Which" htmlFor="f-view">
@@ -190,25 +286,58 @@ export function ViewTicketsView() {
             />
           </FormField>
           <FormField label="Created from" htmlFor="f-cfrom">
-            <DatePicker id="f-cfrom" value={form.createdFrom ?? ""} onChange={set("createdFrom")} clearable />
+            <DatePicker
+              id="f-cfrom"
+              value={form.createdFrom ?? ""}
+              onChange={set("createdFrom")}
+              clearable
+            />
           </FormField>
           <FormField label="Created to" htmlFor="f-cto">
-            <DatePicker id="f-cto" value={form.createdTo ?? ""} onChange={set("createdTo")} min={form.createdFrom} clearable />
+            <DatePicker
+              id="f-cto"
+              value={form.createdTo ?? ""}
+              onChange={set("createdTo")}
+              min={form.createdFrom}
+              clearable
+            />
           </FormField>
           <FormField label="Delivery from" htmlFor="f-dfrom">
-            <DatePicker id="f-dfrom" value={form.dueFrom ?? ""} onChange={set("dueFrom")} clearable />
+            <DatePicker
+              id="f-dfrom"
+              value={form.dueFrom ?? ""}
+              onChange={set("dueFrom")}
+              clearable
+            />
           </FormField>
           <FormField label="Delivery to" htmlFor="f-dto">
-            <DatePicker id="f-dto" value={form.dueTo ?? ""} onChange={set("dueTo")} min={form.dueFrom} clearable />
+            <DatePicker
+              id="f-dto"
+              value={form.dueTo ?? ""}
+              onChange={set("dueTo")}
+              min={form.dueFrom}
+              clearable
+            />
           </FormField>
           <FormField label="Ticket no. / title" htmlFor="f-q">
-            <Input id="f-q" value={form.q ?? ""} onChange={(e) => set("q")(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} maxLength={100} />
+            <Input
+              id="f-q"
+              data-page-search
+              value={form.q ?? ""}
+              onChange={(e) => set("q")(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && search()}
+              maxLength={100}
+            />
           </FormField>
           <div className="col-span-12 flex items-start gap-2 sm:col-span-6 lg:col-span-4 xl:col-span-2 [&_[data-slot=button]]:h-9">
             <Button onClick={search}>
               <Search /> Search
             </Button>
-            <Button variant="outline" onClick={reset} aria-label="Reset filters">
+            <Button
+              variant="outline"
+              onClick={reset}
+              aria-label="Reset filters"
+            >
               <RotateCcw />
             </Button>
           </div>
@@ -221,7 +350,12 @@ export function ViewTicketsView() {
           <button
             type="button"
             onClick={() => url.set({ statusId: null, page: null })}
-            className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium", statusFilter.length === 0 ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}
+            className={cn(
+              "rounded-full border px-2.5 py-0.5 text-xs font-medium",
+              statusFilter.length === 0
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-background hover:bg-muted",
+            )}
           >
             All <span className="tabular-nums">{total}</span>
           </button>
@@ -234,11 +368,26 @@ export function ViewTicketsView() {
                   key={s.id}
                   type="button"
                   onClick={() => toggleStatus(String(s.id))}
-                  className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors", on ? "text-white" : "bg-background hover:bg-muted")}
-                  style={on ? { backgroundColor: s.color, borderColor: s.color } : { borderColor: `${s.color}55` }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+                    on ? "text-white" : "bg-background hover:bg-muted",
+                  )}
+                  style={
+                    on
+                      ? { backgroundColor: s.color, borderColor: s.color }
+                      : { borderColor: `${s.color}55` }
+                  }
                 >
-                  {!on && <span className="size-2 rounded-full" style={{ backgroundColor: s.color }} />}
-                  {s.name} <span className="tabular-nums opacity-80">{data?.statusCounts[s.id] ?? 0}</span>
+                  {!on && (
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: s.color }}
+                    />
+                  )}
+                  {s.name}{" "}
+                  <span className="tabular-nums opacity-80">
+                    {data?.statusCounts[s.id] ?? 0}
+                  </span>
                 </button>
               );
             })}
@@ -251,7 +400,8 @@ export function ViewTicketsView() {
                 </span>
               )}
               <span>
-                Time spent: <b className="text-foreground">{mins(data.spentMinutes)}</b>
+                Time spent:{" "}
+                <b className="text-foreground">{mins(data.spentMinutes)}</b>
               </span>
               <span>
                 Total: <b className="text-foreground">{data.total}</b>
@@ -263,9 +413,18 @@ export function ViewTicketsView() {
         {!data ? (
           <Skeleton className="m-3 h-64" />
         ) : data.rows.length === 0 ? (
-          <EmptyState icon={LayoutList} title="No tickets found" description="Change the filters, or raise a new ticket." />
+          <EmptyState
+            icon={LayoutList}
+            title="No tickets found"
+            description="Change the filters, or raise a new ticket."
+          />
         ) : (
-          <div className={cn("overflow-x-auto transition-opacity", loading && "opacity-60")}>
+          <div
+            className={cn(
+              "overflow-x-auto transition-opacity",
+              loading && "opacity-60",
+            )}
+          >
             <Table className="border-collapse [&_td]:border [&_th]:border">
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -286,26 +445,68 @@ export function ViewTicketsView() {
               </TableHeader>
               <TableBody>
                 {data.rows.map((t, i) => (
-                  <TableRow key={t.id} className={cn("cursor-pointer", t.delayed && "bg-destructive/[0.04]")} onClick={() => url.set({ id: t.id })}>
-                    <TableCell className="text-muted-foreground" style={{ boxShadow: `inset 3px 0 0 ${t.status_color}` }}>
+                  <TableRow
+                    key={t.id}
+                    className={cn(
+                      "cursor-pointer",
+                      t.delayed && "bg-destructive/[0.04]",
+                    )}
+                    onClick={() => url.set({ id: t.id })}
+                  >
+                    <TableCell
+                      className="text-muted-foreground"
+                      style={{ boxShadow: `inset 3px 0 0 ${t.status_color}` }}
+                    >
                       {(data.page - 1) * data.limit + i + 1}
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono text-xs font-semibold text-primary">{t.code}</span>
+                      <span className="font-mono text-xs font-semibold text-primary">
+                        {t.code}
+                      </span>
                     </TableCell>
                     <TableCell className="max-w-44">
-                      <div className="truncate text-xs">{t.project_name ?? "—"}</div>
-                      {t.module_name && <div className="truncate text-2xs text-muted-foreground">{t.module_name}</div>}
+                      <div className="truncate text-xs">
+                        {t.project_name ?? "—"}
+                      </div>
+                      {t.module_name && (
+                        <div className="truncate text-2xs text-muted-foreground">
+                          {t.module_name}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>{t.category_name ? <ColorBadge color={t.category_color}>{t.category_name}</ColorBadge> : "—"}</TableCell>
+                    <TableCell>
+                      {t.category_name ? (
+                        <ColorBadge color={t.category_color}>
+                          {t.category_name}
+                        </ColorBadge>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-80 whitespace-normal">
                       <span className="line-clamp-2 text-sm">{t.title}</span>
                     </TableCell>
                     <TableCell className="text-xs">
-                      {t.assigned_to_name ?? <span className="text-muted-foreground">Unassigned</span>}
-                      {t.secondary_name && <div className="text-2xs text-muted-foreground">+ {t.secondary_name}</div>}
+                      {t.assigned_to_name ?? (
+                        <span className="text-muted-foreground">
+                          Unassigned
+                        </span>
+                      )}
+                      {t.secondary_name && (
+                        <div className="text-2xs text-muted-foreground">
+                          + {t.secondary_name}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>{t.priority_name ? <ColorBadge color={t.priority_color}>{t.priority_name}</ColorBadge> : "—"}</TableCell>
+                    <TableCell>
+                      {t.priority_name ? (
+                        <ColorBadge color={t.priority_color}>
+                          {t.priority_name}
+                        </ColorBadge>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       <ColorBadge color={t.status_color} dot>
                         {t.status_name}
@@ -316,19 +517,37 @@ export function ViewTicketsView() {
                     </TableCell>
                     <TableCell className="text-xs tabular-nums">
                       {mins(t.spent_minutes)}
-                      {t.estimate_minutes ? <span className="text-muted-foreground"> / {mins(t.estimate_minutes)}</span> : null}
+                      {t.estimate_minutes ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          / {mins(t.estimate_minutes)}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell>
-                      <div className="text-xs font-medium">{t.created_by_name ?? "—"}</div>
-                      <div className="text-2xs text-muted-foreground">{fmtDateTime(t.created_at)}</div>
+                      <div className="text-xs font-medium">
+                        {t.created_by_name ?? "—"}
+                      </div>
+                      <div className="text-2xs text-muted-foreground">
+                        {fmtDateTime(t.created_at)}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-xs font-medium">{t.updated_by_name ?? "—"}</div>
-                      <div className="text-2xs text-muted-foreground">{fmtDateTime(t.updated_at)}</div>
+                      <div className="text-xs font-medium">
+                        {t.updated_by_name ?? "—"}
+                      </div>
+                      <div className="text-2xs text-muted-foreground">
+                        {fmtDateTime(t.updated_at)}
+                      </div>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-0.5">
-                        <Button variant="ghost" size="icon-sm" aria-label={`Open ${t.code}`} onClick={() => url.set({ id: t.id })}>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Open ${t.code}`}
+                          onClick={() => url.set({ id: t.id })}
+                        >
                           <Eye />
                         </Button>
                       </div>
@@ -340,7 +559,16 @@ export function ViewTicketsView() {
           </div>
         )}
         {data && data.total > 0 && (
-          <Pagination className="border-t px-3 py-2" page={data.page} limit={data.limit} total={data.total} onPageChange={(p) => url.set({ page: p === 1 ? null : p })} onLimitChange={(l) => url.set({ limit: l === 20 ? null : l, page: null })} />
+          <Pagination
+            className="border-t px-3 py-2"
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPageChange={(p) => url.set({ page: p === 1 ? null : p })}
+            onLimitChange={(l) =>
+              url.set({ limit: l === 20 ? null : l, page: null })
+            }
+          />
         )}
       </section>
 

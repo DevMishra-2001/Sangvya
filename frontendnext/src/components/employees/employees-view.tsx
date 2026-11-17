@@ -155,6 +155,7 @@ export function EmployeesView() {
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                data-page-search
                 placeholder="Search name, code, email, designation…"
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}

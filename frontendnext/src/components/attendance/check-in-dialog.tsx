@@ -499,14 +499,22 @@ export function CheckInButton({
   className,
   size = "lg",
   onDone,
+  listenShortcut,
 }: {
   className?: string;
   size?: "default" | "lg";
   onDone?: () => void;
+  listenShortcut?: boolean;
 }) {
   const today = useSelfStore((s) => s.today);
   const busy = useSelfStore((s) => s.busy);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!listenShortcut) return;
+    const show = () => setOpen(true);
+    window.addEventListener("wk:check-in", show);
+    return () => window.removeEventListener("wk:check-in", show);
+  }, [listenShortcut]);
   if (!today) return null;
   const working = Boolean(today.day?.punchIn) && !today.day?.punchOut;
   const action: Action = working ? "punch-out" : "punch-in";

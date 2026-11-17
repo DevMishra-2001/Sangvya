@@ -54,6 +54,7 @@ import { expenseRoutes } from "./modules/expenses/expenses.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
 import { settingsRoutes } from "./modules/settings/settings.route.js";
 import { ticketRoutes } from "./modules/tickets/tickets.route.js";
+import { searchRoutes } from "./modules/search/search.route.js";
 import { uploadRoutes } from "./modules/upload/upload.route.js";
 import { userRoutes } from "./modules/users/users.route.js";
 
@@ -114,6 +115,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/me", selfRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/tickets", ticketRoutes);
+app.use("/api/search", searchRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/upload", uploadRoutes);

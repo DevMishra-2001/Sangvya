@@ -15,6 +15,8 @@ import { PlatformBanner } from "./platform-banner";
 import { CompanySuspended } from "./company-suspended";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
 import { onCompanySuspended } from "@/lib/api/client";
+import { CommandPalette } from "./command-palette";
+import { ShortcutsHelp, useKeyboardShortcuts } from "./keyboard-shortcuts";
 
 // Sidebar + header around every logged-in page. proxy.ts already made sure the
 // visitor is logged in and allowed on this page; here we load who they are.
@@ -29,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useSessionKeepAlive();
   usePreferenceSync();
+  useKeyboardShortcuts();
   const horizontal = user?.menu_layout === "horizontal";
 
   useEffect(() => {
@@ -37,7 +40,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // The cookie was there but the session is gone (e.g. revoked) → log in again
   useEffect(() => {
-    if (checked && !user) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (checked && !user)
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [checked, user, router, pathname]);
 
   // No company yet → set one up first (proxy.ts does the same on page loads).
@@ -49,9 +53,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Second line of defense behind proxy.ts (e.g. access changed since the token was issued)
   const pages = useAuthStore((s) => s.pages);
-  const allowed = !user || !user.company_id || canVisit(pageUrls(pages), pathname);
+  const allowed =
+    !user || !user.company_id || canVisit(pageUrls(pages), pathname);
   useEffect(() => {
-    if (!allowed) router.replace(`/forbidden?from=${encodeURIComponent(pathname)}`);
+    if (!allowed)
+      router.replace(`/forbidden?from=${encodeURIComponent(pathname)}`);
   }, [allowed, router, pathname]);
 
   // The user's own font size (logged out → default)
@@ -65,18 +71,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     onCompanySuspended(() => void loadMe());
     return () => onCompanySuspended(() => {});
   }, [loadMe]);
-  if (user?.must_change_password) return <ForcePasswordChange name={user.name} />;
-  if (user && company?.status === "suspended" && !user.is_superadmin) return <CompanySuspended companyName={company.name} />;
+  if (user?.must_change_password)
+    return <ForcePasswordChange name={user.name} />;
+  if (user && company?.status === "suspended" && !user.is_superadmin)
+    return <CompanySuspended companyName={company.name} />;
 
   return (
     <div className="flex min-h-screen">
+      {/* Keyboard users jump past the menu */}
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </a>
       {!horizontal && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <Header brand={horizontal} />
         {horizontal && <TopNav />}
         <PlatformBanner />
-        <main className="mx-auto w-full max-w-[1920px] flex-1 px-3 py-3 sm:px-4 sm:py-4">{children}</main>
+        <main
+          id="main"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-[1920px] flex-1 px-3 py-3 outline-none sm:px-4 sm:py-4"
+        >
+          {children}
+        </main>
       </div>
+      {user && (
+        <>
+          <CommandPalette />
+          <ShortcutsHelp />
+        </>
+      )}
     </div>
   );
 }

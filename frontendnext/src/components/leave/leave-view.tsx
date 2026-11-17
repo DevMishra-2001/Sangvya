@@ -92,6 +92,12 @@ export function LeaveView() {
   const employees = useEmployeesStore((s) => s.list);
   const loadEmployees = useEmployeesStore((s) => s.load);
   const [formOpen, setFormOpen] = useState(false);
+  // ?apply=1 (command palette / "n l") opens the form straight away
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("apply") !== "1") return;
+    queueMicrotask(() => setFormOpen(true));
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["value"]>("pending");
   const [today] = useState(() => isoDate(new Date()));
 

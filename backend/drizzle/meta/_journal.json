@@ -274,6 +274,27 @@
       "when": 1794821521263,
       "tag": "0038_audit_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795085245023,
+      "tag": "0039_letters",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795087422435,
+      "tag": "0040_letters_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795089523791,
+      "tag": "0041_letterhead_mode",
+      "breakpoints": true
     }
   ]
 }

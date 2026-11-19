@@ -58,6 +58,8 @@ export const PERMISSION_KEYS = [
   "tickets.settings",
   "attendance.settings",
   "leave.settings",
+  "letters.manage",
+  "letters.self",
   "announcements.manage",
   "reports.attendance",
   "reports.leave",
@@ -81,6 +83,8 @@ export const BASE_PERMISSIONS: Permission[] = [
   "payroll.self",
   // Own expenses and advances; deciding a team member's (the service checks the manager link)
   "expense.self",
+  // Own letters (offer, experience…) issued by HR
+  "letters.self",
 ];
 
 // What opening a page lets you do in the API. Keys are Page Master slugs; pages
@@ -135,6 +139,8 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   "ticket-settings": ["tickets.settings"],
   "attendance-settings": ["attendance.settings", "employees.view"],
   "leave-settings": ["leave.settings", "leavePolicy.manage"],
+  "letter-templates": ["letters.manage"],
+  letters: ["letters.manage", "employees.view"],
 };
 
 // Company-wide powers that come with the role itself

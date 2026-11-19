@@ -51,6 +51,8 @@ export type Permission =
   | "tickets.settings"
   | "attendance.settings"
   | "leave.settings"
+  | "letters.manage"
+  | "letters.self"
   | "announcements.manage"
   | "reports.attendance"
   | "reports.leave"

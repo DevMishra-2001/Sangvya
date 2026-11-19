@@ -62,6 +62,13 @@ export const MODULES: ModuleDef[] = [
     pages: ["tickets", "ticket-new", "ticket-board", "ticket-calendar", "ticket-settings"],
     permissions: ["tasks.assign", "tasks.assignAnyone", "tickets.viewAll", "tickets.settings"],
   },
+  {
+    key: "letters",
+    name: "HR Letters",
+    description: "Letter templates on the company letterhead; offer, appointment, experience… letters for employees",
+    pages: ["letters", "letter-templates", "my-letters"],
+    permissions: ["letters.manage", "letters.self"],
+  },
 ];
 
 export const MODULE_KEYS = MODULES.map((m) => m.key);

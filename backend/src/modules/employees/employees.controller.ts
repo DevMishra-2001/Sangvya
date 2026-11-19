@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { auditNames } from "../../utils/auditNames.js";
 import { db } from "../../config/db.js";
 import { auditLogs, companies, employees, users } from "../../db/schema.js";
 import {
@@ -81,12 +82,10 @@ export const deleteEmployeeHandler = asyncHandler(async (req, res) => {
 
 // GET /api/employees/:id
 export const getEmployeeHandler = asyncHandler(async (req, res) => {
-  res.json({
-    employee: await getEmployeeById(
-      tenant(req).companyId,
-      Number(req.params.id),
-    ),
-  });
+  const employee = await getEmployeeById(tenant(req).companyId, Number(req.params.id));
+  // Who added / last changed the record (Created By / Updated By on the profile)
+  const [names] = await db.select(auditNames(employees)).from(employees).where(eq(employees.id, employee.id));
+  res.json({ employee: { ...employee, ...names } });
 });
 
 // POST /api/employees/:id/exit  { lastWorkingDay, reason, notes? }

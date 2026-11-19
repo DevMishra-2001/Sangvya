@@ -13,9 +13,10 @@ import { errorMessage } from "@/lib/api/client";
 import { run } from "@/lib/api/run";
 import { ATTENDANCE_MODES, BUSINESS_TYPES, LEAVE_YEARS, MONTHS, gstState } from "@/lib/company-rules";
 import { fmtDate } from "@/lib/format";
-import { platformCompaniesService } from "@/lib/services/platform-companies";
+import { platformCompaniesService, type CompanyDetailResponse } from "@/lib/services/platform-companies";
 import type { CompanyModule, Id, PlatformCompanyDetail } from "@/lib/types";
 import { usePlatformCompaniesStore } from "@/stores/platform-companies-store";
+import { CompanyAccountPanel } from "./company-account-panel";
 import { CompanyStatusBadge, VerificationBadge } from "./company-badges";
 
 const label = <T extends { value: string; label: string }>(list: readonly T[], v: string | null) => list.find((x) => x.value === v)?.label ?? v ?? null;
@@ -42,7 +43,7 @@ function Row({ label: name, value, mono }: { label: string; value: React.ReactNo
 export function CompanyDetailsSheet({ companyId, onClose }: { companyId: Id | null; onClose: () => void }) {
   const setVerification = usePlatformCompaniesStore((s) => s.setVerification);
   const setStatus = usePlatformCompaniesStore((s) => s.setStatus);
-  const [state, setState] = useState<{ id: Id; company?: PlatformCompanyDetail; modules?: CompanyModule[]; error?: string } | null>(null);
+  const [state, setState] = useState<{ id: Id; company?: PlatformCompanyDetail; modules?: CompanyModule[]; full?: CompanyDetailResponse; error?: string } | null>(null);
   const [savingModule, setSavingModule] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,7 +53,7 @@ export function CompanyDetailsSheet({ companyId, onClose }: { companyId: Id | nu
     let cancelled = false;
     platformCompaniesService
       .get(companyId)
-      .then(({ company, modules }) => !cancelled && setState({ id: companyId, company, modules }))
+      .then((full) => !cancelled && setState({ id: companyId, company: full.company, modules: full.modules, full }))
       .catch((err) => !cancelled && setState({ id: companyId, error: errorMessage(err) }));
     return () => {
       cancelled = true;
@@ -67,7 +68,7 @@ export function CompanyDetailsSheet({ companyId, onClose }: { companyId: Id | nu
     const updated = await fn();
     setBusy(false);
     if (updated && companyId) {
-      setState((s) => ({ ...s, id: companyId, company: updated }));
+      setState((s) => ({ ...s, id: companyId, company: updated, full: s?.full ? { ...s.full, company: updated } : s?.full }));
       setNote("");
     }
   }
@@ -162,6 +163,14 @@ export function CompanyDetailsSheet({ companyId, onClose }: { companyId: Id | nu
                   </div>
                 )}
               </section>
+
+              {current?.full && (
+                <CompanyAccountPanel
+                  key={`${c.id}-${c.trial_ends_at}-${c.price_per_employee}`}
+                  data={{ ...current.full, company: c }}
+                  onChange={(full) => setState((s) => (s && s.id === companyId ? { ...s, company: full.company, modules: full.modules, full } : s))}
+                />
+              )}
 
               {current?.modules && (
                 <section>

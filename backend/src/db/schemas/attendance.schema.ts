@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, date, doublePrecision, index, pgTable, text, unique, varchar, integer } from "drizzle-orm/pg-core";
-import { createdAt, fk, id, timestamptz } from "../columns.js";
+import { createdAt, fk, id, stampColumns, timestamptz } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
 
@@ -92,8 +93,10 @@ export const holidays = pgTable(
     // takes it, using their OL quota. Not optional = everyone's day off.
     is_optional: boolean("is_optional").notNull().default(false),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("holidays", t),
     fk("holidays", t.company_id, companies.id, "cascade"),
     unique("holidays_company_id_date_key").on(t.company_id, t.date),
   ],

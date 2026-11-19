@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,11 +83,11 @@ export function DepartmentsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Departments" description="How your company is organised. Each employee belongs to one department; access still comes from their role." className="mb-0" />
 
       {canManage && (
-        <FormCard title={editing ? `Edit “${editing.name}”` : "New department"} crumbs={["Master", "Departments"]} icon={Network}>
+        <FormCard title={editing ? `Edit “${editing.name}”` : "New department"} icon={Network}>
           <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
             <FormGrid>
               <FormField label="Department" htmlFor="dep-name" error={errors.name} required>
@@ -143,6 +144,8 @@ export function DepartmentsView() {
                 <TableHead className="w-28">Code</TableHead>
                 <TableHead>Head</TableHead>
                 <TableHead className="w-28 text-right">Employees</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead>Updated By</TableHead>
                 <TableHead className="w-28">Status</TableHead>
                 {canManage && <TableHead className="w-24 text-right">Actions</TableHead>}
               </TableRow>
@@ -155,6 +158,12 @@ export function DepartmentsView() {
                   <TableCell className="font-mono text-xs">{d.code ?? "—"}</TableCell>
                   <TableCell>{d.head_name ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="text-right tabular-nums">{d.employee_count}</TableCell>
+                  <TableCell>
+                    <AuditCell name={d.created_by_name} at={d.created_by_name ? d.created_at : null} />
+                  </TableCell>
+                  <TableCell>
+                    <AuditCell name={d.updated_by_name} at={d.updated_by_name ? d.updated_at : null} />
+                  </TableCell>
                   <TableCell>
                     <Badge variant={d.is_active ? "default" : "secondary"} className="w-16 justify-center">
                       {d.is_active ? "Active" : "Inactive"}

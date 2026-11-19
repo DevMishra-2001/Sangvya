@@ -79,3 +79,9 @@ export function timeAgo(iso: string): string {
   if (min < 1440) return `${Math.round(min / 60)}h ago`;
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
+// A weekly off: one of the off weekdays, or an off Saturday by week of the month (2nd, 4th…)
+export function isWeeklyOffDay(iso: string, weeklyOffs: number[], offSaturdays: number[] = []) {
+  const dow = new Date(`${iso}T00:00:00`).getDay();
+  return weeklyOffs.includes(dow) || (dow === 6 && offSaturdays.includes(Math.ceil(Number(iso.slice(8, 10)) / 7)));
+}

@@ -3,10 +3,25 @@
 // Check in / check out: asks for location, opens the camera for a selfie, picks
 // the work mode, then punches at the current time (the server sets the time).
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, LocateFixed, LogIn, LogOut, MapPinOff, RefreshCw } from "lucide-react";
+import {
+  Camera,
+  CameraOff,
+  LocateFixed,
+  LogIn,
+  LogOut,
+  MapPinOff,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FormField } from "@/components/common/form-field";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,29 +37,59 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Action = "punch-in" | "punch-out";
 
-type GeoState = { status: "locating" } | { status: "ok"; geo: PunchGeo } | { status: "error"; message: string };
-type CameraState = { status: "starting" } | { status: "live" } | { status: "captured"; preview: string } | { status: "error"; message: string };
+type GeoState =
+  | { status: "locating" }
+  | { status: "ok"; geo: PunchGeo }
+  | { status: "error"; message: string };
+type CameraState =
+  | { status: "starting" }
+  | { status: "live" }
+  | { status: "captured"; preview: string }
+  | { status: "error"; message: string };
 // The selfie is uploaded as soon as it's taken; check-in only sends its URL.
 // A failed upload never blocks check-in — it's just saved without a photo.
-type PhotoUpload = { status: "none" } | { status: "uploading" } | { status: "done"; url: string } | { status: "failed"; message: string };
+type PhotoUpload =
+  | { status: "none" }
+  | { status: "uploading" }
+  | { status: "done"; url: string }
+  | { status: "failed"; message: string };
 
 function geoError(err: GeolocationPositionError) {
-  if (err.code === err.PERMISSION_DENIED) return "Location is blocked. Allow it from the address bar's site settings, then retry.";
+  if (err.code === err.PERMISSION_DENIED)
+    return "Location is blocked. Allow it from the address bar's site settings, then retry.";
   if (err.code === err.TIMEOUT) return "Couldn't get your location in time.";
   return "Your location isn't available right now.";
 }
 
 function cameraError(err: unknown) {
   const name = (err as DOMException)?.name;
-  if (name === "NotAllowedError") return "Camera is blocked. Allow it from the address bar's site settings, then retry.";
-  if (name === "NotFoundError" || name === "OverconstrainedError") return "No camera found on this device.";
-  if (name === "NotReadableError") return "The camera is being used by another app.";
+  if (name === "NotAllowedError")
+    return "Camera is blocked. Allow it from the address bar's site settings, then retry.";
+  if (name === "NotFoundError" || name === "OverconstrainedError")
+    return "No camera found on this device.";
+  if (name === "NotReadableError")
+    return "The camera is being used by another app.";
   return "The camera couldn't be opened.";
 }
 
-export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: boolean; onOpenChange: (open: boolean) => void; action: Action; onDone?: () => void }) {
+export function CheckInDialog({
+  open,
+  onOpenChange,
+  action,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  action: Action;
+  onDone?: () => void;
+}) {
   const company = useAuthStore((s) => s.company);
   const punch = useSelfStore((s) => s.punch);
+  // Company rules: required = must have it; optional = ask, but allow when the device can't; off = no camera
+  const photoRule = useSelfStore((s) => s.today?.checkIn?.photo) ?? "optional";
+  const locationRule =
+    useSelfStore((s) => s.today?.checkIn?.location) ?? "optional";
+  const withCamera = photoRule !== "off";
   const checkIn = action === "punch-in";
 
   const [geo, setGeo] = useState<GeoState>({ status: "locating" });
@@ -67,9 +112,21 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
 
   const locate = useCallback(() => {
     setGeo({ status: "locating" });
-    if (!("geolocation" in navigator)) return setGeo({ status: "error", message: "This browser can't share your location." });
+    if (!("geolocation" in navigator))
+      return setGeo({
+        status: "error",
+        message: "This browser can't share your location.",
+      });
     navigator.geolocation.getCurrentPosition(
-      (p) => setGeo({ status: "ok", geo: { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) } }),
+      (p) =>
+        setGeo({
+          status: "ok",
+          geo: {
+            lat: p.coords.latitude,
+            lng: p.coords.longitude,
+            accuracy: Math.round(p.coords.accuracy),
+          },
+        }),
       (err) => setGeo({ status: "error", message: geoError(err) }),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
@@ -80,9 +137,20 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
     shot.current++;
     setPhoto({ status: "none" });
     setCamera({ status: "starting" });
-    if (!navigator.mediaDevices?.getUserMedia) return setCamera({ status: "error", message: "This browser can't open the camera (it needs HTTPS)." });
+    if (!navigator.mediaDevices?.getUserMedia)
+      return setCamera({
+        status: "error",
+        message: "This browser can't open the camera (it needs HTTPS).",
+      });
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } }, audio: false });
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 720 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
       stream.current = s;
       if (video.current) {
         video.current.srcObject = s;
@@ -99,7 +167,7 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
     if (!open) return;
     const start = setTimeout(() => {
       locate();
-      startCamera();
+      if (withCamera) startCamera();
     }, 0);
     const tick = setInterval(() => setNow(new Date()), 1000);
     return () => {
@@ -107,20 +175,31 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
       clearInterval(tick);
       stopCamera();
     };
-  }, [open, locate, startCamera, stopCamera]);
+  }, [open, locate, startCamera, stopCamera, withCamera]);
 
   // Free the preview image's memory when it's replaced
   const preview = camera.status === "captured" ? camera.preview : null;
-  useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
+  useEffect(
+    () => () => void (preview && URL.revokeObjectURL(preview)),
+    [preview],
+  );
 
   async function uploadPhoto(blob: Blob) {
     const id = ++shot.current;
     setPhoto({ status: "uploading" });
     try {
-      const { url } = await uploadService.image(blob, "attendance-photo", "selfie.jpg");
+      const { url } = await uploadService.image(
+        blob,
+        "attendance-photo",
+        "selfie.jpg",
+      );
       if (id === shot.current) setPhoto({ status: "done", url });
     } catch (err) {
-      if (id === shot.current) setPhoto({ status: "failed", message: errorMessage(err, "Couldn't upload the photo") });
+      if (id === shot.current)
+        setPhoto({
+          status: "failed",
+          message: errorMessage(err, "Couldn't upload the photo"),
+        });
     }
   }
 
@@ -134,7 +213,17 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
     // Mirror like the live preview, crop to a centred square
     ctx.translate(size, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(v, (v.videoWidth - size) / 2, (v.videoHeight - size) / 2, size, size, 0, 0, size, size);
+    ctx.drawImage(
+      v,
+      (v.videoWidth - size) / 2,
+      (v.videoHeight - size) / 2,
+      size,
+      size,
+      0,
+      0,
+      size,
+      size,
+    );
     canvas.toBlob(
       (blob) => {
         if (!blob) return toast.error("Couldn't take the photo, try again");
@@ -151,7 +240,16 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
   // upload and the location lookup so they're included
   const cameraUsable = camera.status !== "error";
   const uploading = photo.status === "uploading";
-  const canSubmit = !saving && !uploading && (camera.status === "captured" || !cameraUsable) && geo.status !== "locating";
+  const photoOk =
+    !withCamera ||
+    (photoRule === "required"
+      ? photo.status === "done"
+      : camera.status === "captured" || !cameraUsable);
+  const locationOk =
+    locationRule === "required"
+      ? geo.status === "ok"
+      : geo.status !== "locating";
+  const canSubmit = !saving && !uploading && photoOk && locationOk;
 
   async function submit() {
     setSaving(true);
@@ -181,82 +279,130 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
           <DialogDescription>
             {company?.name} ·{" "}
             <span className="font-medium text-foreground tabular-nums">
-              {now.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })},{" "}
-              {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              {now.toLocaleDateString("en-IN", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+              ,{" "}
+              {now.toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}
             </span>
           </DialogDescription>
         </DialogHeader>
 
-        {/* Camera */}
-        <div className="relative mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-2xl border bg-muted">
-          <video
-            ref={video}
-            playsInline
-            muted
-            aria-label="Camera preview"
-            className={cn("size-full -scale-x-100 object-cover", camera.status !== "live" && "hidden")}
-          />
-          {camera.status === "captured" && (
-            // eslint-disable-next-line @next/next/no-img-element -- local preview blob
-            <img src={camera.preview} alt="Your photo" className="size-full object-cover" />
-          )}
-          {camera.status === "starting" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Spinner /> Opening camera…
+        {/* Camera: square that shrinks with the window height, so zooming in keeps it on screen */}
+        {withCamera && (
+          <>
+            <div className="relative mx-auto size-[min(18rem,32dvh)] min-h-36 min-w-36 shrink-0 overflow-hidden rounded-2xl border bg-muted">
+              <video
+                ref={video}
+                playsInline
+                muted
+                aria-label="Camera preview"
+                className={cn(
+                  "size-full -scale-x-100 object-cover",
+                  camera.status !== "live" && "hidden",
+                )}
+              />
+              {camera.status === "captured" && (
+                // eslint-disable-next-line @next/next/no-img-element -- local preview blob
+                <img
+                  src={camera.preview}
+                  alt="Your photo"
+                  className="size-full object-cover"
+                />
+              )}
+              {camera.status === "starting" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Spinner /> Opening camera…
+                </div>
+              )}
+              {camera.status === "error" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+                  <CameraOff className="size-8" />
+                  {camera.message}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={startCamera}
+                  >
+                    <RefreshCw /> Retry camera
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-          {camera.status === "error" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
-              <CameraOff className="size-8" />
-              {camera.message}
-              <Button type="button" variant="outline" size="sm" onClick={startCamera}>
-                <RefreshCw /> Retry camera
-              </Button>
+            {camera.status === "captured" && photo.status !== "none" && (
+              <p
+                role="status"
+                className={cn(
+                  "flex items-center justify-center gap-2 text-center text-xs",
+                  photo.status === "failed"
+                    ? "text-warning"
+                    : photo.status === "done"
+                      ? "text-primary"
+                      : "text-muted-foreground",
+                )}
+              >
+                {photo.status === "uploading" && (
+                  <>
+                    <Spinner /> Uploading photo…
+                  </>
+                )}
+                {photo.status === "done" && "Photo saved"}
+                {photo.status === "failed" &&
+                  (photoRule === "required"
+                    ? `${photo.message} — retake to try again; a photo is required.`
+                    : `${photo.message} — you can still ${checkIn ? "check in" : "check out"}; it'll be saved without a photo.`)}
+              </p>
+            )}
+            <div className="flex justify-center">
+              {camera.status === "live" && (
+                <Button type="button" onClick={capture}>
+                  <Camera /> Take photo
+                </Button>
+              )}
+              {camera.status === "captured" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={startCamera}
+                  disabled={saving}
+                >
+                  <RefreshCw /> Retake
+                </Button>
+              )}
             </div>
-          )}
-        </div>
-        {camera.status === "captured" && photo.status !== "none" && (
-          <p
-            role="status"
-            className={cn(
-              "flex items-center justify-center gap-2 text-center text-xs",
-              photo.status === "failed" ? "text-warning" : photo.status === "done" ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            {photo.status === "uploading" && (
-              <>
-                <Spinner /> Uploading photo…
-              </>
-            )}
-            {photo.status === "done" && "Photo saved"}
-            {photo.status === "failed" && `${photo.message} — you can still ${checkIn ? "check in" : "check out"}; it'll be saved without a photo.`}
-          </p>
+          </>
         )}
-        <div className="flex justify-center">
-          {camera.status === "live" && (
-            <Button type="button" onClick={capture}>
-              <Camera /> Take photo
-            </Button>
-          )}
-          {camera.status === "captured" && (
-            <Button type="button" variant="outline" onClick={startCamera} disabled={saving}>
-              <RefreshCw /> Retake
-            </Button>
-          )}
-        </div>
 
         {/* Location */}
-        <div className={cn("flex items-center gap-3 rounded-lg border px-3 py-2 text-sm", geo.status === "error" && "border-warning/50 bg-warning/10")}>
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm",
+            geo.status === "error" && "border-warning/50 bg-warning/10",
+          )}
+        >
           {geo.status === "locating" && (
             <>
-              <Spinner /> <span className="text-muted-foreground">Getting your location…</span>
+              <Spinner />{" "}
+              <span className="text-muted-foreground">
+                Getting your location…
+              </span>
             </>
           )}
           {geo.status === "ok" && (
             <>
               <LocateFixed className="size-4 shrink-0 text-primary" />
               <span className="flex-1">
-                Location captured <span className="text-muted-foreground">· within {geo.geo.accuracy} m</span>
+                Location captured{" "}
+                <span className="text-muted-foreground">
+                  · within {geo.geo.accuracy} m
+                </span>
               </span>
             </>
           )}
@@ -264,7 +410,12 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
             <>
               <MapPinOff className="size-4 shrink-0 text-warning" />
               <span className="flex-1">{geo.message}</span>
-              <Button type="button" variant="outline" size="sm" onClick={locate}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={locate}
+              >
                 Retry
               </Button>
             </>
@@ -283,7 +434,11 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
             className="grid w-full grid-cols-2 sm:grid-cols-3"
           >
             {LOCATION_OPTIONS.map((o) => (
-              <ToggleGroupItem key={o.value} value={o.value} className="h-9 w-full data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary">
+              <ToggleGroupItem
+                key={o.value}
+                value={o.value}
+                className="h-9 w-full data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+              >
                 {o.label}
               </ToggleGroupItem>
             ))}
@@ -297,25 +452,41 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
             maxLength={300}
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            placeholder={mode === "client_site" ? "Client name / site" : "Optional"}
+            placeholder={
+              mode === "client_site" ? "Client name / site" : "Optional"
+            }
           />
         </FormField>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
-          <Button type="button" variant={checkIn ? "default" : "destructive"} onClick={submit} disabled={!canSubmit}>
+          <Button
+            type="button"
+            variant={checkIn ? "default" : "destructive"}
+            onClick={submit}
+            disabled={!canSubmit}
+          >
             {saving ? <Spinner /> : checkIn ? <LogIn /> : <LogOut />}
             {saving
               ? "Saving…"
               : uploading
                 ? "Uploading photo…"
-                : camera.status === "live"
+                : withCamera &&
+                    (camera.status === "live" ||
+                      (photoRule === "required" && photo.status !== "done"))
                   ? "Take a photo first"
-                  : checkIn
-                    ? "Check in now"
-                    : "Check out now"}
+                  : locationRule === "required" && geo.status !== "ok"
+                    ? "Location needed"
+                    : checkIn
+                      ? "Check in now"
+                      : "Check out now"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -324,10 +495,26 @@ export function CheckInDialog({ open, onOpenChange, action, onDone }: { open: bo
 }
 
 // Opens the dialog for whichever punch comes next (check out while working, else check in)
-export function CheckInButton({ className, size = "lg", onDone }: { className?: string; size?: "default" | "lg"; onDone?: () => void }) {
+export function CheckInButton({
+  className,
+  size = "lg",
+  onDone,
+  listenShortcut,
+}: {
+  className?: string;
+  size?: "default" | "lg";
+  onDone?: () => void;
+  listenShortcut?: boolean;
+}) {
   const today = useSelfStore((s) => s.today);
   const busy = useSelfStore((s) => s.busy);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!listenShortcut) return;
+    const show = () => setOpen(true);
+    window.addEventListener("wk:check-in", show);
+    return () => window.removeEventListener("wk:check-in", show);
+  }, [listenShortcut]);
   if (!today) return null;
   const working = Boolean(today.day?.punchIn) && !today.day?.punchOut;
   const action: Action = working ? "punch-out" : "punch-in";
@@ -342,9 +529,16 @@ export function CheckInButton({ className, size = "lg", onDone }: { className?: 
         aria-label={working ? "Check out" : "Check in"}
       >
         {working ? <LogOut /> : <LogIn />}
-        <span className="hidden sm:inline">{working ? "Check out" : "Check in"}</span>
+        <span className="hidden sm:inline">
+          {working ? "Check out" : "Check in"}
+        </span>
       </Button>
-      <CheckInDialog open={open} onOpenChange={setOpen} action={action} onDone={onDone} />
+      <CheckInDialog
+        open={open}
+        onOpenChange={setOpen}
+        action={action}
+        onDone={onDone}
+      />
     </>
   );
 }

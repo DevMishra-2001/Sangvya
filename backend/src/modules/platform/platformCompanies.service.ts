@@ -1,10 +1,12 @@
 // Super Admin: every company on the platform — who owns it, how big it is, its trial / subscription, and its verification and account status.
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
-import { companies, subscriptions } from "../../db/schema.js";
+import { companies, companyMembers, subscriptions, users } from "../../db/schema.js";
+import { localDate } from "../../utils/workday.js";
+import { requestOtp } from "../auth/passwordReset.service.js";
 import { forgetCompanyStatus } from "../../utils/companyStatus.js";
-import { NotFoundError } from "../../utils/httpErrors.js";
-import type { CompanyStatusInput, VerificationInput } from "./platformCompanies.schema.js";
+import { BadRequestError, NotFoundError } from "../../utils/httpErrors.js";
+import type { CompanyStatusInput, SubscriptionInput, VerificationInput } from "./platformCompanies.schema.js";
 import { audit } from "../../utils/audit.js";
 import { companyModuleStates } from "./platformModules.service.js";
 import { companyAdmins, notify } from "../notifications/notify.js";
@@ -34,6 +36,11 @@ const owners = sql<{ name: string; email: string }[]>`coalesce((
 ), '[]'::json)`;
 const employeeCount = sql<number>`(select count(*)::int from employees e where e.company_id = ${companies.id})`;
 const userCount = sql<number>`(select count(*)::int from company_members m where m.company_id = ${companies.id})`;
+// Health: people who used the app lately, last time anyone did, and today's check-ins
+const activeUsers7d = sql<number>`(select count(distinct s.user_id)::int from user_sessions s join company_members m on m.user_id = s.user_id
+  where m.company_id = ${companies.id} and s.last_activity_at > now() - interval '7 days')`;
+const lastActiveAt = sql<string | null>`(select max(s.last_activity_at) from user_sessions s join company_members m on m.user_id = s.user_id where m.company_id = ${companies.id})`;
+const checkinsToday = (today: string) => sql<number>`(select count(*)::int from attendance a where a.company_id = ${companies.id} and a.date = ${today} and a.punch_in is not null)`;
 
 const summaryColumns = {
   id: companies.id,
@@ -54,11 +61,18 @@ const summaryColumns = {
   owners,
   subscription_status: subscriptions.status,
   trial_ends_at: subscriptions.trial_ends_at,
+  current_period_end: subscriptions.current_period_end,
+  price_per_employee: subscriptions.price_per_employee,
+  seats: subscriptions.quantity,
+  active_users_7d: activeUsers7d,
+  last_active_at: lastActiveAt,
 };
+
+const DAY = 86400000;
 
 export async function listPlatformCompanies() {
   const rows = await db
-    .select(summaryColumns)
+    .select({ ...summaryColumns, checkins_today: checkinsToday(localDate()) })
     .from(companies)
     .leftJoin(subscriptions, eq(subscriptions.company_id, companies.id))
     .orderBy(desc(companies.created_at));
@@ -68,6 +82,12 @@ export async function listPlatformCompanies() {
     suspended: rows.filter((r) => r.status === "suspended").length,
     toReview: rows.filter((r) => r.verification_status === "unverified" || r.verification_status === "pending").length,
     employees: rows.reduce((sum, r) => sum + r.employee_count, 0),
+    trial: rows.filter((r) => r.subscription_status === "trial").length,
+    trialEnding: rows.filter((r) => r.subscription_status === "trial" && r.trial_ends_at && new Date(r.trial_ends_at).getTime() - Date.now() < 7 * DAY).length,
+    paid: rows.filter((r) => r.subscription_status === "active").length,
+    pastDue: rows.filter((r) => r.subscription_status === "past_due").length,
+    // Nobody logged in for 14 days
+    inactive: rows.filter((r) => !r.last_active_at || Date.now() - new Date(r.last_active_at).getTime() > 14 * DAY).length,
   };
   return { companies: rows, stats };
 }
@@ -75,13 +95,79 @@ export async function listPlatformCompanies() {
 // Everything about one company, tax IDs included (Super Admin only)
 export async function getPlatformCompany(id: number) {
   const [row] = await db
-    .select({ company: companies, employee_count: employeeCount, user_count: userCount, owners, subscription_status: subscriptions.status, trial_ends_at: subscriptions.trial_ends_at })
+    .select({
+      company: companies,
+      employee_count: employeeCount,
+      user_count: userCount,
+      owners,
+      subscription_status: subscriptions.status,
+      trial_ends_at: subscriptions.trial_ends_at,
+      current_period_end: subscriptions.current_period_end,
+      price_per_employee: subscriptions.price_per_employee,
+      seats: subscriptions.quantity,
+      active_users_7d: activeUsers7d,
+      last_active_at: lastActiveAt,
+      checkins_today: checkinsToday(localDate()),
+    })
     .from(companies)
     .leftJoin(subscriptions, eq(subscriptions.company_id, companies.id))
     .where(eq(companies.id, id));
   if (!row) throw new NotFoundError("Company not found");
   const { company, ...rest } = row;
-  return { company: { ...company, ...rest }, modules: await companyModuleStates(id) };
+  // Usage in the last 30 days
+  const [usage] = await db.execute<{ logins: number; checkins: number; leaves: number; payslips: number }>(sql`select
+    (select count(*)::int from user_sessions s join company_members m on m.user_id = s.user_id where m.company_id = ${id} and s.created_at > now() - interval '30 days') as logins,
+    (select count(*)::int from attendance a where a.company_id = ${id} and a.punch_in > now() - interval '30 days') as checkins,
+    (select count(*)::int from leave_requests l where l.company_id = ${id} and l.created_at > now() - interval '30 days') as leaves,
+    (select count(*)::int from payslips p where p.company_id = ${id} and p.created_at > now() - interval '30 days') as payslips`).then((r) => r.rows);
+  const admins = await db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(companyMembers)
+    .innerJoin(users, eq(users.id, companyMembers.user_id))
+    .where(and(eq(companyMembers.company_id, id), sql`exists (select 1 from employees e join roles r on r.id = e.role_id where e.id = ${companyMembers.employee_id} and r.key = 'admin')`));
+  return { company: { ...company, ...rest }, modules: await companyModuleStates(id), usage, admins };
+}
+
+// Trial end date and price per employee for one company (custom deals)
+export async function setSubscription(actor: Express.AuthUser, id: number, input: SubscriptionInput) {
+  const [company] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, id));
+  if (!company) throw new NotFoundError("Company not found");
+  const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.company_id, id));
+  if (!sub) throw new NotFoundError("This company has no subscription record");
+  const set: Partial<typeof subscriptions.$inferInsert> = { updated_at: new Date() };
+  const changes: string[] = [];
+  if (input.trialEndsOn !== undefined) {
+    if (sub.status !== "trial") throw new BadRequestError("Only a company on trial can get a new trial end date");
+    set.trial_ends_at = new Date(`${input.trialEndsOn}T23:59:59+05:30`);
+    changes.push(`trial ends ${input.trialEndsOn}`);
+  }
+  if (input.pricePerEmployee !== undefined) {
+    set.price_per_employee = String(input.pricePerEmployee);
+    changes.push(`price ₹${input.pricePerEmployee}/employee`);
+  }
+  await db.update(subscriptions).set(set).where(eq(subscriptions.company_id, id));
+  audit(actor, { action: "company.subscription", companyId: id, target: ["company", id], summary: `${company.name}: ${changes.join(", ")}` });
+  return getPlatformCompany(id);
+}
+
+export async function setAdminNotes(actor: Express.AuthUser, id: number, notes: string | null) {
+  const [row] = await db.update(companies).set({ admin_notes: notes }).where(eq(companies.id, id)).returning({ name: companies.name });
+  if (!row) throw new NotFoundError("Company not found");
+  audit(actor, { action: "company.notes", companyId: id, target: ["company", id], summary: `Updated notes on ${row.name}` });
+  return getPlatformCompany(id);
+}
+
+// Support: email a password-reset code to one of the company's logins
+export async function sendPasswordReset(actor: Express.AuthUser, id: number, userId: number) {
+  const [u] = await db
+    .select({ email: users.email, name: users.name })
+    .from(companyMembers)
+    .innerJoin(users, eq(users.id, companyMembers.user_id))
+    .where(and(eq(companyMembers.company_id, id), eq(users.id, userId)));
+  if (!u) throw new NotFoundError("That login isn't part of this company");
+  await requestOtp(u.email);
+  audit(actor, { action: "support.password_reset", companyId: id, target: ["user", userId], summary: `Sent a password reset code to ${u.name} (${u.email})` });
+  return { sentTo: u.email };
 }
 
 export async function setVerification(actor: Express.AuthUser, id: number, { status, notes }: VerificationInput) {

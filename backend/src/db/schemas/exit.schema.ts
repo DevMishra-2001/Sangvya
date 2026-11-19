@@ -1,5 +1,6 @@
 import { boolean, date, integer, numeric, pgTable, smallint, text, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { createdAt, fk, id, timestamptz } from "../columns.js";
+import { createdAt, fk, id, stampColumns, timestamptz } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
 import { users } from "./user.schema.js";
@@ -26,8 +27,10 @@ export const employeeExits = pgTable(
     settled_on: date("settled_on"),
     completed_at: timestamptz("completed_at"),
     created_at: createdAt(),
+    ...stampColumns(),
   },
-  (t) => [fk("employee_exits", t.employee_id, employees.id, "cascade"), fk("employee_exits", t.company_id, companies.id, "cascade")],
+  (t) => [
+    ...auditFks("employee_exits", t),fk("employee_exits", t.employee_id, employees.id, "cascade"), fk("employee_exits", t.company_id, companies.id, "cascade")],
 );
 
 // Clearance checklist of an exit (assets are checked live from asset_assignments)
@@ -44,8 +47,10 @@ export const exitClearances = pgTable(
     done_at: timestamptz("done_at"),
     notes: text("notes"),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("exit_clearances", t),
     fk("exit_clearances", t.company_id, companies.id, "cascade"),
     fk("exit_clearances", t.employee_id, employees.id, "cascade"),
     fk("exit_clearances", t.done_by, users.id, "set null"),

@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { run } from "@/lib/api/run";
 import { isoDate } from "@/lib/format";
-import type { Task } from "@/lib/types";
+import { ticketsService, type TicketRow } from "@/lib/services/tickets";
 import { cn } from "@/lib/utils";
-import { useTasksStore } from "@/stores/tasks-store";
 
 // Timeliness of each ticket; always shown with labels + counts
 const STATES = {
@@ -18,15 +18,15 @@ const STATES = {
 type Timeliness = keyof typeof STATES;
 const ORDER: Timeliness[] = ["on_time", "in_progress", "not_started", "delayed"];
 
-const isFinished = (t: Task) => t.status === "done" || t.status === "approved";
+const isFinished = (t: TicketRow) => t.status_kind === "done" || t.status_kind === "closed";
 
-function classify(task: Task, today: string): Timeliness {
-  if (isFinished(task)) {
-    const doneOn = task.completed_at ? isoDate(new Date(task.completed_at)) : today;
-    return task.due_date && doneOn > task.due_date ? "delayed" : "on_time";
+function classify(t: TicketRow, today: string): Timeliness {
+  if (isFinished(t)) {
+    const doneOn = t.resolved_at ? isoDate(new Date(t.resolved_at)) : today;
+    return t.due_date && doneOn > t.due_date ? "delayed" : "on_time";
   }
-  if (task.due_date && today > task.due_date) return "delayed";
-  return task.status === "todo" ? "not_started" : "in_progress";
+  if (t.delayed) return "delayed";
+  return t.status_kind === "open" ? "not_started" : "in_progress";
 }
 
 function Donut({ counts, total, overall, hover, setHover }: { counts: Record<Timeliness, number>; total: number; overall: number; hover: Timeliness | null; setHover: (s: Timeliness | null) => void }) {
@@ -72,20 +72,25 @@ function Donut({ counts, total, overall, hover, setHover }: { counts: Record<Tim
 
 // Small donut of my tickets by timeliness, overall progress in the middle
 export function ProgressGraph() {
-  const tasks = useTasksStore((s) => s.mine);
-  const loadMine = useTasksStore((s) => s.loadMine);
+  const [tickets, setTickets] = useState<TicketRow[] | null>(null);
   const [hover, setHover] = useState<Timeliness | null>(null);
 
+  // Latest 100 tickets assigned to me (hidden when the Tickets module is off)
   useEffect(() => {
-    loadMine();
-  }, [loadMine]);
+    let cancelled = false;
+    run(() => ticketsService.list({ scope: "mine", limit: 100, sort: "updated" }), { silent: true }).then((r) => !cancelled && setTickets(r.ok ? r.data.rows : null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
+  if (!tickets) return null;
   const today = isoDate(new Date());
-  const states = tasks.map((t) => classify(t, today));
+  const states = tickets.map((t) => classify(t, today));
   const counts = Object.fromEntries(ORDER.map((s) => [s, states.filter((x) => x === s).length])) as Record<Timeliness, number>;
-  const total = tasks.length;
-  const overall = total ? Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / total) : 0;
-  const finished = tasks.filter(isFinished).length;
+  const total = tickets.length;
+  const finished = tickets.filter(isFinished).length;
+  const overall = total ? Math.round((finished / total) * 100) : 0;
 
   return (
     <Card className="gap-3">

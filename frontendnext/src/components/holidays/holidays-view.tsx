@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -80,13 +81,13 @@ export function HolidaysView() {
 
   const fixed = holidays.filter((h) => !h.is_optional).length;
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Holidays"
         description={`Holidays show on everyone's attendance calendar. Optional holidays are working days people can take with their OL.${weeklyOffs.length ? ` Weekly offs: ${weeklyOffs.join(", ")}.` : ""}`}
         className="mb-0"
       />
-      <FormCard title={editing ? `Edit “${editing.name}”` : "Add holiday"} crumbs={["Master", "Holidays"]} icon={PartyPopper}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "Add holiday"} icon={PartyPopper}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Date" htmlFor="hol-date" error={errors.date} required>
@@ -131,6 +132,8 @@ export function HolidaysView() {
                 <TableHead className="w-36">Date</TableHead>
                 <TableHead className="w-28">Day</TableHead>
                 <TableHead>Holiday</TableHead>
+<TableHead>Created By</TableHead>
+                <TableHead>Updated By</TableHead>
                 <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -144,6 +147,12 @@ export function HolidaysView() {
                       {h.name}
                       {h.is_optional && <Badge variant="outline">Optional</Badge>}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <AuditCell name={h.created_by_name} at={h.created_by_name ? h.created_at : null} />
+                  </TableCell>
+                  <TableCell>
+                    <AuditCell name={h.updated_by_name} at={h.updated_by_name ? h.updated_at : null} />
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">

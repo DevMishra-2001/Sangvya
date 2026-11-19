@@ -88,7 +88,7 @@ export function EmployeeImportView() {
 
   if (result) {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         <PageHeader title="Import employees" className="mb-0" actions={back} />
         <section className="flex flex-col items-center gap-3 rounded-xl border bg-card p-10 text-center">
           <CheckCircle2 className="size-10 text-success" />
@@ -127,7 +127,7 @@ export function EmployeeImportView() {
     <div className="flex min-w-0 flex-col gap-5">
       <PageHeader title="Import employees" description="Add many employees at once from a CSV or Excel file. Every row is checked before anything is saved." className="mb-0" actions={back} />
 
-      <FormCard title="Upload file" crumbs={["Employees", "Import"]} icon={Upload}>
+      <FormCard title="Upload file" icon={Upload}>
         <form
           noValidate
           onSubmit={(e) => {

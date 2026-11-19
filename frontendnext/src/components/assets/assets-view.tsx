@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Archive, CircleCheck, History, IndianRupee, Laptop, MoreHorizontal, Pencil, Plus, Search, Trash2, Undo2, UserPlus, Wrench } from "lucide-react";
@@ -97,7 +98,7 @@ export function AssetsView() {
   const filterStatus = (v: string) => url.set({ status: status === v ? null : v, page: null });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Assets"
         description="Laptops, phones, ID cards and more — who has what, and everything that came back."
@@ -193,6 +194,8 @@ export function AssetsView() {
                   <TableHead>Status</TableHead>
                   <TableHead>Condition</TableHead>
                   <TableHead>Warranty</TableHead>
+                  <TableHead>Created By</TableHead>
+                  <TableHead>Updated By</TableHead>
                   <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>
@@ -222,6 +225,12 @@ export function AssetsView() {
                     <TableCell className={cn(a.condition === "damaged" && "text-destructive")}>{ASSET_CONDITION_LABELS[a.condition]}</TableCell>
                     <TableCell className={cn("text-xs", a.warranty_until && a.warranty_until < new Date().toISOString().slice(0, 10) && "text-muted-foreground line-through")}>
                       {a.warranty_until ? fmtDate(a.warranty_until) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <AuditCell name={a.created_by_name} at={a.created_by_name ? a.created_at : null} />
+                    </TableCell>
+                    <TableCell>
+                      <AuditCell name={a.updated_by_name} at={a.updated_by_name ? a.updated_at : null} />
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
@@ -296,7 +305,7 @@ export function AssetsView() {
                 ))}
                 {data.assets.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                       No assets match these filters.
                     </TableCell>
                   </TableRow>

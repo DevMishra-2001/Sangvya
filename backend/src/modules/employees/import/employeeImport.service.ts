@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { stamp } from "../../../utils/stamp.js";
 import { db } from "../../../config/db.js";
 import { departments, designations, employees, roles, shifts, users } from "../../../db/schema.js";
 import type { EmploymentType } from "../../../db/schemas/employee.schema.js";
@@ -338,6 +339,7 @@ export async function runImport(companyId: number, actor: Express.AuthUser, file
             company_id: companyId,
             designation_id: p.designation ? desigIds.get(p.designation.toLowerCase())! : null,
             department_id: p.department ? deptIds.get(p.department.toLowerCase())! : null,
+            ...stamp.created(actor),
           })),
         )
         .returning({ id: employees.id });

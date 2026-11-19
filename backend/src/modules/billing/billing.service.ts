@@ -6,18 +6,20 @@ import { getRazorpay } from "../../config/razorpay.js";
 import { companies, invoices, subscriptions, users, webhookEvents } from "../../db/schema.js";
 import { BadRequestError, ConflictError, InternalServerError, NotFoundError } from "../../utils/httpErrors.js";
 import { countEmployees } from "../employees/employees.service.js";
+import { platform } from "../platform/platformSettings.service.js";
 
 type Subscription = typeof subscriptions.$inferSelect;
 
 // ---- Subscription rows ----
 
 // Called once, right after a company signs up — starts them on a free trial.
-export async function createTrialSubscription(companyId: number, trialDays: number, executor: Database | Transaction = db) {
+export async function createTrialSubscription(companyId: number, trialDays: number, executor: Database | Transaction = db, pricePerEmployee?: number) {
   const [sub] = await executor
     .insert(subscriptions)
     .values({
       company_id: companyId,
       status: "trial",
+      ...(pricePerEmployee != null ? { price_per_employee: String(pricePerEmployee) } : {}),
       trial_ends_at: sql`now() + make_interval(days => ${trialDays})`,
     })
     .returning();
@@ -96,8 +98,9 @@ export async function getBillingStatus(companyId: number) {
 // PRICE_PER_EMPLOYEE x current headcount. Returns the subscription id for the
 // frontend to open Razorpay Checkout with — "did the card succeed" comes later via webhook.
 export async function createSubscription(companyId: number, userId: number) {
-  if (!env.RAZORPAY_PLAN_ID) {
-    throw new InternalServerError("Billing isn't configured yet — RAZORPAY_PLAN_ID is missing. Run scripts/createRazorpayPlan.ts first.");
+  const planId = platform().razorpayPlanId || env.RAZORPAY_PLAN_ID;
+  if (!planId) {
+    throw new InternalServerError("Billing isn't configured yet — add the Razorpay plan ID in Platform settings.");
   }
   const sub = await findSubscription(companyId);
   if (!sub) throw new NotFoundError("No subscription record found for this company");
@@ -120,7 +123,7 @@ export async function createSubscription(companyId: number, userId: number) {
 
   // total_count = billing cycles before renewal: 120 monthly = 10 years, effectively "until cancelled"
   const razorpaySubscription = await razorpay.subscriptions.create({
-    plan_id: env.RAZORPAY_PLAN_ID,
+    plan_id: planId,
     customer_notify: 1,
     quantity,
     total_count: 120,
@@ -132,7 +135,7 @@ export async function createSubscription(companyId: number, userId: number) {
     .set({
       razorpay_customer_id: razorpayCustomerId,
       razorpay_subscription_id: razorpaySubscription.id,
-      razorpay_plan_id: env.RAZORPAY_PLAN_ID,
+      razorpay_plan_id: planId,
       quantity,
       updated_at: sql`now()`,
     })
@@ -142,7 +145,7 @@ export async function createSubscription(companyId: number, userId: number) {
     razorpaySubscriptionId: razorpaySubscription.id,
     razorpayKeyId: env.RAZORPAY_KEY_ID,
     quantity,
-    monthlyAmount: quantity * env.PRICE_PER_EMPLOYEE,
+    monthlyAmount: quantity * Number(sub.price_per_employee),
   };
 }
 

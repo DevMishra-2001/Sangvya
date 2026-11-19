@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { createdAt, fk, id } from "../columns.js";
+import { createdAt, fk, id, stampColumns } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 
 // Job titles ("UX Designer", "Accounts Lead") — each company keeps its own list.
@@ -14,8 +15,10 @@ export const designations = pgTable(
     // Inactive = not offered for new employees; people who have it keep it
     is_active: boolean("is_active").notNull().default(true),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("designations", t),
     fk("designations", t.company_id, companies.id, "cascade"),
     index("idx_designations_company").on(t.company_id),
     // One name per company, case-insensitive

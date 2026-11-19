@@ -106,9 +106,9 @@ export function ReportSettingsView() {
   if (!loaded) return <Skeleton className="h-96 w-full rounded-xl" />;
   const off = letterhead === "no";
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Report settings" description="How every PDF looks — reports and payslips. The letterhead uses your company's details and logo." className="mb-0" />
-      <FormCard title="PDF layout" crumbs={["Reports", "Settings"]} icon={Settings}>
+      <FormCard title="PDF layout" icon={Settings}>
         <form onSubmit={handleSubmit(save)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Letterhead" htmlFor="rs-letterhead">

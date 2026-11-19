@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, integer, pgTable, smallint, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { createdAt, fk, id } from "../columns.js";
+import { createdAt, fk, id, stampColumns } from "../columns.js";
+import { auditFks } from "../auditColumns.js";
 import { companies } from "./company.schema.js";
 
 // Working hours ("General 09:00–18:00", "Night 22:00–07:00").
@@ -19,8 +20,10 @@ export const shifts = pgTable(
     is_default: boolean("is_default").notNull().default(false),
     is_active: boolean("is_active").notNull().default(true),
     created_at: createdAt(),
+    ...stampColumns(),
   },
   (t) => [
+    ...auditFks("shifts", t),
     fk("shifts", t.company_id, companies.id, "cascade"),
     index("idx_shifts_company").on(t.company_id),
     uniqueIndex("idx_shifts_name").on(t.company_id, sql`lower(${t.name})`),

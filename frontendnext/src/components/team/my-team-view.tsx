@@ -11,11 +11,11 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { run } from "@/lib/api/run";
-import { SHORT_LEAVE_LABELS } from "@/lib/constants";
 import { fmtDate, fmtTime } from "@/lib/format";
 import { selfService } from "@/lib/services/self";
 import type { MyTeam, TeamDayState } from "@/lib/types";
 import { useUser } from "@/stores/auth-store";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 
 const STATE: Record<TeamDayState, { label: string; tone: "success" | "warning" | "info" | "neutral" }> = {
   in: { label: "In", tone: "success" },
@@ -27,6 +27,7 @@ const STATE: Record<TeamDayState, { label: string; tone: "success" | "warning" |
 
 // A manager's team: everyone whose "Reports to" is me — today's attendance, who's on leave, and leave requests waiting for my decision.
 export function MyTeamView() {
+  const leaveTypes = useLeaveTypes();
   const user = useUser();
   const [team, setTeam] = useState<MyTeam | null>(null);
 
@@ -42,7 +43,7 @@ export function MyTeamView() {
   const count = (s: TeamDayState) => team?.members.filter((m) => m.today?.state === s).length ?? 0;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="My Team"
         description="People who report to you. You approve their leave, and you get an email when their day is short or they forget to check out."
@@ -106,7 +107,7 @@ export function MyTeamView() {
                         {m.today && (
                           <StatusBadge tone={STATE[m.today.state].tone} className="normal-case">
                             {STATE[m.today.state].label}
-                            {m.on_leave && ` · ${SHORT_LEAVE_LABELS[m.on_leave.leave_type] ?? "Leave"} till ${fmtDate(m.on_leave.until)}`}
+                            {m.on_leave && ` · ${leaveTypes.short(m.on_leave.leave_type)} till ${fmtDate(m.on_leave.until)}`}
                           </StatusBadge>
                         )}
                       </TableCell>

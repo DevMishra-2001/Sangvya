@@ -22,6 +22,10 @@ export type Permission =
   | "platform.companies"
   | "platform.audit"
   | "platform.overview"
+  | "platform.settings"
+  | "platform.insights"
+  | "platform.health"
+  | "platform.broadcast"
   | "attendance.view"
   | "attendance.mark"
   | "attendance.self"
@@ -43,6 +47,12 @@ export type Permission =
   | "performance.manageCycles"
   | "tasks.assign"
   | "tasks.assignAnyone"
+  | "tickets.viewAll"
+  | "tickets.settings"
+  | "attendance.settings"
+  | "leave.settings"
+  | "letters.manage"
+  | "letters.self"
   | "announcements.manage"
   | "reports.attendance"
   | "reports.leave"
@@ -50,7 +60,9 @@ export type Permission =
   | "reports.people"
   | "reports.settings"
   | "billing.view"
-  | "billing.manage";
+  | "billing.manage"
+  | "expense.self"
+  | "expense.manage";
 
 // Logged-out pages. A logged-in user visiting one is sent to the dashboard.
 export const PUBLIC_ROUTES = ["/login", "/forgot-password"];

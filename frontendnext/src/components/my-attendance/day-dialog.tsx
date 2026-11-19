@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { APPLY_LEAVE_TYPES, LEAVE_TYPE_LABELS } from "@/lib/constants";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 import { fmtMinutes, fmtTime } from "@/lib/format";
 import { dayLeaveSchema, HALF_DAY_OPTIONS } from "@/lib/schemas/leave";
 import type { AttendanceDay, Balances, Holiday, ISODate, Leave, WorkRules } from "@/lib/types";
@@ -43,6 +43,7 @@ export function DayDialog({
   onApplied: () => void;
 }) {
   const apply = useLeavesStore((s) => s.apply);
+  const leaveTypes = useLeaveTypes();
   const {
     register,
     control,
@@ -60,13 +61,14 @@ export function DayDialog({
 
   if (!info) return null;
   const { date, day, holiday, isSunday, leaves } = info;
+  const label = (l: { leave_type: string; leave_type_name?: string | null }) => l.leave_type_name ?? leaveTypes.name(l.leave_type);
   // isSunday = a weekly off (from the company's working days)
   const offDay = isSunday || Boolean(holiday && !holiday.is_optional);
   const worked = Boolean(day?.punchIn) || day?.status === "present";
   const activeLeave = leaves.find((l) => l.status === "pending" || l.status === "approved");
 
   let blockedReason: string | null = null;
-  if (activeLeave) blockedReason = `A ${LEAVE_TYPE_LABELS[activeLeave.leave_type]} request for this day is already ${activeLeave.status}.`;
+  if (activeLeave) blockedReason = `A ${label(activeLeave)} request for this day is already ${activeLeave.status}.`;
   else if (offDay && worked) blockedReason = "You worked on this day off — 1 Comp Off has been added to your balance. Use it on any working day.";
   else if (offDay) blockedReason = isSunday ? "This is a weekly off." : `This day is a holiday (${holiday?.name}).`;
 
@@ -107,7 +109,7 @@ export function DayDialog({
 
         {leaves.map((l) => (
           <div key={l.id} className="text-sm">
-            {LEAVE_TYPE_LABELS[l.leave_type]} — <StatusBadge status={l.status} />
+            {label(l)} — <StatusBadge status={l.status} />
             {l.reason && <p className="mt-0.5 text-xs text-muted-foreground">{l.reason}</p>}
           </div>
         ))}
@@ -122,10 +124,10 @@ export function DayDialog({
                   control={control}
                   name="leaveType"
                   id="dl-type"
-                  options={APPLY_LEAVE_TYPES.map((t) => ({
-                    value: t,
-                    label: `${LEAVE_TYPE_LABELS[t]}${balances ? ` — ${balances[t].available} left` : ""}`,
-                  }))}
+                  options={leaveTypes.applicable.map((t) => {
+                    const b = balances?.[t.code];
+                    return { value: t.code, label: `${leaveTypes.name(t.code)}${b && !b.unlimited ? ` — ${b.available} left` : ""}` };
+                  })}
                 />
               </FormField>
               <FormField label="Duration" htmlFor="dl-half" error={errors.halfDay}>

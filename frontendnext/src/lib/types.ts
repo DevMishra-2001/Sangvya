@@ -113,7 +113,15 @@ export interface Company {
 }
 
 // A company office / branch; office check-ins must be inside its radius
-export interface Branch {
+// Who added / last changed a record (Created By / Updated By)
+export interface AuditNames {
+  created_at?: ISODateTime | null;
+  created_by_name?: string | null;
+  updated_at?: ISODateTime | null;
+  updated_by_name?: string | null;
+}
+
+export interface Branch extends AuditNames {
   id: Id;
   name: string;
   code: string | null;
@@ -160,6 +168,12 @@ export interface PlatformCompany {
   owners: { name: string; email: string }[];
   subscription_status: string | null; // trial | active | past_due | cancelled
   trial_ends_at: ISODateTime | null;
+  current_period_end: ISODateTime | null;
+  price_per_employee: string | null;
+  seats: number | null;
+  active_users_7d: number;
+  last_active_at: ISODateTime | null;
+  checkins_today: number;
 }
 
 // Everything about one company, tax IDs included
@@ -189,6 +203,7 @@ export interface PlatformCompanyDetail extends PlatformCompany {
   fiscal_year_start: number | null;
   currency: string | null;
   employee_id_prefix: string | null;
+  admin_notes: string | null;
 }
 
 export interface CompanyListItem extends Pick<
@@ -203,6 +218,14 @@ export interface AuthResponse {
   company: Company | null;
   pages: AppPage[]; // loaded once with login / me — the sidebar and page guard use it
   session: SessionInfo;
+  platform?: PlatformInfo;
+}
+
+// Super Admin's banner + support contact, sent with login / me
+export interface PlatformInfo {
+  banner: { text: string; tone: "info" | "warning" | "danger" } | null;
+  supportEmail: string | null;
+  supportPhone: string | null;
 }
 
 // ---- Designations ----
@@ -236,14 +259,14 @@ export interface CustomRolesData {
 }
 
 // A company's job title — shown on profiles, no effect on access
-export interface Designation {
+export interface Designation extends AuditNames {
   id: Id;
   name: string;
   is_active: boolean; // inactive = not offered for new employees
   employee_count: number;
 }
 
-export interface Department {
+export interface Department extends AuditNames {
   id: Id;
   name: string;
   code: string | null; // short code, e.g. ENG
@@ -283,7 +306,7 @@ export interface UserRow {
 }
 
 // ---- Employees ----
-export interface Employee {
+export interface Employee extends AuditNames {
   id: Id;
   company_id: Id;
   name: string;
@@ -380,6 +403,8 @@ export interface OnboardingForm {
   };
   details: Record<string, string | null>;
   privateOnFile: Record<string, boolean>;
+  privateValues?: Record<string, string | null>;
+  privateMasked?: Record<string, string | null>;
   documents: {
     id: Id;
     name: string;
@@ -477,6 +502,7 @@ export interface AttendanceDay {
   onBreak: boolean;
   shortDay: boolean;
   longBreak: boolean;
+  overtimeMinutes?: number; // beyond the required time, when the company counts overtime
   lateMinutes: number | null; // minutes late at the first check-in (0 = on time)
 }
 
@@ -490,14 +516,15 @@ export interface WorkRules {
   graceMinutes?: number;
 }
 
-export interface Holiday {
+export interface Holiday extends AuditNames {
   id: Id;
   date: ISODate;
   name: string;
   is_optional?: boolean; // optional holiday: a working day unless taken with OL
 }
 
-export type LeaveType = "leave" | "cl" | "sl" | "ol" | "el" | "comp_off";
+// A leave type code from the company's Leave Settings (cl, sl, ol, el, comp_off, lop or its own)
+export type LeaveType = string;
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Leave {
@@ -519,23 +546,35 @@ export interface Leave {
   manager_name?: string | null; // their reporting manager
   approver?: "manager" | "hr"; // who decides: the manager, or HR when there's none (or they left)
   can_decide?: boolean; // can I approve / reject it
+  leave_type_name?: string | null; // the company's own name / short name / colour for the type
+  leave_type_short?: string | null;
+  leave_type_color?: string | null;
+  attachments?: { path: string; name: string }[];
 }
 
 export interface Balance {
   quota: number;
   used: number;
   available: number;
+  code?: string;
+  name?: string;
+  short?: string;
+  color?: string;
+  kind?: "quota" | "comp_off" | "unpaid";
+  period?: "year" | "month" | "none";
+  unlimited?: boolean; // no quota: only the days used are shown
+  carriedForward?: number;
+  month?: string;
+  earnedDates?: ISODate[];
+  validDays?: number;
 }
 
-export interface Balances {
+// Keyed by leave type code (cl, sl, …) + the same list in the company's order
+export type Balances = {
   financialYear: { start: ISODate; end: ISODate };
   leaveYear?: { start: ISODate; end: ISODate; kind: "calendar" | "financial" };
-  cl: Balance;
-  sl: Balance & { carriedForward: number };
-  ol: Balance;
-  el: Balance & { month: string };
-  comp_off: Balance & { earnedDates: ISODate[]; validDays: number };
-}
+  types: Balance[];
+} & { [code: string]: Balance | undefined };
 
 export interface TodayResponse {
   date: ISODate;
@@ -544,6 +583,8 @@ export interface TodayResponse {
   holiday: Holiday | null;
   day: AttendanceDay | null;
   rules: WorkRules;
+  // What check-in / check-out must include (Attendance Settings)
+  checkIn?: { photo: "required" | "optional" | "off"; location: "required" | "optional" };
 }
 
 export interface CalendarResponse {
@@ -556,6 +597,7 @@ export interface CalendarResponse {
   balances: Balances;
   rules: WorkRules;
   weeklyOffs?: number[]; // day numbers, 0 = Sunday
+  offSaturdays?: number[]; // Saturdays off by week of the month, e.g. [2, 4]
 }
 
 export type DayFlag =
@@ -598,49 +640,7 @@ export interface LeavePolicy {
   sl_per_year: number;
   ol_per_year: number;
   el_per_month: number;
-}
-
-// ---- Tasks ----
-export type TaskStatus = "todo" | "in_progress" | "done" | "approved";
-export type TaskPriority = "low" | "medium" | "high";
-
-export interface Task {
-  id: Id;
-  title: string;
-  description: string | null;
-  priority: TaskPriority;
-  status: TaskStatus;
-  progress: number;
-  assigned_to: Id;
-  assigned_by: Id | null;
-  assigned_date: ISODate;
-  due_date: ISODate | null;
-  completed_at: ISODateTime | null;
-  approved_by: Id | null;
-  approved_at: ISODateTime | null;
-  updated_at: ISODateTime;
-  assigned_to_name: string;
-  assigned_by_name: string | null;
-  approved_by_name: string | null;
-  overdue: boolean;
-}
-
-export interface TaskStats {
-  total: number;
-  counts: Record<
-    "approved" | "done" | "in_progress" | "todo" | "overdue",
-    number
-  >;
-  weekly: { week: ISODate; completed: number }[];
-  completionRate: number;
-  onTimeRate: number;
-  avgProgress: number;
-}
-
-export interface AssignableEmployee {
-  id: Id;
-  name: string;
-  designation: string | null;
+  comp_off_valid_days: number;
 }
 
 // ---- Announcements ----
@@ -661,14 +661,28 @@ export interface Birthday {
 }
 
 // ---- Payroll ----
+export interface PayLine {
+  label: string;
+  amount: number;
+}
+export interface PayItemLine extends PayLine {
+  category: string;
+  loanId?: number;
+}
+
 export interface SalaryStructure {
   id: Id;
   employee_id: Id;
   basic: string;
   hra: string;
   allowances: string;
+  components: PayLine[];
+  ctc_annual: string | null;
+  note: string | null;
   effective_from: ISODate;
   employee_name?: string;
+  created_by_name?: string | null;
+  created_at?: ISODateTime;
 }
 
 export interface PayrollRun {
@@ -684,11 +698,74 @@ export interface PayrollRun {
   total_net: string;
 }
 
+export interface CtcTemplate {
+  basicPct: number;
+  hraPctOfBasic: number;
+  conveyance: number;
+  medical: number;
+}
+
 export interface PayrollSettings {
   pfEnabled: boolean;
   esiEnabled: boolean;
   ptEnabled: boolean;
   tdsEnabled: boolean;
+  pfCeiling: boolean;
+  ctcTemplate: CtcTemplate;
+}
+
+export type PayrollItemCategory = "bonus" | "incentive" | "arrears" | "overtime" | "reimbursement" | "other_earning" | "advance_recovery" | "fine" | "other_deduction";
+
+export interface PayrollAdjustment {
+  id: Id;
+  employee_id: Id;
+  employee_name: string;
+  kind: "earning" | "deduction";
+  category: PayrollItemCategory;
+  label: string;
+  amount: string;
+  source_type: string | null;
+  created_by_name: string | null;
+}
+
+export interface LopOverride {
+  employee_id: Id;
+  employee_name: string;
+  lop_days: string;
+  note: string | null;
+}
+
+export interface PayrollRunTotals {
+  gross: number;
+  net: number;
+  additions: number;
+  reimbursements: number;
+  pfEmployee: number;
+  pfEmployer: number;
+  esiEmployee: number;
+  esiEmployer: number;
+  pt: number;
+  tds: number;
+  otherDeductions: number;
+  lopDays: number;
+  employerCost: number;
+}
+
+export interface EmployeeLoan {
+  id: Id;
+  employee_id: Id;
+  employee_name: string;
+  employee_code: string | null;
+  kind: "loan" | "salary_advance";
+  principal: string;
+  emi: string;
+  start_month: string;
+  recovered: string;
+  balance: string;
+  status: "active" | "closed" | "cancelled";
+  reason: string | null;
+  source_type: string | null;
+  created_at: ISODateTime;
 }
 
 // GET /me/payslips
@@ -709,6 +786,12 @@ export interface MyPayslip {
   esi_employee: string;
   professional_tax: string;
   tds: string;
+  earnings: PayLine[];
+  addition_lines: PayItemLine[];
+  deduction_lines: PayItemLine[];
+  additions: string;
+  reimbursements: string;
+  other_deductions: string;
 }
 
 export interface Payslip {
@@ -721,20 +804,25 @@ export interface Payslip {
   total_days: number;
   gross: string;
   pf_employee: string;
+  pf_employer: string;
   esi_employee: string;
+  esi_employer: string;
   professional_tax: string;
   tds: string;
+  total_deductions: string;
   net_pay: string;
+  earnings: PayLine[];
+  addition_lines: PayItemLine[];
+  deduction_lines: PayItemLine[];
+  additions: string;
+  reimbursements: string;
+  other_deductions: string;
 }
 
 // ---- Recruitment ----
-export type CandidateStage =
-  | "applied"
-  | "screening"
-  | "interview"
-  | "offer"
-  | "hired"
-  | "rejected";
+export type CandidateStage = "applied" | "screening" | "interview" | "offer" | "hired" | "rejected";
+export type JobStatus = "draft" | "open" | "on_hold" | "closed";
+export type CandidateSource = "referral" | "linkedin" | "naukri" | "website" | "walk_in" | "agency" | "other";
 
 export interface JobPosting {
   id: Id;
@@ -742,8 +830,21 @@ export interface JobPosting {
   department: string | null;
   location: string | null;
   description: string | null;
-  status: "open" | "closed";
+  status: JobStatus;
+  employment_type: EmploymentType | null;
+  experience_min: number | null;
+  experience_max: number | null;
+  salary_min: string | null;
+  salary_max: string | null;
+  openings: number;
+  skills: string | null;
+  hiring_manager_id: Id | null;
+  hiring_manager_name: string | null;
+  closes_on: ISODate | null;
+  created_at: ISODateTime;
   candidate_count: number;
+  hired_count: number;
+  stage_counts: Partial<Record<CandidateStage, number>>;
 }
 
 export interface Candidate {
@@ -753,34 +854,165 @@ export interface Candidate {
   name: string;
   email: string | null;
   phone: string | null;
-  resume_url: string | null;
   stage: CandidateStage;
   notes: string | null;
+  applied_date: ISODate;
+  source: CandidateSource | null;
+  current_company: string | null;
+  experience_years: string | null;
+  current_ctc: string | null;
+  expected_ctc: string | null;
+  notice_days: number | null;
+  location: string | null;
+  rating: number | null;
+  rejection_reason: string | null;
+  stage_changed_at: ISODateTime;
+  resume_name: string | null;
+  hired_employee_id: Id | null;
+  next_interview: ISODateTime | null;
+  interviews_done: number;
+  avg_score: string | null;
+  offer_status: OfferStatus | null;
+}
+
+export type InterviewMode = "in_person" | "video" | "phone";
+export type Recommendation = "strong_yes" | "yes" | "no" | "strong_no";
+
+export interface Interview {
+  id: Id;
+  candidate_id: Id;
+  round_name: string;
+  scheduled_at: ISODateTime;
+  duration_min: number;
+  mode: InterviewMode;
+  location: string | null;
+  interviewer_id: Id;
+  interviewer_name: string;
+  status: "scheduled" | "completed" | "cancelled" | "no_show";
+  rating: number | null;
+  recommendation: Recommendation | null;
+  feedback: string | null;
+  feedback_at: ISODateTime | null;
+  candidate_name?: string;
+  job_title?: string;
+}
+
+export type OfferStatus = "draft" | "sent" | "accepted" | "declined" | "withdrawn";
+
+export interface Offer {
+  id: Id;
+  designation: string;
+  department: string | null;
+  ctc_annual: string;
+  joining_date: ISODate;
+  expires_on: ISODate | null;
+  work_location: string | null;
+  probation_months: number | null;
+  notes: string | null;
+  status: OfferStatus;
+  sent_at: ISODateTime | null;
+  responded_at: ISODateTime | null;
+}
+
+export interface CandidateEvent {
+  id: Id;
+  kind: "note" | "stage" | "interview" | "offer";
+  text: string;
+  from_stage: string | null;
+  to_stage: string | null;
+  created_at: ISODateTime;
+  by: string | null;
+}
+
+export interface CandidateDetail {
+  candidate: Candidate;
+  events: CandidateEvent[];
+  interviews: Interview[];
+  offer: Offer | null;
+}
+
+export interface RecruitmentOverview {
+  stats: { openJobs: number; openPositions: number; active: number; interviewsWeek: number; pendingFeedback: number; offersOut: number; hiredMonth: number; avgDaysToHire: number | null };
+  funnel: { stage: CandidateStage; n: number }[];
+  sources: { source: string; n: number; hired: number }[];
+  upcoming: Interview[];
 }
 
 // ---- Performance ----
-export type ReviewStatus = "draft" | "submitted" | "acknowledged";
+export type ReviewStatus = "pending_self" | "pending_manager" | "pending_hr" | "finalized" | "acknowledged";
+export type GoalStatus = "on_track" | "at_risk" | "off_track" | "done";
 
 export interface ReviewCycle {
   id: Id;
   name: string;
+  description: string | null;
   start_date: ISODate;
   end_date: ISODate;
-  status: "active" | "closed";
+  status: "draft" | "active" | "closed";
+  self_review: boolean;
+  self_due: ISODate | null;
+  manager_due: ISODate | null;
+  goals_weight: number;
+  competencies: string[];
+  launched_at: ISODateTime | null;
   review_count: number;
+  by_status: Partial<Record<ReviewStatus, number>>;
 }
 
-export interface Review {
+export interface ReviewRow {
   id: Id;
   cycle_id: Id;
+  cycle_name: string;
+  cycle_status: ReviewCycle["status"];
   employee_id: Id;
-  rating: number | null;
-  strengths: string | null;
-  improvements: string | null;
-  goals_next_cycle: string | null;
-  manager_comments: string | null;
+  employee_name: string;
+  photo_url: string | null;
+  designation: string | null;
+  department: string | null;
+  manager_id: Id | null;
+  manager_name: string | null;
   status: ReviewStatus;
-  employee_name?: string;
+  self_rating: number | null;
+  rating: number | null;
+  score: string | null;
+  final_rating: number | null;
+  goal_count: number;
+  self_due: ISODate | null;
+  manager_due: ISODate | null;
+}
+
+export interface Goal {
+  id: Id;
+  title: string;
+  description: string | null;
+  target: string | null;
+  weight: number;
+  progress: number;
+  status: GoalStatus;
+  self_rating: number | null;
+  manager_rating: number | null;
+  checkins: { id: Id; progress: number; status: GoalStatus; note: string | null; created_at: ISODateTime; by: string | null }[];
+}
+
+export interface ReviewDetail {
+  review: ReviewRow & {
+    self_comments: string | null;
+    strengths: string | null;
+    improvements: string | null;
+    goals_next_cycle: string | null;
+    manager_comments: string | null;
+    hr_comments: string | null;
+    competency_ratings: Record<string, { self?: number; manager?: number }>;
+    self_submitted_at: ISODateTime | null;
+    manager_submitted_at: ISODateTime | null;
+    finalized_at: ISODateTime | null;
+    acknowledged_at: ISODateTime | null;
+    employee_comment: string | null;
+  };
+  cycle: Pick<ReviewCycle, "id" | "name" | "status" | "self_review" | "goals_weight" | "competencies" | "self_due" | "manager_due" | "start_date" | "end_date">;
+  goals: Goal[];
+  you: { isSelf: boolean; isManager: boolean; isHr: boolean };
+  ratingLabels: string[];
 }
 
 // ---- Billing ----
@@ -940,7 +1172,7 @@ export interface MyTeam {
 }
 
 // A company shift (working hours)
-export interface Shift {
+export interface Shift extends AuditNames {
   id: Id;
   name: string;
   start_time: string; // "09:00"

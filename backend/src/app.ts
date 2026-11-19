@@ -30,7 +30,11 @@ import { pageRoutes } from "./modules/pages/pages.route.js";
 import { platformCompanyRoutes } from "./modules/platform/platformCompanies.route.js";
 import {
   platformAuditRoutes,
+  platformBroadcastRoutes,
+  platformHealthRoutes,
+  platformInsightsRoutes,
   platformOverviewRoutes,
+  platformSettingsRoutes,
 } from "./modules/platform/platform.route.js";
 import { payrollRoutes } from "./modules/payroll/payroll.route.js";
 import { performanceRoutes } from "./modules/performance/performance.route.js";
@@ -46,9 +50,12 @@ import {
 } from "./modules/onboarding/onboarding.route.js";
 import { customRoleRoutes } from "./modules/roles/customRoles.route.js";
 import { recruitmentRoutes } from "./modules/recruitment/recruitment.route.js";
+import { expenseRoutes } from "./modules/expenses/expenses.route.js";
 import { selfRoutes } from "./modules/self/self.route.js";
 import { settingsRoutes } from "./modules/settings/settings.route.js";
-import { taskRoutes } from "./modules/tasks/tasks.route.js";
+import { ticketRoutes } from "./modules/tickets/tickets.route.js";
+import { searchRoutes } from "./modules/search/search.route.js";
+import { letterRoutes } from "./modules/letters/letters.route.js";
 import { uploadRoutes } from "./modules/upload/upload.route.js";
 import { userRoutes } from "./modules/users/users.route.js";
 
@@ -102,12 +109,15 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/leave-policy", leavePolicyRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/recruitment", recruitmentRoutes);
+app.use("/api/expenses", expenseRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/me", selfRoutes);
 app.use("/api/holidays", holidayRoutes);
-app.use("/api/tasks", taskRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/letters", letterRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/upload", uploadRoutes);
@@ -116,6 +126,10 @@ app.use("/api/admins", adminRoutes);
 app.use("/api/platform/companies", platformCompanyRoutes);
 app.use("/api/platform/audit", platformAuditRoutes);
 app.use("/api/platform/overview", platformOverviewRoutes);
+app.use("/api/platform/settings", platformSettingsRoutes);
+app.use("/api/platform/insights", platformInsightsRoutes);
+app.use("/api/platform/health", platformHealthRoutes);
+app.use("/api/platform/broadcast", platformBroadcastRoutes);
 
 // ---- 404 + centralized error handling (must be last) ----
 app.use(notFound);

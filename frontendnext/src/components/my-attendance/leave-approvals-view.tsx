@@ -9,12 +9,12 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { run } from "@/lib/api/run";
-import { LEAVE_TYPE_LABELS } from "@/lib/constants";
 import { fmtDay, monthLabel, toMonth } from "@/lib/format";
 import { selfService } from "@/lib/services/self";
 import type { MyLeavesResponse } from "@/lib/types";
 import { useUser } from "@/stores/auth-store";
 import { SelectField } from "@/components/common/select-field";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 
 const FILTERS = [
   { value: "all", label: "All" },
@@ -25,6 +25,7 @@ const FILTERS = [
 
 // My leaves for a month and their approval status (decided by my reporting manager)
 export function LeaveApprovalsView() {
+  const leaveTypes = useLeaveTypes();
   const user = useUser();
   const [month, setMonth] = useState(() => toMonth(new Date()));
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
@@ -43,7 +44,7 @@ export function LeaveApprovalsView() {
   const approvedDays = leaves.filter((l) => l.status === "approved").reduce((s, l) => s + l.days, 0);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title={`Leave approvals — ${monthLabel(month)}`}
         description={`${approvedDays} day${approvedDays === 1 ? "" : "s"} approved · ${pendingDays} pending. Your reporting manager approves or rejects requests.`}
@@ -80,7 +81,7 @@ export function LeaveApprovalsView() {
             <TableBody>
               {visible.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell>{LEAVE_TYPE_LABELS[l.leave_type]}</TableCell>
+                  <TableCell>{l.leave_type_name ?? leaveTypes.name(l.leave_type)}</TableCell>
                   <TableCell className="tabular-nums">{fmtDay(l.from_date)}</TableCell>
                   <TableCell className="tabular-nums">{fmtDay(l.to_date)}</TableCell>
                   <TableCell className="tabular-nums">{l.days}</TableCell>

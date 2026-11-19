@@ -24,6 +24,10 @@ export interface PayslipPdfData {
   tds: string;
   total_deductions: string;
   net_pay: string;
+  earnings?: { label: string; amount: number }[];
+  addition_lines?: { category: string; label: string; amount: number }[];
+  deduction_lines?: { category: string; label: string; amount: number }[];
+  reimbursements?: string | null;
 }
 
 const money = (n: string | number) => `Rs. ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -92,14 +96,35 @@ export function generatePayslipPDF(p: PayslipPdfData, brand: Brand, printedBy?: 
     doc.rect(x, tableTop, colW, y - tableTop).lineWidth(0.6).strokeColor("#CBD5E1").stroke();
     return y;
   };
-  const endA = table(left, "Earnings", [["Basic", money(p.basic)], ["HRA", money(p.hra)], ["Allowances", money(p.allowances)], ["", ""]], ["Gross earnings", money(p.gross)]);
-  const endB = table(
-    left + colW + gap,
-    "Deductions",
-    [["Provident Fund (PF)", money(p.pf_employee)], ["ESI", money(p.esi_employee)], ["Professional tax", money(p.professional_tax)], ["TDS (income tax)", money(p.tds)]],
-    ["Total deductions", money(p.total_deductions)],
-  );
-  doc.y = Math.max(endA, endB) + 16;
+  // Each component, then one-time earnings; reimbursements are listed but sit outside gross
+  const fixed: [string, string][] = p.earnings?.length
+    ? p.earnings.map((e) => [e.label, money(e.amount)])
+    : [["Basic", money(p.basic)], ["HRA", money(p.hra)], ["Allowances", money(p.allowances)]];
+  const extras = (p.addition_lines ?? []).filter((a) => a.category !== "reimbursement").map((a): [string, string] => [a.label, money(a.amount)]);
+  const reimb = (p.addition_lines ?? []).filter((a) => a.category === "reimbursement").map((a): [string, string] => [`${a.label} (reimbursement)`, money(a.amount)]);
+  const statutory: [string, string][] = [
+    ["Provident Fund (PF)", money(p.pf_employee)],
+    ["ESI", money(p.esi_employee)],
+    ["Professional tax", money(p.professional_tax)],
+    ["TDS (income tax)", money(p.tds)],
+  ];
+  const others = (p.deduction_lines ?? []).map((d): [string, string] => [d.label, money(d.amount)]);
+  const earnRows = [...fixed, ...extras];
+  const dedRows = [...statutory, ...others];
+  // Same height on both sides
+  while (earnRows.length < dedRows.length) earnRows.push(["", ""]);
+  while (dedRows.length < earnRows.length) dedRows.push(["", ""]);
+  const endA = table(left, "Earnings", earnRows, ["Gross earnings", money(p.gross)]);
+  const endB = table(left + colW + gap, "Deductions", dedRows, ["Total deductions", money(p.total_deductions)]);
+  doc.y = Math.max(endA, endB) + 8;
+  if (reimb.length) {
+    for (const [k, v] of reimb) {
+      doc.font("Helvetica").fontSize(9).fillColor(INK).text(`+ ${k}`, left + 8, doc.y, { continued: false, width: width / 2 });
+      doc.text(v, left + width / 2, doc.y - 11, { width: width / 2 - 8, align: "right" });
+    }
+    doc.moveDown(0.4);
+  }
+  doc.y += 8;
 
   // Net pay
   const ny = doc.y;

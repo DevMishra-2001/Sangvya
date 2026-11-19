@@ -211,6 +211,90 @@
       "when": 1793500668944,
       "tag": "0029_assets_probation_exits",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794108010715,
+      "tag": "0030_platform_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794119234220,
+      "tag": "0031_payroll_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794120020870,
+      "tag": "0032_recruitment_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794129509065,
+      "tag": "0033_performance_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794129992235,
+      "tag": "0034_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794757701594,
+      "tag": "0035_tickets_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794763369739,
+      "tag": "0036_attendance_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794764495865,
+      "tag": "0037_leave_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794821521263,
+      "tag": "0038_audit_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795085245023,
+      "tag": "0039_letters",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795087422435,
+      "tag": "0040_letters_menu",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795089523791,
+      "tag": "0041_letterhead_mode",
+      "breakpoints": true
     }
   ]
 }

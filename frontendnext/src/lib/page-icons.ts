@@ -1,5 +1,6 @@
 // Icons a Page Master page can use (stored by name in app_pages.icon)
 import {
+  Activity,
   BadgeCheck,
   Bell,
   BookOpen,
@@ -37,6 +38,7 @@ import {
   Star,
   Ticket,
   Timer,
+  TrendingUp,
   UserCog,
   UserMinus,
   UserPlus,
@@ -46,6 +48,7 @@ import {
 } from "lucide-react";
 
 export const PAGE_ICONS: Record<string, LucideIcon> = {
+  Activity,
   BadgeCheck,
   Bell,
   BookOpen,
@@ -83,6 +86,7 @@ export const PAGE_ICONS: Record<string, LucideIcon> = {
   Star,
   Ticket,
   Timer,
+  TrendingUp,
   UserCog,
   UserMinus,
   UserPlus,

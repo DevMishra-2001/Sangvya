@@ -43,3 +43,34 @@ export type CorrectionDecisionInput = z.infer<typeof correctionDecisionSchema>;
 export const correctionListQuery = z.object({
   status: z.preprocess((v) => v || undefined, z.enum(["pending", "approved", "rejected", "all"]).default("pending")),
 });
+
+// PUT /api/attendance/settings
+const mins = (max: number) => z.coerce.number().int().min(0).max(max);
+const optionalMins = (max: number) => z.preprocess((v) => (v === "" || v === undefined ? null : v), z.coerce.number().int().min(0).max(max).nullable());
+export const attendanceSettingsSchema = z
+  .object({
+    workDays: z.array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"])).min(1, "Pick at least one working day"),
+    offSaturdays: z.array(z.coerce.number().int().min(1).max(5)).max(5).default([]),
+    defaultRequiredMinutes: z.coerce.number().int().min(60, "At least 1 hour").max(1440),
+    defaultBreakMinutes: mins(600),
+    statusByHours: z.boolean(),
+    halfDayBelowMinutes: mins(1440),
+    absentBelowMinutes: mins(1440),
+    latePenaltyEnabled: z.boolean(),
+    lateMarksPerPenalty: z.coerce.number().int().min(1).max(31),
+    latePenalty: z.enum(["half", "full"]),
+    countEarlyLeaving: z.boolean(),
+    earlyLeavingGraceMinutes: mins(240),
+    photoRule: z.enum(["required", "optional", "off"]),
+    locationRule: z.enum(["required", "optional"]),
+    geofenceEnabled: z.boolean(),
+    earlyCheckInMinutes: optionalMins(720),
+    missingCheckout: z.enum(["flag", "shift_end", "half"]),
+    correctionsEnabled: z.boolean(),
+    correctionDaysBack: z.coerce.number().int().min(1).max(365),
+    correctionsPerMonth: optionalMins(31),
+    overtimeEnabled: z.boolean(),
+    overtimeAfterMinutes: mins(600),
+  })
+  .refine((v) => !v.statusByHours || v.absentBelowMinutes < v.halfDayBelowMinutes, { path: ["absentBelowMinutes"], message: "Absent hours must be less than half-day hours" });
+export type AttendanceSettingsInput = z.infer<typeof attendanceSettingsSchema>;

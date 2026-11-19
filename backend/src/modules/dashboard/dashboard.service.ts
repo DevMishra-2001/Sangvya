@@ -9,7 +9,7 @@ import {
   designations,
   employees,
   holidays,
-  leavePolicies,
+  leaveSettings,
   leaveRequests,
 } from "../../db/schema.js";
 import { localDate } from "../../utils/workday.js";
@@ -173,7 +173,7 @@ export async function companyOverview(companyId: number) {
     exists(db.select({ n: count() }).from(departments).where(eq(departments.company_id, companyId))),
     exists(db.select({ n: count() }).from(designations).where(eq(designations.company_id, companyId))),
     exists(db.select({ n: count() }).from(holidays).where(eq(holidays.company_id, companyId))),
-    exists(db.select({ n: count() }).from(leavePolicies).where(eq(leavePolicies.company_id, companyId))),
+    exists(db.select({ n: count() }).from(leaveSettings).where(and(eq(leaveSettings.company_id, companyId), isNotNull(leaveSettings.updated_by)))),
     db.select({ n: count() }).from(companyMembers).where(eq(companyMembers.company_id, companyId)),
   ]);
   const setup = [
@@ -183,7 +183,7 @@ export async function companyOverview(companyId: number) {
     { key: "employees", label: "Add your employees", done: total > 1, url: "/employees" },
     { key: "logins", label: "Give employees a login", done: logins[0].n > 1, url: "/employees" },
     ...(attendanceOn || leaveOn ? [{ key: "holidays", label: "Add this year's holidays", done: hasHolidays, url: "/holidays" }] : []),
-    ...(leaveOn ? [{ key: "leave-policy", label: "Review the leave policy", done: hasPolicy, url: "/leave-policy" }] : []),
+    ...(leaveOn ? [{ key: "leave-policy", label: "Review leave settings", done: hasPolicy, url: "/leave/settings" }] : []),
   ];
 
   return {

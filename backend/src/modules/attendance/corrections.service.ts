@@ -1,5 +1,5 @@
 // Attendance corrections (regularisation).
-import { and, desc, eq, gte, inArray, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
 import { attendance, attendanceBreaks, attendanceCorrections, attendancePunches, employees, users } from "../../db/schema.js";
@@ -13,8 +13,8 @@ import { lateMinutes, rulesFor } from "../shifts/shiftRules.js";
 import { hrRecipients, notify } from "../notifications/notify.js";
 import { localTime } from "../../utils/workday.js";
 import type { CorrectionDecisionInput, CorrectionInput } from "./attendance.schema.js";
+import { getAttendanceSettings } from "./attendanceSettings.service.js";
 
-const MAX_DAYS_BACK = 30;
 const HR_PERMISSION = "attendance.mark" as const;
 
 const manager = alias(employees, "manager");
@@ -64,10 +64,20 @@ const present = (user: Express.AuthUser, { manager_status, ...row }: Row) => ({
 export async function requestCorrection(companyId: number, user: Express.AuthUser, input: CorrectionInput) {
   const employeeId = user.employeeId!;
   const today = localDate();
+  const rules = await getAttendanceSettings(companyId);
+  if (!rules.corrections_enabled) throw new BadRequestError("Attendance corrections are turned off in your company — talk to HR");
   const oldest = new Date(`${today}T00:00:00Z`);
-  oldest.setUTCDate(oldest.getUTCDate() - MAX_DAYS_BACK);
+  oldest.setUTCDate(oldest.getUTCDate() - rules.correction_days_back);
   if (input.date >= today) throw new BadRequestError("Only past days can be corrected — today you can still check in and out");
-  if (input.date < oldest.toISOString().slice(0, 10)) throw new BadRequestError(`Only the last ${MAX_DAYS_BACK} days can be corrected`);
+  if (input.date < oldest.toISOString().slice(0, 10)) throw new BadRequestError(`Only the last ${rules.correction_days_back} days can be corrected`);
+  // Monthly limit, counted by the month of the day being corrected (rejected ones don't count)
+  if (rules.corrections_per_month != null) {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(attendanceCorrections)
+      .where(and(eq(attendanceCorrections.employee_id, employeeId), sql`to_char(${attendanceCorrections.date}, 'YYYY-MM') = ${input.date.slice(0, 7)}`, sql`${attendanceCorrections.status} <> 'rejected'`));
+    if (n >= rules.corrections_per_month) throw new BadRequestError(`You've used all ${rules.corrections_per_month} corrections for this month`);
+  }
 
   const employee = await getEmployeeById(companyId, employeeId);
   if (employee.join_date && input.date < employee.join_date) throw new BadRequestError("That day is before you joined");
@@ -116,7 +126,12 @@ export async function myCorrections(companyId: number, user: Express.AuthUser) {
     eq(attendanceCorrections.employee_id, user.employeeId!),
     gte(attendanceCorrections.date, since),
   );
-  return { corrections: rows.map((r) => present(user, r)) };
+  const rules = await getAttendanceSettings(companyId);
+  return {
+    corrections: rows.map((r) => present(user, r)),
+    // What the request form allows (Attendance Settings)
+    rules: { enabled: rules.corrections_enabled, daysBack: rules.correction_days_back, perMonth: rules.corrections_per_month },
+  };
 }
 
 // Withdraw my own request while it's still waiting

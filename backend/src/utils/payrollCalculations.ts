@@ -11,8 +11,8 @@
 const PF_RATE = 0.12;
 const PF_WAGE_CEILING = 15000;
 
-export function calculatePF(basic: number) {
-  const pfWage = Math.min(basic, PF_WAGE_CEILING);
+export function calculatePF(basic: number, ceiling = true) {
+  const pfWage = ceiling ? Math.min(basic, PF_WAGE_CEILING) : basic;
   return { employee: Math.round(pfWage * PF_RATE), employer: Math.round(pfWage * PF_RATE) };
 }
 
@@ -75,38 +75,83 @@ export interface Deductions {
   esi: boolean;
   pt: boolean;
   tds: boolean;
+  pfCeiling?: boolean; // PF on basic capped at ₹15,000 (default) or the full basic
+}
+
+export interface Line {
+  label: string;
+  amount: number;
+}
+export interface Adjustment extends Line {
+  category: string;
+  loanId?: number;
 }
 
 export interface PayslipInput {
   basic: number;
   hra: number;
-  allowances: number;
+  allowances: number; // used when no components are given (older structures)
+  components?: Line[]; // other monthly earnings
   paidDays: number;
   totalDays: number;
   deductions?: Deductions; // company payroll settings (all on by default)
+  earnings?: Adjustment[]; // one-time taxable earnings: bonus, incentive, arrears …
+  reimbursements?: Adjustment[]; // paid back, not salary: no PF / ESI / PT / TDS
+  otherDeductions?: Adjustment[]; // loan EMI, advance recovery, fine …
 }
 
+const sum = (lines: { amount: number }[]) => lines.reduce((t, l) => t + l.amount, 0);
+
 // ---- Full payslip calculation ----
-// paidDays / totalDays lets absent days reduce gross pay proportionally
-// before statutory deductions are applied.
-export function calculatePayslip({ basic, hra, allowances, paidDays, totalDays, deductions = { pf: true, esi: true, pt: true, tds: true } }: PayslipInput) {
+// paidDays / totalDays lets absent days reduce the fixed pay proportionally; one-time items aren't prorated.
+export function calculatePayslip({
+  basic,
+  hra,
+  allowances,
+  components,
+  paidDays,
+  totalDays,
+  deductions = { pf: true, esi: true, pt: true, tds: true },
+  earnings = [],
+  reimbursements = [],
+  otherDeductions = [],
+}: PayslipInput) {
   const proration = totalDays > 0 ? paidDays / totalDays : 1;
-  const proratedBasic = Math.round(basic * proration);
-  const proratedHra = Math.round(hra * proration);
-  const proratedAllowances = Math.round(allowances * proration);
-  const gross = proratedBasic + proratedHra + proratedAllowances;
+  const pro = (n: number) => Math.round(n * proration);
+  const proratedBasic = pro(basic);
+  const proratedHra = pro(hra);
+  const lines = (components?.length ? components : allowances ? [{ label: "Allowances", amount: allowances }] : []).map((c) => ({ label: c.label, amount: pro(c.amount) }));
+  const proratedAllowances = sum(lines);
+  const fixedGross = proratedBasic + proratedHra + proratedAllowances;
+  const additions = Math.round(sum(earnings));
+  const gross = fixedGross + additions;
 
   const none = { employee: 0, employer: 0 };
-  const pf = deductions.pf ? calculatePF(proratedBasic) : none;
+  const pf = deductions.pf ? calculatePF(proratedBasic, deductions.pfCeiling !== false) : none;
   const esi = deductions.esi ? calculateESI(gross) : none;
   const professionalTax = deductions.pt ? calculateProfessionalTax(gross) : 0;
-  const tds = deductions.tds ? calculateMonthlyTDS(gross) : 0;
-  const totalDeductions = pf.employee + esi.employee + professionalTax + tds;
+  // Monthly TDS from the regular salary; one-time items add their own share spread over the year
+  const tds = deductions.tds ? calculateMonthlyTDS(fixedGross + additions / 12) : 0;
+  const statutory = pf.employee + esi.employee + professionalTax + tds;
+  const reimbursed = Math.round(sum(reimbursements));
+  // Recoveries only take what's left after statutory deductions (the rest waits for next month)
+  let room = Math.max(0, gross - statutory + reimbursed);
+  const takenLines = otherDeductions.map((d) => {
+    const amount = Math.min(Math.round(d.amount), room);
+    room -= amount;
+    return { ...d, amount };
+  }).filter((d) => d.amount > 0);
+  const other = sum(takenLines);
+  const totalDeductions = statutory + other;
 
   return {
     basic: proratedBasic,
     hra: proratedHra,
     allowances: proratedAllowances,
+    earningLines: [{ label: "Basic", amount: proratedBasic }, ...(hra ? [{ label: "HRA", amount: proratedHra }] : []), ...lines],
+    additions,
+    additionLines: [...earnings, ...reimbursements],
+    reimbursements: reimbursed,
     gross,
     pfEmployee: pf.employee,
     pfEmployer: pf.employer,
@@ -114,8 +159,11 @@ export function calculatePayslip({ basic, hra, allowances, paidDays, totalDays, 
     esiEmployer: esi.employer,
     professionalTax,
     tds,
+    otherDeductions: other,
+    deductionLines: takenLines,
     totalDeductions,
-    netPay: gross - totalDeductions,
+    // Net can't go below zero — leftover recoveries wait for the next month
+    netPay: Math.max(0, gross - totalDeductions + reimbursed),
   };
 }
 

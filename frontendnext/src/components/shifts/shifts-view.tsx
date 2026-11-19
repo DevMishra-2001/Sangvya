@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditCell } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -73,14 +74,14 @@ export function ShiftsView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Shifts"
         description="Working hours for your people. Checking in after the start plus the grace time is marked late; a day shorter than the shift is a short day."
         className="mb-0"
       />
 
-      <FormCard title={editing ? `Edit “${editing.name}”` : "New shift"} crumbs={["Master", "Shifts"]} icon={Timer}>
+      <FormCard title={editing ? `Edit “${editing.name}”` : "New shift"} icon={Timer}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
           <FormGrid>
             <FormField label="Shift name" htmlFor="sh-name" error={errors.name} required>
@@ -146,6 +147,8 @@ export function ShiftsView() {
               <TableHead className="w-28">Grace</TableHead>
               <TableHead className="w-28">Break</TableHead>
               <TableHead className="w-28 text-right">Employees</TableHead>
+              <TableHead>Created By</TableHead>
+              <TableHead>Updated By</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead className="w-24 text-right">Actions</TableHead>
             </TableRow>
@@ -169,6 +172,12 @@ export function ShiftsView() {
                 <TableCell className="tabular-nums">{s.grace_minutes} min</TableCell>
                 <TableCell className="tabular-nums">{fmtMinutes(s.break_minutes)}</TableCell>
                 <TableCell className="text-right tabular-nums">{s.is_default ? `${s.employee_count} + others` : s.employee_count}</TableCell>
+                <TableCell>
+                  <AuditCell name={s.created_by_name} at={s.created_by_name ? s.created_at : null} />
+                </TableCell>
+                <TableCell>
+                  <AuditCell name={s.updated_by_name} at={s.updated_by_name ? s.updated_at : null} />
+                </TableCell>
                 <TableCell>
                   <Badge variant={s.is_active ? "default" : "secondary"} className="w-16 justify-center">
                     {s.is_active ? "Active" : "Inactive"}

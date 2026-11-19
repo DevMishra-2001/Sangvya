@@ -18,14 +18,25 @@ import {
   runPayroll,
   setSalaryStructure,
   updateSettings,
+  salaryHistory,
+  listAdjustments,
+  addAdjustment,
+  removeAdjustment,
+  setLop,
+  listLoans,
+  createLoan,
+  updateLoan,
+  loanRecoveryHistory,
+  runSummary,
 } from "./payroll.service.js";
+import { exportRun } from "./payrollExports.service.js";
 
 export const listSalaryStructuresHandler = asyncHandler(async (req, res) => {
   res.json(await listSalaryStructures(tenant(req).companyId));
 });
 
 export const setSalaryStructureHandler = asyncHandler(async (req, res) => {
-  res.status(HttpStatus.CREATED).json(await setSalaryStructure(tenant(req).companyId, req.body));
+  res.status(HttpStatus.CREATED).json(await setSalaryStructure(tenant(req).companyId, currentUser(req), req.body));
 });
 
 export const getSettingsHandler = asyncHandler(async (req, res) => {
@@ -74,4 +85,30 @@ export const payslipPdfHandler = asyncHandler(async (req, res) => {
   res.setHeader("Content-Disposition", `inline; filename="${name}"`);
   res.setHeader("Cache-Control", "no-store");
   res.send(pdf);
+});
+
+const cid = (req: Parameters<typeof tenant>[0]) => tenant(req).companyId;
+const runId = (req: { params: Record<string, string> }) => Number(req.params.runId);
+
+export const salaryHistoryHandler = asyncHandler(async (req, res) => res.json(await salaryHistory(cid(req), Number(req.params.id))));
+export const runSummaryHandler = asyncHandler(async (req, res) => res.json(await runSummary(cid(req), runId(req))));
+export const listAdjustmentsHandler = asyncHandler(async (req, res) => res.json(await listAdjustments(cid(req), runId(req))));
+export const addAdjustmentHandler = asyncHandler(async (req, res) => res.json(await addAdjustment(cid(req), currentUser(req), runId(req), req.body)));
+export const removeAdjustmentHandler = asyncHandler(async (req, res) => res.json(await removeAdjustment(cid(req), currentUser(req), runId(req), Number(req.params.adjustmentId))));
+export const setLopHandler = asyncHandler(async (req, res) => res.json(await setLop(cid(req), currentUser(req), runId(req), req.body)));
+export const listLoansHandler = asyncHandler(async (req, res) => res.json(await listLoans(cid(req), (req.query as { status?: string }).status)));
+export const createLoanHandler = asyncHandler(async (req, res) => res.status(HttpStatus.CREATED).json(await createLoan(cid(req), currentUser(req), req.body)));
+export const updateLoanHandler = asyncHandler(async (req, res) => res.json(await updateLoan(cid(req), currentUser(req), Number(req.params.id), req.body)));
+export const loanRecoveriesHandler = asyncHandler(async (req, res) => res.json(await loanRecoveryHistory(cid(req), Number(req.params.id))));
+
+// GET /api/payroll/runs/:runId/export?type=register|bank|pf_ecr|esi|pt|tds
+export const exportRunHandler = asyncHandler(async (req, res) => {
+  const [me] = await db.select({ name: users.name }).from(users).where(eq(users.id, currentUser(req).id));
+  const file = await exportRun(cid(req), runId(req), (req.query as { type: "register" }).type, me?.name);
+  res.setHeader("Content-Type", file.contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
+  // People left out of the PF file (no UAN) — the screen warns about them
+  if (file.skipped.length) res.setHeader("X-Skipped", encodeURIComponent(file.skipped.join(", ")));
+  res.setHeader("Cache-Control", "no-store");
+  res.end(file.body);
 });

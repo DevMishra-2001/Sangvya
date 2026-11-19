@@ -1,5 +1,6 @@
 "use client";
 
+import { AuditInfo } from "@/components/common/audit-info";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -41,6 +42,7 @@ import { useAuthStore, useCan } from "@/stores/auth-store";
 import { useEmployeesStore } from "@/stores/employees-store";
 import { EmployeeAssets } from "@/components/assets/employee-assets";
 import { EmployeeDocuments } from "./employee-documents";
+import { EmployeeLetters } from "@/components/letters/employee-letters";
 import { EmployeeExitPanel } from "./employee-exit-panel";
 import { EmployeeFormDialog } from "./employee-form-dialog";
 import { EmployeeStatusBadge } from "./employee-status-badge";
@@ -244,6 +246,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
   const canManage = can("employees.manage");
   const canSeePay = canManage || can("payroll.view");
   const canAssets = can("assets.manage");
+  const canLetters = can("letters.manage");
   const me = useAuthStore((s) => s.user);
   const list = useEmployeesStore((s) => s.list);
   const loadList = useEmployeesStore((s) => s.load);
@@ -313,7 +316,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
   const addressLines = [e.address, e.address_line2].filter(Boolean).join(", ");
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Link
         href="/employees"
         className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -374,6 +377,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
           </div>
         )}
       </section>
+      <AuditInfo row={e} className="rounded-xl border bg-card px-4 py-2" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
@@ -415,6 +419,7 @@ export function EmployeeProfileView({ id }: { id: number }) {
           <TabsTrigger value="about">About</TabsTrigger>
           <TabsTrigger value="work">Work</TabsTrigger>
           {canManage && <TabsTrigger value="documents">Documents</TabsTrigger>}
+          {canLetters && <TabsTrigger value="letters">Letters</TabsTrigger>}
           {canManage && <TabsTrigger value="bank">Bank & IDs</TabsTrigger>}
           {canAssets && <TabsTrigger value="assets">Assets</TabsTrigger>}
           <TabsTrigger value="emergency">Emergency</TabsTrigger>
@@ -549,6 +554,12 @@ export function EmployeeProfileView({ id }: { id: number }) {
         {canManage && (
           <TabsContent value="documents" className="mt-4">
             <EmployeeDocuments employeeId={e.id} />
+          </TabsContent>
+        )}
+
+        {canLetters && (
+          <TabsContent value="letters" className="mt-4">
+            <EmployeeLetters employeeId={e.id} employeeName={e.name} />
           </TabsContent>
         )}
 

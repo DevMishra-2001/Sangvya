@@ -2,7 +2,7 @@
 import { and, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "../../config/db.js";
-import { notifications, users } from "../../db/schema.js";
+import { jobRuns, mailLog, notifications, users } from "../../db/schema.js";
 import { NotFoundError } from "../../utils/httpErrors.js";
 
 const actor = alias(users, "actor");
@@ -67,5 +67,8 @@ export async function cleanupNotifications() {
       ),
     )
     .returning({ id: notifications.id });
+  // Health logs don't need to live forever
+  await db.delete(jobRuns).where(lt(jobRuns.started_at, sql`now() - interval '30 days'`));
+  await db.delete(mailLog).where(lt(mailLog.created_at, sql`now() - interval '90 days'`));
   return rows.length;
 }

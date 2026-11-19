@@ -23,7 +23,7 @@ export function CompanySettingsView() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Company" description="Your company's details and its offices / branches." className="mb-0" />
       <Tabs defaultValue="details">
         <TabsList>

@@ -9,7 +9,8 @@ const LEAVE_LABELS: Record<string, string> = {
   el: "Earned leave",
   comp_off: "Comp off",
 };
-export const leaveLabel = (t: string) => LEAVE_LABELS[t] ?? "Leave";
+// Built-in codes get their label; anything else is already the company's own name
+export const leaveLabel = (t: string) => LEAVE_LABELS[t] ?? t ?? "Leave";
 
 const day = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-IN", {

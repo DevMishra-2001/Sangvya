@@ -51,7 +51,7 @@ export function PlatformOverviewView() {
   const { companies: c, subscriptions: s } = data;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Platform overview" description="Companies, people and subscriptions across Workkind." className="mb-0" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">

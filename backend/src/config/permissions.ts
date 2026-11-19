@@ -28,6 +28,10 @@ export const PERMISSION_KEYS = [
   "platform.companies",
   "platform.audit",
   "platform.overview",
+  "platform.settings",
+  "platform.insights",
+  "platform.health",
+  "platform.broadcast",
   "attendance.view",
   "attendance.mark",
   "attendance.self",
@@ -50,6 +54,12 @@ export const PERMISSION_KEYS = [
   "performance.manageCycles",
   "tasks.assign",
   "tasks.assignAnyone",
+  "tickets.viewAll",
+  "tickets.settings",
+  "attendance.settings",
+  "leave.settings",
+  "letters.manage",
+  "letters.self",
   "announcements.manage",
   "reports.attendance",
   "reports.leave",
@@ -58,6 +68,8 @@ export const PERMISSION_KEYS = [
   "reports.settings",
   "billing.view",
   "billing.manage",
+  "expense.self",
+  "expense.manage",
 ] as const;
 export type Permission = (typeof PERMISSION_KEYS)[number];
 
@@ -69,6 +81,10 @@ export const BASE_PERMISSIONS: Permission[] = [
   "leave.approve",
   "tasks.assign",
   "payroll.self",
+  // Own expenses and advances; deciding a team member's (the service checks the manager link)
+  "expense.self",
+  // Own letters (offer, experience…) issued by HR
+  "letters.self",
 ];
 
 // What opening a page lets you do in the API. Keys are Page Master slugs; pages
@@ -88,6 +104,10 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   companies: ["platform.companies"],
   "audit-log": ["platform.audit"],
   "platform-dashboard": ["platform.overview"],
+  "platform-settings": ["platform.settings"],
+  "platform-insights": ["platform.insights"],
+  "platform-health": ["platform.health"],
+  "platform-broadcast": ["platform.broadcast"],
   attendance: ["attendance.view", "attendance.mark", "employees.view"],
   payroll: ["payroll.view", "payroll.manage", "employees.view"],
   recruitment: [
@@ -116,6 +136,11 @@ export const PAGE_PERMISSIONS: Record<string, Permission[]> = {
   "reports-payroll-register": ["reports.payroll"],
   "reports-employee-master": ["reports.people"],
   "reports-settings": ["reports.settings"],
+  "ticket-settings": ["tickets.settings"],
+  "attendance-settings": ["attendance.settings", "employees.view"],
+  "leave-settings": ["leave.settings", "leavePolicy.manage"],
+  "letter-templates": ["letters.manage"],
+  letters: ["letters.manage", "employees.view"],
 };
 
 // Company-wide powers that come with the role itself
@@ -125,13 +150,16 @@ const COMPANY_WIDE: Permission[] = [
   "leave.applyForOthers",
   "leave.approveUnassigned",
   "tasks.assignAnyone",
+  "tickets.viewAll",
   "announcements.manage",
   "employees.view",
   "dashboard.company",
 ];
 export const ROLE_PERMISSIONS: Partial<Record<RoleKey, Permission[]>> = {
-  admin: [...COMPANY_WIDE, "companies.manage"],
-  hr: COMPANY_WIDE,
+  admin: [...COMPANY_WIDE, "companies.manage", "expense.manage"],
+  hr: [...COMPANY_WIDE, "expense.manage"],
+  // Accounts: every expense and advance, and paying them
+  accountant: ["expense.manage"],
 };
 
 // The login role that marks the platform Super Admin (users.role)

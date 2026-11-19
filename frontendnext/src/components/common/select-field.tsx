@@ -3,8 +3,10 @@
 // shadcn Select with a plain list of options.
 //   <SelectField value={status} onValueChange={setStatus} options={[{ value: "open", label: "Open" }]} />
 // emptyLabel adds a "none" choice whose value is "" (Radix items can't use "" themselves).
+// Text options use the type-to-search box everywhere; `searchable={false}` keeps the plain dropdown.
 //   <FormSelect control={control} name="managerId" options={…} emptyLabel="— None —" />  (react-hook-form)
 import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
+import { SearchSelect } from "@/components/common/search-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +29,28 @@ interface SelectFieldProps {
   className?: string;
   disabled?: boolean;
   invalid?: boolean;
+  searchable?: boolean;
   "aria-label"?: string;
 }
 
-export function SelectField({ value, onValueChange, options, id, placeholder = "Select…", emptyLabel, size, className, disabled, invalid, ...rest }: SelectFieldProps) {
+export function SelectField({ value, onValueChange, options, id, placeholder = "Select…", emptyLabel, size, className, disabled, invalid, searchable, ...rest }: SelectFieldProps) {
+  if ((searchable ?? true) && options.every((o) => typeof o.label === "string")) {
+    return (
+      <SearchSelect
+        value={value ?? ""}
+        onValueChange={onValueChange}
+        options={options}
+        id={id}
+        placeholder={placeholder}
+        emptyLabel={emptyLabel}
+        className={className}
+        size={size}
+        disabled={disabled}
+        invalid={invalid}
+        aria-label={rest["aria-label"]}
+      />
+    );
+  }
   const current = value === "" || value == null ? (emptyLabel ? NONE : "") : value;
   return (
     <Select value={current} onValueChange={(v) => onValueChange(v === NONE ? "" : v)} disabled={disabled}>

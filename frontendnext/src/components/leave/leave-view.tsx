@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SHORT_LEAVE_LABELS } from "@/lib/constants";
 import { fmtDate, isoDate } from "@/lib/format";
 import type { Leave } from "@/lib/types";
 import { useCan, useUser } from "@/stores/auth-store";
@@ -18,6 +17,7 @@ import { useEmployeesStore } from "@/stores/employees-store";
 import { useLeavesStore } from "@/stores/leaves-store";
 import { LeaveBalancesTable } from "./leave-balances-table";
 import { LeaveRequestDialog } from "./leave-request-dialog";
+import { useLeaveTypes } from "@/stores/leave-types-store";
 
 const STATUS_FILTERS = [
   { value: "pending", label: "Pending" },
@@ -26,6 +26,7 @@ const STATUS_FILTERS = [
 ] as const;
 
 function LeaveRow({ l, myEmployeeId, isHr, today }: { l: Leave; myEmployeeId: number | null; isHr: boolean; today: string }) {
+  const leaveTypes = useLeaveTypes();
   const decide = useLeavesStore((s) => s.decide);
   const cancel = useLeavesStore((s) => s.cancel);
   const [note, setNote] = useState("");
@@ -40,7 +41,7 @@ function LeaveRow({ l, myEmployeeId, isHr, today }: { l: Leave; myEmployeeId: nu
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
             {l.employee_name}
-            <Badge variant="outline">{SHORT_LEAVE_LABELS[l.leave_type] ?? "Leave"}</Badge>
+            <Badge variant="outline">{l.leave_type_short ?? leaveTypes.short(l.leave_type)}</Badge>
             {l.half_day && <Badge variant="secondary">{l.half_day === "first" ? "First half" : "Second half"}</Badge>}
           </div>
           <div className="mt-0.5 text-xs text-muted-foreground">
@@ -91,6 +92,12 @@ export function LeaveView() {
   const employees = useEmployeesStore((s) => s.list);
   const loadEmployees = useEmployeesStore((s) => s.load);
   const [formOpen, setFormOpen] = useState(false);
+  // ?apply=1 (command palette / "n l") opens the form straight away
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("apply") !== "1") return;
+    queueMicrotask(() => setFormOpen(true));
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["value"]>("pending");
   const [today] = useState(() => isoDate(new Date()));
 

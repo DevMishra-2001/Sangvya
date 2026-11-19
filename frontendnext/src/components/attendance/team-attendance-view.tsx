@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, Fingerprint } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { PageHeader } from "@/components/common/page-header";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -15,6 +15,7 @@ import { useAttendanceStore } from "@/stores/attendance-store";
 import { useCan } from "@/stores/auth-store";
 import { useEmployeesStore } from "@/stores/employees-store";
 import { DatePicker } from "@/components/common/date-picker";
+import { MachineImportDialog } from "./machine-import-dialog";
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; className: string }[] = [
   { value: "present", label: "Present", className: "data-[active=true]:border-success data-[active=true]:bg-success/10 data-[active=true]:text-success" },
@@ -31,6 +32,7 @@ export function TeamAttendanceView() {
   const records = useAttendanceStore((s) => s.byDate[date]);
   const load = useAttendanceStore((s) => s.load);
   const mark = useAttendanceStore((s) => s.mark);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -47,7 +49,16 @@ export function TeamAttendanceView() {
       <PageHeader
         title="Team Attendance"
         description="Mark attendance for employees who don't punch in themselves."
-        actions={<DatePicker value={date} onChange={setDate} max={isoDate(new Date())} className="w-44" aria-label="Date" />}
+        actions={
+          <>
+            {canMark && (
+              <Button variant="outline" onClick={() => setImporting(true)}>
+                <Fingerprint /> Import from machine
+              </Button>
+            )}
+            <DatePicker value={date} onChange={setDate} max={isoDate(new Date())} className="w-44" aria-label="Date" />
+          </>
+        }
       />
       {employees.length === 0 ? (
         <EmptyState icon={CalendarCheck} title="No employees yet" description='Add employees first from the "Employees" page.' />
@@ -96,6 +107,7 @@ export function TeamAttendanceView() {
           </Table>
         </Card>
       )}
+      {canMark && <MachineImportDialog open={importing} onOpenChange={setImporting} onDone={() => load(date)} />}
     </div>
   );
 }

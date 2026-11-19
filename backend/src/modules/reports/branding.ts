@@ -24,6 +24,7 @@ export interface Brand {
     address: string | null; // one line
     contact: string | null; // email · phone · website
     taxIds: string | null; // GSTIN · PAN
+    logoUrl: string | null;
   };
   logo: Buffer | null;
 }
@@ -90,7 +91,8 @@ async function fetchLogo(url: string): Promise<Buffer | null> {
   return data;
 }
 
-export async function loadBrand(companyId: number): Promise<Brand> {
+// letterhead: true = always fetch the logo (letters draw their own letterhead even when reports don't)
+export async function loadBrand(companyId: number, opts: { letterhead?: boolean } = {}): Promise<Brand> {
   const [settings, [c]] = await Promise.all([getReportSettings(companyId), db.select().from(companies).where(eq(companies.id, companyId))]);
   const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(", ") || null;
   return {
@@ -101,7 +103,8 @@ export async function loadBrand(companyId: number): Promise<Brand> {
       address: join(c?.address, c?.city, c?.state && c?.postal_code ? `${c.state} ${c.postal_code}` : (c?.state ?? c?.postal_code), c?.country),
       contact: [c?.email, c?.phone, c?.website?.replace(/^https?:\/\//, "")].filter(Boolean).join("  ·  ") || null,
       taxIds: [c?.gstin && `GSTIN ${c.gstin}`, c?.pan && `PAN ${c.pan}`].filter(Boolean).join("  ·  ") || null,
+      logoUrl: c?.logo_url ?? null,
     },
-    logo: settings.letterhead && settings.showLogo && c?.logo_url ? await fetchLogo(c.logo_url) : null,
+    logo: (settings.letterhead || opts.letterhead) && settings.showLogo && c?.logo_url ? await fetchLogo(c.logo_url) : null,
   };
 }

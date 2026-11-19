@@ -1,6 +1,8 @@
 // A company's job titles ("UX Designer", "Accounts Lead"). Each company keeps
 // its own list; titles are shown on profiles and payslips and never affect
 // access (that's the role — modules/roles).
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, count, eq, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { designations, employees } from "../../db/schema.js";
@@ -22,6 +24,7 @@ export async function listDesignations(companyId: number) {
       name: designations.name,
       is_active: designations.is_active,
       employee_count: sql<number>`(${count(employees.id)})::int`,
+      ...auditNames(designations),
     })
     .from(designations)
     .leftJoin(employees, eq(employees.designation_id, designations.id))
@@ -31,18 +34,18 @@ export async function listDesignations(companyId: number) {
   return { designations: rows };
 }
 
-export async function createDesignation(companyId: number, { name, isActive }: DesignationInput) {
+export async function createDesignation(companyId: number, actor: Express.AuthUser, { name, isActive }: DesignationInput) {
   if (await findByName(companyId, name)) throw new ConflictError(`"${name}" already exists`);
-  const [row] = await db.insert(designations).values({ company_id: companyId, name, is_active: isActive }).returning();
+  const [row] = await db.insert(designations).values({ company_id: companyId, name, is_active: isActive, ...stamp.created(actor) }).returning();
   return { designation: { id: row.id, name: row.name, is_active: row.is_active, employee_count: 0 } };
 }
 
-export async function updateDesignation(companyId: number, id: number, { name, isActive }: DesignationInput) {
+export async function updateDesignation(companyId: number, actor: Express.AuthUser, id: number, { name, isActive }: DesignationInput) {
   const clash = await findByName(companyId, name);
   if (clash && clash.id !== id) throw new ConflictError(`"${name}" already exists`);
   const [row] = await db
     .update(designations)
-    .set({ name, is_active: isActive })
+    .set({ name, is_active: isActive, ...stamp.updated(actor) })
     .where(and(eq(designations.company_id, companyId), eq(designations.id, id)))
     .returning();
   if (!row) throw new NotFoundError("Designation not found");

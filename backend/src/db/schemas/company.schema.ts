@@ -39,6 +39,8 @@ export const companies = pgTable("companies", {
   // active | suspended — a suspended company's users can't use it (Super Admin decides)
   status: varchar("status", { length: 20 }).notNull().default("active"),
   status_reason: text("status_reason"),
+  // Super Admin's private notes about this customer
+  admin_notes: text("admin_notes"),
   status_changed_at: timestamptz("status_changed_at"),
   // Super Admin who last changed verification or status (no FK: users ↔ companies already reference each other)
   reviewed_by: integer("reviewed_by"),

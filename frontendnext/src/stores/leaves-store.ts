@@ -22,9 +22,9 @@ export const useLeavesStore = create<LeavesState>((set, get) => ({
 
   async apply(payload) {
     const result = await run(() => leavesService.apply(payload), {
-      success: payload.leaveType === "comp_off" ? "Comp off request submitted" : "Leave request submitted",
+      success: (r) => r.note ?? (payload.leaveType === "comp_off" ? "Comp off request submitted" : "Leave request submitted"),
     });
-    if (result.ok) set({ list: [result.data, ...get().list] });
+    if (result.ok) set({ list: [result.data.leave, ...get().list] });
     return result.ok;
   },
 

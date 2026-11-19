@@ -5,8 +5,7 @@ import { NotLinkedState } from "@/components/common/empty-state";
 import { MonthPicker } from "@/components/common/month-picker";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { BALANCE_TYPES, SHORT_LEAVE_LABELS } from "@/lib/constants";
-import { hhmm, isoDate, toMonth } from "@/lib/format";
+import { hhmm, isoDate, isWeeklyOffDay, toMonth } from "@/lib/format";
 import type { Leave } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/stores/auth-store";
@@ -32,7 +31,7 @@ function dayLook(date: string, today: string, weeklyOff: boolean, { day, holiday
   if (day?.punchIn) return { look: "working" };
   if (holiday && !holiday.is_optional) return { look: "holiday", text: holiday.name };
   if (leave) {
-    const text = SHORT_LEAVE_LABELS[leave.leave_type];
+    const text = leave.leave_type_short ?? leave.leave_type.toUpperCase();
     if (leave.status === "pending") return { look: "pending", text };
     return { look: leave.leave_type === "ol" ? "optional" : "approved", text };
   }
@@ -65,21 +64,22 @@ export function CalendarView() {
   const empty: CalendarEntry = { day: null, holiday: null, leaves: [] };
   // The company's weekly offs (Sunday until the calendar loads) and the shift's hours
   const weeklyOffs = calendar?.weeklyOffs ?? [0];
+  const offSaturdays = calendar?.offSaturdays ?? [];
   const requiredMin = calendar?.rules.requiredMinutes ?? 9 * 60;
   const requiredEffectiveMin = requiredMin - (calendar?.rules.maxBreakMinutes ?? 60);
   const selectedInfo: DayInfo | null = selected
-    ? { date: selected, ...(byDate[selected] ?? empty), isSunday: weeklyOffs.includes(new Date(`${selected}T00:00:00`).getDay()) }
+    ? { date: selected, ...(byDate[selected] ?? empty), isSunday: isWeeklyOffDay(selected, weeklyOffs, offSaturdays) }
     : null;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Attendance calendar" className="mb-0" actions={<MonthPicker value={month} onChange={setMonth} allowFuture />} />
 
       <div className="flex flex-wrap items-center gap-2" aria-label="Leave available">
         <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Available</span>
-        {BALANCE_TYPES.map((t) => (
-          <span key={t} className="rounded-full border px-3 py-1 text-xs font-semibold">
-            {SHORT_LEAVE_LABELS[t]}: <span className="text-primary tabular-nums">{balances ? balances[t].available : "—"}</span>
+        {(balances?.types ?? []).filter((b) => !b.unlimited).map((b) => (
+          <span key={b.code} className="rounded-full border px-3 py-1 text-xs font-semibold">
+            {b.short}: <span className="text-primary tabular-nums">{b.available}</span>
           </span>
         ))}
       </div>
@@ -96,7 +96,7 @@ export function CalendarView() {
               {buildCells(month).map((date, i) => {
                 if (!date) return <div key={`pad-${i}`} className="min-h-24 rounded-lg bg-muted/40" />;
                 const info = byDate[date] ?? empty;
-                const { look, text } = dayLook(date, today, weeklyOffs.includes(i % 7), info);
+                const { look, text } = dayLook(date, today, isWeeklyOffDay(date, weeklyOffs, offSaturdays), info);
                 const d = info.day;
                 const effective = d ? d.totalMinutes - d.breakMinutes : 0;
                 const running = Boolean(d?.punchIn && !d.punchOut);

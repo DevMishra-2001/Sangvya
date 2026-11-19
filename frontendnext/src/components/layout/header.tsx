@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -17,6 +17,7 @@ import { SidebarNav } from "./sidebar";
 import { WorkTimer } from "./work-timer";
 import { NotificationBell } from "./notification-bell";
 import { CheckInButton } from "@/components/attendance/check-in-dialog";
+import { useCommandStore } from "@/stores/command-store";
 
 function MobileMenu() {
   const [open, setOpen] = useState(false);
@@ -42,6 +43,30 @@ function MobileMenu() {
 
 // Top bar on every logged-in page: menu (mobile) / brand · work timer + check-in · company + profile
 // brand: show the company logo + name (top-menu layout, where there's no sidebar)
+// Opens the command palette on small screens (the sidebar and the top menu have their own)
+function SearchButton({ always }: { always: boolean }) {
+  const open = useCommandStore((s) => s.setPalette);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => open(true)}
+      aria-label="Search (Ctrl+K)"
+      className={
+        always
+          ? "gap-2 text-muted-foreground"
+          : "gap-2 text-muted-foreground lg:hidden"
+      }
+    >
+      <Search />
+      <span className="hidden md:inline">Search</span>
+      <kbd className="hidden rounded border bg-muted px-1 font-mono text-[10px] md:inline">
+        Ctrl K
+      </kbd>
+    </Button>
+  );
+}
+
 export function Header({ brand = false }: { brand?: boolean }) {
   const company = useAuthStore((s) => s.company);
   const attendanceOn = useModule("attendance");
@@ -70,12 +95,13 @@ export function Header({ brand = false }: { brand?: boolean }) {
         {attendanceOn && (
           <>
             <WorkTimer />
-            <CheckInButton />
+            <CheckInButton listenShortcut />
           </>
         )}
       </div>
 
       <div className="flex items-center gap-2 justify-self-end">
+        <SearchButton always={false} />
         <CompanySwitcher />
         <NotificationBell />
         <ProfileButton />

@@ -1,4 +1,6 @@
 // Asset inventory: add, assign to an employee, take back, history
+import { auditNames } from "../../utils/auditNames.js";
+import { stamp } from "../../utils/stamp.js";
 import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { assetAssignments, assets, branches, employees, users } from "../../db/schema.js";
@@ -35,7 +37,7 @@ const row = {
   held_since: heldSince,
 };
 
-const select = () => db.select(row).from(assets).leftJoin(branches, eq(branches.id, assets.branch_id));
+const select = () => db.select({ ...row, ...auditNames(assets) }).from(assets).leftJoin(branches, eq(branches.id, assets.branch_id));
 
 async function findAsset(companyId: number, id: number) {
   const [a] = await select().where(and(eq(assets.company_id, companyId), eq(assets.id, id)));
@@ -97,7 +99,7 @@ export async function createAsset(companyId: number, actor: Express.AuthUser, in
   const code = input.assetCode?.toUpperCase() || (await nextCode(companyId));
   await assertCodeFree(companyId, code, null);
   if (input.branchId) await assertBranchUsable(companyId, input.branchId);
-  const [created] = await db.insert(assets).values({ company_id: companyId, asset_code: code, ...columns(input) }).returning({ id: assets.id });
+  const [created] = await db.insert(assets).values({ company_id: companyId, asset_code: code, ...columns(input), ...stamp.created(actor) }).returning({ id: assets.id });
   audit(actor, { companyId, action: "asset.created", target: ["asset", created.id], summary: `Added the asset ${code} · ${input.name}` });
   return { asset: await findAsset(companyId, created.id) };
 }
@@ -107,7 +109,7 @@ export async function updateAsset(companyId: number, actor: Express.AuthUser, id
   const code = input.assetCode?.toUpperCase() || current.asset_code;
   await assertCodeFree(companyId, code, id);
   if (input.branchId) await assertBranchUsable(companyId, input.branchId, current.branch_id);
-  await db.update(assets).set({ asset_code: code, ...columns(input) }).where(eq(assets.id, id));
+  await db.update(assets).set({ asset_code: code, ...columns(input), ...stamp.updated(actor) }).where(eq(assets.id, id));
   audit(actor, { companyId, action: "asset.updated", target: ["asset", id], summary: `Updated the asset ${code}` });
   return { asset: await findAsset(companyId, id) };
 }
@@ -175,7 +177,7 @@ export async function assignAssets(companyId: number, actor: Express.AuthUser, i
     if (ids.length) {
       const got = await tx
         .update(assets)
-        .set({ status: "assigned" })
+        .set({ status: "assigned", ...stamp.updated(actor) })
         .where(and(inArray(assets.id, ids), eq(assets.status, "available")))
         .returning({ id: assets.id });
       if (got.length !== ids.length) throw new BadRequestError("Some of these items were just given to someone else — try again");
@@ -192,6 +194,7 @@ export async function assignAssets(companyId: number, actor: Express.AuthUser, i
               category: f.category,
               serial_number: f.serial,
               status: "assigned" as const,
+              ...stamp.created(actor),
             })),
           )
           .returning({ id: assets.id, asset_code: assets.asset_code, name: assets.name, serial_number: assets.serial_number })
@@ -205,6 +208,7 @@ export async function assignAssets(companyId: number, actor: Express.AuthUser, i
         expected_return: input.expectedReturn ?? null,
         assigned_by: actor.id,
         assign_notes: input.notes ?? null,
+        ...stamp.created(actor),
       })),
     );
     return made;
@@ -225,9 +229,9 @@ export async function returnAsset(companyId: number, actor: Express.AuthUser, id
   await db.transaction(async (tx) => {
     await tx
       .update(assetAssignments)
-      .set({ returned_on: input.returnedOn, return_condition: input.condition, returned_to: actor.id, return_notes: input.notes ?? null })
+      .set({ returned_on: input.returnedOn, return_condition: input.condition, returned_to: actor.id, return_notes: input.notes ?? null, ...stamp.updated(actor) })
       .where(eq(assetAssignments.id, open.id));
-    await tx.update(assets).set({ status: input.status, condition: input.condition }).where(eq(assets.id, id));
+    await tx.update(assets).set({ status: input.status, condition: input.condition, ...stamp.updated(actor) }).where(eq(assets.id, id));
   });
   audit(actor, { companyId, action: "asset.returned", target: ["employee", open.employee_id], summary: `${a.holder_name} returned ${a.asset_code} · ${a.name} (${input.condition})` });
   return { asset: await findAsset(companyId, id) };
@@ -236,7 +240,7 @@ export async function returnAsset(companyId: number, actor: Express.AuthUser, id
 export async function setAssetStatus(companyId: number, actor: Express.AuthUser, id: number, input: z.infer<typeof statusSchema>) {
   const a = await findAsset(companyId, id);
   if (a.status === "assigned") throw new BadRequestError(`${a.asset_code} is with ${a.holder_name} — take it back first`);
-  await db.update(assets).set({ status: input.status }).where(eq(assets.id, id));
+  await db.update(assets).set({ status: input.status, ...stamp.updated(actor) }).where(eq(assets.id, id));
   audit(actor, { companyId, action: "asset.status", target: ["asset", id], summary: `Marked ${a.asset_code} as ${input.status.replace("_", " ")}${input.notes ? ` — ${input.notes}` : ""}` });
   return { asset: await findAsset(companyId, id) };
 }

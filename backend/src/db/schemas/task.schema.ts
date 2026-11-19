@@ -5,6 +5,7 @@ import { companies } from "./company.schema.js";
 import { employees } from "./employee.schema.js";
 import { users } from "./user.schema.js";
 
+// Old task list, kept read-only for history: migration 0035 copied every row into tickets.
 // Assigned by a manager/HR/superadmin to an employee. Flow:
 // todo -> in_progress -> done (by the assignee) -> approved (by the assigner/HR),
 // or reopened back to in_progress.

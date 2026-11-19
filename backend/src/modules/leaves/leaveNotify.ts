@@ -11,13 +11,14 @@ export interface LeaveFacts {
   manager_id: number | null;
   manager_status?: string | null;
   leave_type: string;
+  leave_type_name?: string | null; // the company's name for the type
   from_date: string;
   to_date: string;
   half_day: string | null;
   reason: string | null;
 }
 
-const short = (l: LeaveFacts) => `${leaveLabel(l.leave_type)} · ${leaveDates(l.from_date, l.to_date, l.half_day)}`;
+const short = (l: LeaveFacts) => `${l.leave_type_name ?? leaveLabel(l.leave_type)} · ${leaveDates(l.from_date, l.to_date, l.half_day)}`;
 
 async function approvers(l: LeaveFacts): Promise<Recipient[]> {
   return l.manager_id && l.manager_status !== "exited" ? [{ employeeId: l.manager_id }] : hrRecipients(l.company_id);
@@ -36,7 +37,7 @@ export async function notifyLeaveRequested(l: LeaveFacts, actorId: number) {
     actorId,
     email: (r) => ({
       template: "leaveRequested",
-      props: { approverName: r.name, employeeName: l.employee_name, leaveType: l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day, days, reason: l.reason },
+      props: { approverName: r.name, employeeName: l.employee_name, leaveType: l.leave_type_name ?? l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day, days, reason: l.reason },
     }),
   });
 }
@@ -53,7 +54,7 @@ export async function notifyLeaveDecided(l: LeaveFacts, status: "approved" | "re
     actorId: by.id,
     email: (r) => ({
       template: "leaveDecided",
-      props: { name: r.name, status, by: by.name, leaveType: l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day, note },
+      props: { name: r.name, status, by: by.name, leaveType: l.leave_type_name ?? l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day, note },
     }),
   });
 }
@@ -72,7 +73,7 @@ export async function notifyLeaveCancelled(l: LeaveFacts, wasApproved: boolean, 
       actorId: by.id,
       email: (r) => ({
         template: "leaveCancelled",
-        props: { approverName: r.name, employeeName: l.employee_name, by: by.name, leaveType: l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day },
+        props: { approverName: r.name, employeeName: l.employee_name, by: by.name, leaveType: l.leave_type_name ?? l.leave_type, from: l.from_date, to: l.to_date, halfDay: l.half_day },
       }),
     });
   }

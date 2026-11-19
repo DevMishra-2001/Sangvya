@@ -1,4 +1,5 @@
 // The exit record + clearance checklist, created when an exit starts and dropped if it's cancelled
+import { stamp } from "../../utils/stamp.js";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { employeeExits, exitClearances } from "../../db/schema.js";
@@ -13,11 +14,11 @@ export const CLEARANCE_ITEMS = [
   { key: "hr_signoff", label: "HR sign-off" },
 ] as const;
 
-export async function ensureExitRecord(companyId: number, employeeId: number) {
-  await db.insert(employeeExits).values({ employee_id: employeeId, company_id: companyId, started_on: localDate() }).onConflictDoNothing();
+export async function ensureExitRecord(companyId: number, employeeId: number, actor?: { id: number } | null) {
+  await db.insert(employeeExits).values({ employee_id: employeeId, company_id: companyId, started_on: localDate(), ...stamp.created(actor) }).onConflictDoNothing();
   await db
     .insert(exitClearances)
-    .values(CLEARANCE_ITEMS.map((i) => ({ company_id: companyId, employee_id: employeeId, item_key: i.key, label: i.label })))
+    .values(CLEARANCE_ITEMS.map((i) => ({ company_id: companyId, employee_id: employeeId, item_key: i.key, label: i.label, ...stamp.created(actor) })))
     .onConflictDoNothing();
 }
 
